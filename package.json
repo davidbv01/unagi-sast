@@ -1,0 +1,128 @@
+{
+  "name": "unagi",
+  "displayName": "🛡️ Unagi SAST",
+  "description": "Static Application Security Testing extension for VS Code. Automatically detect security vulnerabilities in JavaScript, TypeScript, Python, Java, PHP and more.",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "sast",
+    "vulnerability",
+    "static analysis",
+    "code analysis",
+    "security scanner"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "unagi.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "unagi.scanActualFile",
+        "title": "Unagi: Scan Actual File"
+      },
+      {
+        "command": "unagi.scanWorkspace",
+        "title": "Unagi: Scan Workspace"
+      },
+      {
+        "command": "unagi.scanSelected",
+        "title": "Unagi: Scan Selected File"
+      },
+      {
+        "command": "unagi.clearResults",
+        "title": "Unagi: Clear Results"
+      }
+    ],
+    "configuration": {
+      "title": "Unagi SAST",
+      "properties": {
+        "unagi.enabledRules": {
+          "type": "array",
+          "default": [],
+          "description": "List of enabled security rule IDs. Empty array means all rules are enabled."
+        },
+        "unagi.excludePatterns": {
+          "type": "array",
+          "default": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/out/**"],
+          "description": "File patterns to exclude from scanning"
+        },
+        "unagi.includePatterns": {
+          "type": "array",
+          "default": ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.py", "**/*.java", "**/*.php"],
+          "description": "File patterns to include in scanning"
+        },
+        "unagi.minimumSeverity": {
+          "type": "array",
+          "default": ["low", "medium", "high", "critical"],
+          "description": "Minimum severity levels to show",
+          "items": {
+            "type": "string",
+            "enum": ["info", "low", "medium", "high", "critical"]
+          }
+        },
+        "unagi.outputFormat": {
+          "type": "string",
+          "default": "problems",
+          "description": "Output format for scan results",
+          "enum": ["problems", "output", "inline", "file"]
+        },
+        "unagi.autoScanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan files when saved"
+        },
+        "unagi.autoScanOnOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically scan files when opened"
+        }
+      }
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceExtname =~ /\\.(js|ts|jsx|tsx|py|java|php)$/",
+          "command": "unagi.scanSelected",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceExtname =~ /\\.(js|ts|jsx|tsx|py|java|php)$/",
+          "command": "unagi.scanActualFile",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
