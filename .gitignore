@@ -3,3 +3,8 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+
+# Build artifacts
+unagi-sast/
+*.js
+*.js.map
