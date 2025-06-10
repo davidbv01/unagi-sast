@@ -1,13 +1,32 @@
 import { Vulnerability, VulnerabilityType, Severity, ScanRule } from '../types';
+import { ASTSecurityEngine } from './ASTSecurityEngine';
 
 export class SecurityRuleEngine {
   private rules: ScanRule[];
-
+  private astEngine: ASTSecurityEngine;
   constructor() {
     this.rules = this.loadSecurityRules();
+    this.astEngine = new ASTSecurityEngine();
   }
 
   public async scanContent(content: string, languageId: string, fileName: string): Promise<Vulnerability[]> {
+    const vulnerabilities: Vulnerability[] = [];
+
+    // Use AST-based scanning for JavaScript/TypeScript
+    if (['javascript', 'typescript', 'jsx', 'tsx'].includes(languageId)) {
+      const astVulnerabilities = await this.astEngine.scanContent(content, languageId, fileName);
+      vulnerabilities.push(...astVulnerabilities);
+    }
+
+    // Continue with regex-based scanning for all languages (fallback and additional coverage)
+    const regexVulnerabilities = await this.scanWithRegex(content, languageId, fileName);
+    vulnerabilities.push(...regexVulnerabilities);
+
+    // Remove duplicates (same type and line)
+    return this.deduplicateVulnerabilities(vulnerabilities);
+  }
+
+  private async scanWithRegex(content: string, languageId: string, fileName: string): Promise<Vulnerability[]> {
     const vulnerabilities: Vulnerability[] = [];
     const lines = content.split('\n');
 
@@ -40,6 +59,18 @@ export class SecurityRuleEngine {
     }
 
     return vulnerabilities;
+  }
+
+  private deduplicateVulnerabilities(vulnerabilities: Vulnerability[]): Vulnerability[] {
+    const seen = new Set<string>();
+    return vulnerabilities.filter(vuln => {
+      const key = `${vuln.type}-${vuln.line}-${vuln.column}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   private loadSecurityRules(): ScanRule[] {

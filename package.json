@@ -54,28 +54,57 @@
         },
         "unagi.excludePatterns": {
           "type": "array",
-          "default": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/out/**"],
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/build/**",
+            "**/out/**"
+          ],
           "description": "File patterns to exclude from scanning"
         },
         "unagi.includePatterns": {
           "type": "array",
-          "default": ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.py", "**/*.java", "**/*.php"],
+          "default": [
+            "**/*.js",
+            "**/*.ts",
+            "**/*.jsx",
+            "**/*.tsx",
+            "**/*.py",
+            "**/*.java",
+            "**/*.php"
+          ],
           "description": "File patterns to include in scanning"
         },
         "unagi.minimumSeverity": {
           "type": "array",
-          "default": ["low", "medium", "high", "critical"],
+          "default": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
           "description": "Minimum severity levels to show",
           "items": {
             "type": "string",
-            "enum": ["info", "low", "medium", "high", "critical"]
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
           }
         },
         "unagi.outputFormat": {
           "type": "string",
           "default": "problems",
           "description": "Output format for scan results",
-          "enum": ["problems", "output", "inline", "file"]
+          "enum": [
+            "problems",
+            "output",
+            "inline",
+            "file"
+          ]
         },
         "unagi.autoScanOnSave": {
           "type": "boolean",
@@ -115,14 +144,20 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
+    "@types/babel__traverse": "^7.20.7",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
-    "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3",
+    "@typescript-eslint/parser": "^8.34.0",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.27.5",
+    "@babel/traverse": "^7.27.4",
+    "@babel/types": "^7.27.6"
   }
 }

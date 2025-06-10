@@ -66,3 +66,40 @@ export interface ScanRule {
   languages: string[];
   enabled: boolean;
 }
+
+// New AST-based rule interface
+export interface ASTScanRule {
+  id: string;
+  name: string;
+  description: string;
+  severity: Severity;
+  type: VulnerabilityType;
+  languages: string[];
+  enabled: boolean;
+  // AST node checker function
+  checker: (node: any, context: ASTScanContext) => ASTVulnerabilityMatch | null;
+}
+
+export interface ASTScanContext {
+  fileName: string;
+  sourceCode: string;
+  languageId: string;
+  // Helper methods for common checks
+  isUserInput: (node: any) => boolean;
+  isTainted: (node: any) => boolean;
+  getNodeText: (node: any) => string;
+  getParentNodes: (node: any) => any[];
+}
+
+export interface ASTVulnerabilityMatch {
+  node: any;
+  message?: string;
+  additionalInfo?: Record<string, any>;
+}
+
+export interface ASTPosition {
+  line: number;
+  column: number;
+  start: number;
+  end: number;
+}
