@@ -1,100 +1,85 @@
 import * as vscode from 'vscode';
-import { ScanOrchestrator } from '../scanners/ScanOrchestrator.js';
+import { ScanOrchestrator } from '../scanners/ScanOrchestrator';
+import { OutputManager } from '../output/OutputManager';
 
 export class CommandTrigger {
   private scanOrchestrator: ScanOrchestrator;
+  private outputManager: OutputManager;
 
-  constructor() {
-    this.scanOrchestrator = new ScanOrchestrator();
+  constructor(scanOrchestrator: ScanOrchestrator, outputManager: OutputManager) {
+    this.scanOrchestrator = scanOrchestrator;
+    this.outputManager = outputManager;
   }
 
   public registerCommands(context: vscode.ExtensionContext): void {
-    // Scan current file
-    const scanFileCommand = vscode.commands.registerCommand('unagi.scanActualFile', () => {
-      this.scanCurrentFile();
-    });
-
-    // Scan entire workspace
-    const scanWorkspaceCommand = vscode.commands.registerCommand('unagi.scanWorkspace', () => {
-      this.scanWorkspace();
-    });
-
-    // Scan selected files
-    const scanSelectedCommand = vscode.commands.registerCommand('unagi.scanSelected', (uri: vscode.Uri) => {
-      this.scanSelected(uri);
-    });
-
-    // Clear scan results
-    const clearResultsCommand = vscode.commands.registerCommand('unagi.clearResults', () => {
-      this.clearResults();
-    });
-
+    // Register command to scan current file
     context.subscriptions.push(
-      scanFileCommand,
-      scanWorkspaceCommand,
-      scanSelectedCommand,
-      clearResultsCommand
+      vscode.commands.registerCommand('unagi.scanFile', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showWarningMessage('No active editor found');
+          return;
+        }
+
+        const document = editor.document;
+        if (document.languageId !== 'python') {
+          vscode.window.showWarningMessage('Only Python files are supported');
+          return;
+        }
+
+        try {
+          vscode.window.withProgress({
+            location: vscode.ProgressLocation.Window,
+            title: "Unagi",
+            cancellable: false
+          }, async (progress) => {
+            progress.report({ message: `Scanning ${document.fileName}...` });
+            const result = await this.scanOrchestrator.scanFile(document);
+            await this.outputManager.displayResults(result);
+            progress.report({ message: `Found ${result.vulnerabilities.length} vulnerabilities` });
+          });
+        } catch (error: any) {
+          vscode.window.showErrorMessage(`Error scanning file: ${error.message}`);
+        }
+      })
+    );
+
+    // Register command to scan workspace
+    context.subscriptions.push(
+      vscode.commands.registerCommand('unagi.scanWorkspace', async () => {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+          vscode.window.showWarningMessage('No workspace folder found');
+          return;
+        }
+
+        try {
+          vscode.window.withProgress({
+            location: vscode.ProgressLocation.Window,
+            title: "Unagi",
+            cancellable: false
+          }, async (progress) => {
+            progress.report({ message: 'Scanning workspace...' });
+            
+            // Find all Python files in workspace
+            const pythonFiles = await vscode.workspace.findFiles('**/*.py');
+            let totalVulnerabilities = 0;
+
+            for (const file of pythonFiles) {
+              const document = await vscode.workspace.openTextDocument(file);
+              progress.report({ message: `Scanning ${file.fsPath}...` });
+              
+              const result = await this.scanOrchestrator.scanFile(document);
+              await this.outputManager.displayResults(result);
+              totalVulnerabilities += result.vulnerabilities.length;
+            }
+
+            progress.report({ message: `Found ${totalVulnerabilities} vulnerabilities across ${pythonFiles.length} files` });
+          });
+        } catch (error: any) {
+          vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
+        }
+      })
     );
   }
-
-  private async scanCurrentFile(): Promise<void> {
-    console.log('🔍 Initiating current file scan...');
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      console.log('⚠️ No active text editor found');
-      vscode.window.showWarningMessage('Unagi: No active text editor.');
-      return;
-    }
-
-    console.log(`📄 Scanning file: ${editor.document.fileName}`);
-    try {
-      console.log('⚙️ Starting file scan...');
-      await this.scanOrchestrator.scanFile(editor.document);
-      console.log('✅ File scan completed successfully');
-    } catch (error) {
-      console.error('❌ Error during file scan:', error);
-      vscode.window.showErrorMessage(`Unagi: Error scanning file - ${error}`);
-    }
-  }
-
-  private async scanWorkspace(): Promise<void> {
-    console.log('🔍 Initiating workspace scan...');
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-      console.log('⚠️ No workspace folder found');
-      vscode.window.showWarningMessage('Unagi: No workspace folder found.');
-      return;
-    }
-
-    console.log(`📁 Found workspace folder: ${workspaceFolders[0].name}`);
-    vscode.window.showInformationMessage('Unagi: Scanning workspace...');
-    
-    try {
-      console.log('⚙️ Starting workspace scan...');
-      await this.scanOrchestrator.scanWorkspace();
-      console.log('✅ Workspace scan completed successfully');
-    } catch (error) {
-      console.error('❌ Error during workspace scan:', error);
-      vscode.window.showErrorMessage(`Unagi: Error scanning workspace - ${error}`);
-    }
-  }
-
-  private async scanSelected(uri: vscode.Uri): Promise<void> {
-    if (!uri) {
-      vscode.window.showWarningMessage('Unagi: No file selected.');
-      return;
-    }
-
-    try {
-      const document = await vscode.workspace.openTextDocument(uri);
-      await this.scanOrchestrator.scanFile(document);
-    } catch (error) {
-      vscode.window.showErrorMessage(`Unagi: Error scanning selected file - ${error}`);
-    }
-  }
-
-  private clearResults(): void {
-    this.scanOrchestrator.clearResults();
-    vscode.window.showInformationMessage('Unagi: Scan results cleared.');
-  }
-}
+} 
