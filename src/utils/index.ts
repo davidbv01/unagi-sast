@@ -24,7 +24,7 @@ export class FileUtils {
    * Get supported file extensions for scanning
    */
   public static getSupportedExtensions(): string[] {
-    return ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.php', '.cs', '.cpp', '.c'];
+    return ['.py'];
   }
 
   /**
@@ -41,16 +41,7 @@ export class FileUtils {
   public static getLanguageFromExtension(filePath: string): string {
     const ext = path.extname(filePath);
     const languageMap: Record<string, string> = {
-      '.js': 'javascript',
-      '.jsx': 'javascript',
-      '.ts': 'typescript',
-      '.tsx': 'typescript',
-      '.py': 'python',
-      '.java': 'java',
-      '.php': 'php',
-      '.cs': 'csharp',
-      '.cpp': 'cpp',
-      '.c': 'c'
+      '.py': 'python'
     };
     
     return languageMap[ext] || 'plaintext';

@@ -1,0 +1,30 @@
+id: vulnerable-components
+name: Vulnerable and Outdated Components
+description: Detects usage of known vulnerable libraries and outdated dependencies
+severity: HIGH
+type: GENERIC
+languages:
+  - python
+patterns:
+  - pattern: |
+      import requests
+      requests.get($URL, verify=False)
+    message: SSL verification disabled
+    fix: Enable SSL verification
+  - pattern: |
+      import urllib3
+      urllib3.disable_warnings()
+    message: Security warnings disabled
+    fix: Address security warnings instead of disabling them
+  - pattern: |
+      import django
+      if django.get_version() < "2.2.0":
+          $BODY
+    message: Using outdated Django version
+    fix: Upgrade to the latest secure version
+  - pattern: |
+      import flask
+      if flask.__version__ < "2.0.0":
+          $BODY
+    message: Using outdated Flask version
+    fix: Upgrade to the latest secure version 

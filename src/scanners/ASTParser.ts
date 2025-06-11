@@ -8,8 +8,8 @@ import { Position } from '../types';
 
 export interface ParsedAST {
   ast: any;
-  traverse: typeof traverse;
-  types: typeof t;
+  traverse: (ast: any, visitor: any) => void;
+  types?: any;
   sourceCode: string;
 }
 
@@ -192,10 +192,14 @@ print(json.dumps(result))
     }
   }
 
-  public getNodePosition(node: any, content: string): Position {
+  public getNodePosition(node: any, content: string): { line: number; column: number } {
+    if (!node || !node.lineno) {
+      return { line: 1, column: 1 };
+    }
+
     return {
-      line: node.lineno || 1,
-      column: node.col_offset || 0
+      line: node.lineno,
+      column: node.col_offset || 1
     };
   }
 

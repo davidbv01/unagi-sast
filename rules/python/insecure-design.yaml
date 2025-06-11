@@ -1,0 +1,33 @@
+id: insecure-design
+name: Insecure Design
+description: Detects insecure design patterns and architectural flaws
+severity: HIGH
+type: GENERIC
+languages:
+  - python
+patterns:
+  - pattern: |
+      class $CLASS:
+          def __init__(self):
+              self.$SECRET = "hardcoded_secret"
+    message: Hardcoded secrets in code
+    fix: Use environment variables or secure secret management
+  - pattern: |
+      def $FUNC(...):
+          if $CONDITION:
+              return $RESPONSE
+          return None
+    message: Insecure error handling
+    fix: Implement proper error handling and logging
+  - pattern: |
+      @app.route("...", methods=['GET', 'POST'])
+      def $FUNC(...):
+          $BODY
+    message: Missing rate limiting
+    fix: Implement rate limiting for API endpoints
+  - pattern: |
+      def $FUNC(...):
+          $RESPONSE = requests.get($URL)
+          return $RESPONSE.text
+    message: Missing timeout and error handling
+    fix: Add timeouts and proper error handling for external requests 

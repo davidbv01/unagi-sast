@@ -1,0 +1,32 @@
+id: security-misconfiguration
+name: Security Misconfiguration
+description: Detects security misconfigurations and insecure defaults
+severity: HIGH
+type: INSECURE_PERMISSIONS
+languages:
+  - python
+patterns:
+  - pattern: |
+      app = Flask(__name__)
+      app.config['DEBUG'] = True
+    message: Debug mode enabled in production
+    fix: Disable debug mode in production
+  - pattern: |
+      app = Flask(__name__)
+      app.secret_key = "hardcoded_secret"
+    message: Hardcoded secret key
+    fix: Use environment variables for secret keys
+  - pattern: |
+      os.chmod($FILE, 0o777)
+    message: Insecure file permissions
+    fix: Use more restrictive file permissions
+  - pattern: |
+      app = Flask(__name__)
+      CORS(app)
+    message: Overly permissive CORS configuration
+    fix: Configure CORS with specific origins and methods
+  - pattern: |
+      app = Flask(__name__)
+      app.config['SESSION_COOKIE_SECURE'] = False
+    message: Insecure session cookie configuration
+    fix: Enable secure and httpOnly flags for cookies 

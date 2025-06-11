@@ -1,0 +1,25 @@
+id: broken-access-control
+name: Broken Access Control
+description: Detects missing or insufficient access control checks
+severity: HIGH
+type: AUTHORIZATION
+languages:
+  - python
+patterns:
+  - pattern: |
+      @app.route("...")
+      def $FUNC(...):
+          $BODY
+    message: Missing access control check in route handler
+    fix: Add proper authentication and authorization checks
+  - pattern: |
+      def $FUNC(...):
+          $BODY
+          return $RESPONSE
+    message: Missing access control check in function
+    fix: Add proper authentication and authorization checks
+  - pattern: |
+      if not $USER.is_authenticated:
+          $BODY
+    message: Insufficient access control check
+    fix: Add proper role-based or permission-based checks 

@@ -61,7 +61,6 @@ export class AutoTrigger {
       return false;
     }
 
-    const supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'php', 'csharp', 'cpp'];
-    return supportedLanguages.includes(document.languageId);
+    return document.languageId === 'python';
   }
 }

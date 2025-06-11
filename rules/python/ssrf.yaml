@@ -1,0 +1,28 @@
+id: ssrf
+name: Server-Side Request Forgery
+description: Detects potential SSRF vulnerabilities in URL handling
+severity: HIGH
+type: INSECURE_COMMUNICATION
+languages:
+  - python
+patterns:
+  - pattern: |
+      import requests
+      $RESPONSE = requests.get($URL)
+    message: Potential SSRF vulnerability
+    fix: Validate and sanitize URLs before making requests
+  - pattern: |
+      import urllib.request
+      $RESPONSE = urllib.request.urlopen($URL)
+    message: Potential SSRF vulnerability
+    fix: Validate and sanitize URLs before making requests
+  - pattern: |
+      def fetch_url($URL):
+          return requests.get($URL).text
+    message: Unvalidated URL fetching
+    fix: Add URL validation and whitelist allowed domains
+  - pattern: |
+      def proxy_request($URL):
+          return requests.get($URL, proxies=$PROXIES)
+    message: Insecure proxy configuration
+    fix: Validate proxy settings and restrict allowed destinations 
