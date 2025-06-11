@@ -14,16 +14,18 @@ export interface Vulnerability {
 }
 
 export enum VulnerabilityType {
-  SQL_INJECTION = 'sql-injection',
-  XSS = 'xss',
-  CSRF = 'csrf',
-  HARDCODED_SECRET = 'hardcoded-secret',
-  INSECURE_RANDOM = 'insecure-random',
-  PATH_TRAVERSAL = 'path-traversal',
-  COMMAND_INJECTION = 'command-injection',
-  WEAK_CRYPTO = 'weak-crypto',
-  AUTHORIZATION = 'authorization',
-  AUTHENTICATION = 'authentication'
+  SQL_INJECTION = 'SQL_INJECTION',
+  XSS = 'XSS',
+  CSRF = 'CSRF',
+  HARDCODED_SECRET = 'HARDCODED_SECRET',
+  INSECURE_RANDOM = 'INSECURE_RANDOM',
+  PATH_TRAVERSAL = 'PATH_TRAVERSAL',
+  COMMAND_INJECTION = 'COMMAND_INJECTION',
+  WEAK_CRYPTO = 'WEAK_CRYPTO',
+  AUTHORIZATION = 'AUTHORIZATION',
+  AUTHENTICATION = 'AUTHENTICATION',
+  INSECURE_COMMUNICATION = 'INSECURE_COMMUNICATION',
+  GENERIC = 'GENERIC'
 }
 
 export enum Severity {
@@ -56,18 +58,6 @@ export enum OutputFormat {
   REPORT_FILE = 'file'
 }
 
-export interface ScanRule {
-  id: string;
-  name: string;
-  description: string;
-  severity: Severity;
-  type: VulnerabilityType;
-  pattern: RegExp;
-  languages: string[];
-  enabled: boolean;
-}
-
-// New AST-based rule interface
 export interface ASTScanRule {
   id: string;
   name: string;
@@ -76,7 +66,6 @@ export interface ASTScanRule {
   type: VulnerabilityType;
   languages: string[];
   enabled: boolean;
-  // AST node checker function
   checker: (node: any, context: ASTScanContext) => ASTVulnerabilityMatch | null;
 }
 
@@ -84,7 +73,6 @@ export interface ASTScanContext {
   fileName: string;
   sourceCode: string;
   languageId: string;
-  // Helper methods for common checks
   isUserInput: (node: any) => boolean;
   isTainted: (node: any) => boolean;
   getNodeText: (node: any) => string;
@@ -93,7 +81,7 @@ export interface ASTScanContext {
 
 export interface ASTVulnerabilityMatch {
   node: any;
-  message?: string;
+  message: string;
   additionalInfo?: Record<string, any>;
 }
 

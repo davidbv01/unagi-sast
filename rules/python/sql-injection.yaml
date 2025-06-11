@@ -1,0 +1,16 @@
+rules:
+  - id: sql-injection-string-format
+    patterns:
+      - pattern: |
+          $CURSOR.execute(f"SELECT ... FROM ... WHERE ... = { $USER_INPUT }")
+      - pattern: |
+          $CURSOR.execute("SELECT ... FROM ... WHERE ... = " + $USER_INPUT)
+    message: "Potential SQL injection vulnerability. Use parameterized queries instead of string formatting."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      description: "Detects SQL queries constructed using string formatting or concatenation"
+      references:
+        - "https://owasp.org/www-community/attacks/SQL_Injection"
+      cwe: "CWE-89: SQL Injection" 

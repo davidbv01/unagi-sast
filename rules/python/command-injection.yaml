@@ -1,0 +1,16 @@
+rules:
+  - id: command-injection-shell
+    patterns:
+      - pattern: |
+          subprocess.$FUNC($CMD, shell=True)
+      - pattern: |
+          os.system($CMD)
+    message: "Potential command injection vulnerability. Avoid using shell=True and validate/sanitize input."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      description: "Detects command execution with shell=True or direct system calls"
+      references:
+        - "https://owasp.org/www-community/attacks/Command_Injection"
+      cwe: "CWE-78: OS Command Injection" 
