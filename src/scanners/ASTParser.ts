@@ -5,6 +5,7 @@ import { parse as parseTypeScript } from '@typescript-eslint/parser';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Position } from '../types';
+import * as vscode from 'vscode';
 
 export interface ParsedAST {
   ast: any;
@@ -14,7 +15,12 @@ export interface ParsedAST {
 }
 
 export class ASTParser {
-  
+  private outputChannel: vscode.OutputChannel;
+
+  constructor() {
+    this.outputChannel = vscode.window.createOutputChannel('Unagi SAST Parser');
+  }
+
   private outputASTToFile(ast: any, fileName: string): void {
     try {
       const outputDir = path.join(process.cwd(), 'ast-debug');
@@ -136,6 +142,8 @@ export class ASTParser {
   }
 
   public parse(content: string, languageId: string, fileName: string): any {
+    this.outputChannel.appendLine(`[DEBUG] Starting AST parsing for ${fileName}`);
+    
     if (languageId !== 'python') {
       return null;
     }
@@ -159,9 +167,13 @@ print(json.dumps(result))
       const astJson = execSync(`python -c "${pythonCode}"`).toString();
       const tree = JSON.parse(astJson);
 
+      this.outputChannel.appendLine(`[DEBUG] Successfully parsed AST for ${fileName}`);
+      this.outputChannel.appendLine(`[DEBUG] AST node count: ${this.countNodes(tree)}`);
+      
       return {
         ast: tree,
         traverse: (ast: any, visitor: any) => {
+          this.outputChannel.appendLine(`[DEBUG] Starting AST traversal for ${fileName}`);
           const traverseNode = (node: any) => {
             if (visitor.enter) {
               visitor.enter(node);
@@ -184,23 +196,35 @@ print(json.dumps(result))
           };
 
           traverseNode(ast);
+          this.outputChannel.appendLine(`[DEBUG] Completed AST traversal for ${fileName}`);
         }
       };
     } catch (error) {
-      console.error(`Failed to parse Python file ${fileName}:`, error);
+      this.outputChannel.appendLine(`[DEBUG] Error parsing AST for ${fileName}: ${error}`);
       return null;
     }
   }
 
-  public getNodePosition(node: any, content: string): { line: number; column: number } {
-    if (!node || !node.lineno) {
-      return { line: 1, column: 1 };
-    }
+  private countNodes(ast: any): number {
+    let count = 0;
+    traverse(ast, {
+      enter: () => count++
+    });
+    return count;
+  }
 
-    return {
-      line: node.lineno,
-      column: node.col_offset || 1
-    };
+  public getNodePosition(node: any, content: string): { line: number; column: number } {
+    const lines = content.split('\n');
+    let line = 1;
+    let column = 1;
+    
+    if (node.loc) {
+      line = node.loc.start.line;
+      column = node.loc.start.column;
+    }
+    
+    this.outputChannel.appendLine(`[DEBUG] Getting position for node type ${node.type} at line ${line}, column ${column}`);
+    return { line, column };
   }
 
   public getNodeText(node: any, sourceCode: string): string {

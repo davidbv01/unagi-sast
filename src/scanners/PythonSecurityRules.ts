@@ -2,7 +2,8 @@ import { ASTScanRule, VulnerabilityType, Severity, ASTScanContext, ASTVulnerabil
 
 export class PythonSecurityRules {
   public getPythonRules(): ASTScanRule[] {
-    return [
+    console.log('[DEBUG] Loading Python security rules');
+    const rules = [
       this.sqlInjectionRule(),
       this.commandInjectionRule(),
       this.pathTraversalRule(),
@@ -11,9 +12,12 @@ export class PythonSecurityRules {
       this.insecureFilePermissionsRule(),
       this.insecureDirectObjectReferenceRule()
     ];
+    console.log(`[DEBUG] Loaded ${rules.length} Python security rules`);
+    return rules;
   }
 
   private sqlInjectionRule(): ASTScanRule {
+    console.log('[DEBUG] Creating SQL injection rule');
     return {
       id: 'py-sql-injection-1',
       name: 'SQL Injection via String Formatting',
@@ -23,13 +27,16 @@ export class PythonSecurityRules {
       languages: ['python'],
       enabled: true,
       checker: (node: any, context: ASTScanContext): ASTVulnerabilityMatch | null => {
+        console.log(`[DEBUG] Checking SQL injection rule on node type: ${node.type}`);
         // Look for f-strings or string formatting with SQL keywords
         if (node.type === 'JoinedStr' || 
             (node.type === 'Call' && node.func?.id?.name === 'format')) {
           const nodeText = context.getNodeText(node).toLowerCase();
+          console.log(`[DEBUG] Found string formatting node with text: ${nodeText}`);
           const sqlKeywords = ['select', 'insert', 'update', 'delete', 'drop', 'create', 'alter'];
           
           if (sqlKeywords.some(keyword => nodeText.includes(keyword))) {
+            console.log(`[DEBUG] Found SQL keyword in node text`);
             return {
               node,
               message: 'SQL query constructed with string formatting - use parameterized queries',

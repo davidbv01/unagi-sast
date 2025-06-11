@@ -1,47 +1,60 @@
 import { Vulnerability, VulnerabilityType, Severity, ASTScanRule, ASTScanContext } from '../types';
 import { ASTParser } from './ASTParser';
 import { PythonSecurityRules } from './PythonSecurityRules';
+import * as vscode from 'vscode';
 
 export class ASTSecurityEngine {
   private parser: ASTParser;
   private pythonRules: PythonSecurityRules;
   private rules: ASTScanRule[];
+  private outputChannel: vscode.OutputChannel;
 
   constructor() {
     this.parser = new ASTParser();
     this.pythonRules = new PythonSecurityRules();
     this.rules = this.pythonRules.getPythonRules();
+    this.outputChannel = vscode.window.createOutputChannel('Unagi SAST Debug');
   }
 
   public async scanContent(content: string, languageId: string, fileName: string): Promise<Vulnerability[]> {
     const vulnerabilities: Vulnerability[] = [];
+    this.outputChannel.appendLine(`[DEBUG] Starting AST scan for ${fileName} (${languageId})`);
 
     // Only process Python files
     if (languageId !== 'python') {
+      this.outputChannel.appendLine(`[DEBUG] Skipping non-Python file: ${fileName}`);
       return vulnerabilities;
     }
 
     try {
+      this.outputChannel.appendLine(`[DEBUG] Parsing content for ${fileName}`);
       const parsed = this.parser.parse(content, languageId, fileName);
       if (!parsed) {
-        console.warn(`Could not parse AST for ${fileName}`);
+        this.outputChannel.appendLine(`[DEBUG] Failed to parse AST for ${fileName}`);
         return vulnerabilities;
       }
+      this.outputChannel.appendLine(`[DEBUG] Successfully parsed AST for ${fileName}`);
 
       const context = this.createScanContext(content, languageId, fileName, parsed);
       const applicableRules = this.rules.filter(rule => 
         rule.enabled && rule.languages.includes(languageId)
       );
+      this.outputChannel.appendLine(`[DEBUG] Found ${applicableRules.length} applicable rules for ${fileName}`);
+      this.outputChannel.appendLine(`[DEBUG] Rules: ${applicableRules.map(r => r.id).join(', ')}`);
 
       // Traverse the AST and apply rules
+      this.outputChannel.appendLine(`[DEBUG] Starting AST traversal for ${fileName}`);
       parsed.traverse(parsed.ast, {
         enter: (path: any) => {
           const node = path.node;
+          this.outputChannel.appendLine(`[DEBUG] Processing node type: ${node.type}`);
           
           for (const rule of applicableRules) {
             try {
+              this.outputChannel.appendLine(`[DEBUG] Applying rule ${rule.id} to node type ${node.type}`);
               const match = rule.checker(node, context);
               if (match) {
+                this.outputChannel.appendLine(`[DEBUG] Found vulnerability match for rule ${rule.id}`);
                 const position = this.parser.getNodePosition(node, content);
                 const vulnerability: Vulnerability = {
                   id: `${rule.id}-${position.line}-${position.column}`,
@@ -56,16 +69,19 @@ export class ASTSecurityEngine {
                   recommendation: this.getRecommendation(rule.type)
                 };
                 vulnerabilities.push(vulnerability);
+                this.outputChannel.appendLine(`[DEBUG] Added vulnerability: ${vulnerability.message} at line ${vulnerability.line}`);
               }
             } catch (error) {
-              console.error(`Error applying rule ${rule.id}:`, error);
+              this.outputChannel.appendLine(`[DEBUG] Error applying rule ${rule.id}: ${error}`);
             }
           }
         }
       });
 
+      this.outputChannel.appendLine(`[DEBUG] Completed AST traversal for ${fileName}. Found ${vulnerabilities.length} vulnerabilities`);
+
     } catch (error) {
-      console.error(`Error scanning file ${fileName}:`, error);
+      this.outputChannel.appendLine(`[DEBUG] Error scanning file ${fileName}: ${error}`);
     }
 
     return vulnerabilities;
