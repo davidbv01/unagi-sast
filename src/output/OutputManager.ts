@@ -8,39 +8,47 @@ export class OutputManager {
   private statusBarItem: vscode.StatusBarItem;
 
   constructor() {
+    console.log('📊 Initializing Output Manager...');
     this.outputChannel = vscode.window.createOutputChannel('Unagi SAST');
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection('unagi');
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     this.statusBarItem.show();
+    console.log('✅ Output Manager initialized');
   }
 
   public async displayResults(result: ScanResult): Promise<void> {
-    const config = configManager.getScanConfiguration();
+    console.log(`📝 Processing scan results for ${result.file}`);
+    console.log(`📊 Found ${result.vulnerabilities.length} vulnerabilities`);
     
+    // Clear previous results
+    this.diagnosticCollection.clear();
+    console.log('🧹 Cleared previous diagnostic results');
+
+    // Convert vulnerabilities to diagnostics
+    const diagnostics = result.vulnerabilities.map(vuln => {
+      console.log(`🔍 Processing vulnerability: ${vuln.type} (${vuln.severity})`);
+      return this.createDiagnostic(vuln);
+    });
+
+    // Update diagnostics collection
+    const uri = vscode.Uri.file(result.file);
+    this.diagnosticCollection.set(uri, diagnostics);
+    console.log(`📌 Updated diagnostics for ${result.file}`);
+
     // Update status bar
-    this.updateStatusBar(result.vulnerabilities.length);
-    
-    switch (config.outputFormat) {
-      case OutputFormat.PROBLEMS_PANEL:
-        this.displayInProblemsPanel(result);
-        break;
-      case OutputFormat.OUTPUT_CHANNEL:
-        this.displayInOutputChannel(result);
-        break;
-      case OutputFormat.INLINE:
-        this.displayInline(result);
-        break;
-      case OutputFormat.REPORT_FILE:
-        await this.generateReportFile([result]);
-        break;
-    }
+    this.updateStatusBar(result);
+    console.log('📊 Updated status bar');
+
+    // Display inline results
+    this.displayInline(result);
+    console.log('✅ Results display completed');
   }
 
   public async displayWorkspaceResults(results: ScanResult[]): Promise<void> {
     const totalVulnerabilities = results.reduce((total, result) => total + result.vulnerabilities.length, 0);
     
     // Update status bar
-    this.updateStatusBar(totalVulnerabilities);
+    this.updateStatusBar(results);
     
     // Display all results in problems panel
     this.displayMultipleInProblemsPanel(results);
@@ -119,11 +127,11 @@ export class OutputManager {
   }
 
   private displayInline(result: ScanResult): void {
-    // This would show decorations in the editor
-    // Implementation depends on specific requirements
+    console.log('🎯 Displaying inline results...');
     vscode.window.showInformationMessage(
       `Scan complete: ${result.vulnerabilities.length} issues found`
     );
+    console.log('✅ Inline results displayed');
   }
 
   private async generateReportFile(results: ScanResult[]): Promise<void> {
@@ -230,16 +238,13 @@ export class OutputManager {
     this.outputChannel.show();
   }
 
-  private updateStatusBar(vulnerabilityCount: number): void {
-    if (vulnerabilityCount === 0) {
-      this.statusBarItem.text = '🛡️ Unagi: Clean';
-      this.statusBarItem.color = undefined;
-    } else {
-      this.statusBarItem.text = `🚨 Unagi: ${vulnerabilityCount} issues`;
-      this.statusBarItem.color = new vscode.ThemeColor('statusBarItem.warningForeground');
-    }
-    this.statusBarItem.tooltip = `Click to view security issues`;
-    this.statusBarItem.command = 'workbench.panel.markers.view.focus';
+  private updateStatusBar(result: ScanResult | ScanResult[]): void {
+    const totalVulnerabilities = Array.isArray(result) 
+      ? result.reduce((sum, r) => sum + r.vulnerabilities.length, 0)
+      : result.vulnerabilities.length;
+    
+    this.statusBarItem.text = `$(shield) Unagi: ${totalVulnerabilities} issues`;
+    this.statusBarItem.tooltip = `Found ${totalVulnerabilities} security vulnerabilities`;
   }
 
   private severityToDiagnosticSeverity(severity: Severity): vscode.DiagnosticSeverity {
@@ -268,5 +273,39 @@ export class OutputManager {
     this.outputChannel.dispose();
     this.diagnosticCollection.dispose();
     this.statusBarItem.dispose();
+  }
+
+  private createDiagnostic(vulnerability: Vulnerability): vscode.Diagnostic {
+    const range = new vscode.Range(
+      vulnerability.line - 1,
+      0,
+      vulnerability.line - 1,
+      100
+    );
+    
+    const diagnostic = new vscode.Diagnostic(
+      range,
+      vulnerability.message,
+      this.getSeverity(vulnerability.severity)
+    );
+    
+    diagnostic.source = 'Unagi SAST';
+    diagnostic.code = vulnerability.type;
+    return diagnostic;
+  }
+
+  private getSeverity(severity: Severity): vscode.DiagnosticSeverity {
+    switch (severity) {
+      case Severity.CRITICAL:
+        return vscode.DiagnosticSeverity.Error;
+      case Severity.HIGH:
+        return vscode.DiagnosticSeverity.Error;
+      case Severity.MEDIUM:
+        return vscode.DiagnosticSeverity.Warning;
+      case Severity.LOW:
+        return vscode.DiagnosticSeverity.Information;
+      default:
+        return vscode.DiagnosticSeverity.Information;
+    }
   }
 }

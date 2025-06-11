@@ -124,7 +124,12 @@ export class ASTSecurityEngine {
       [VulnerabilityType.CSRF]: 'Implement CSRF tokens and validate requests.',
       [VulnerabilityType.INSECURE_RANDOM]: 'Use cryptographically secure random number generators.',
       [VulnerabilityType.AUTHORIZATION]: 'Implement proper access controls and permission checks.',
-      [VulnerabilityType.AUTHENTICATION]: 'Use secure authentication mechanisms and session management.'
+      [VulnerabilityType.AUTHENTICATION]: 'Use secure authentication mechanisms and session management.',
+      [VulnerabilityType.INSECURE_COMMUNICATION]: 'Use HTTPS and secure communication protocols.',
+      [VulnerabilityType.GENERIC]: 'Review the code for potential security issues.',
+      [VulnerabilityType.INSECURE_DESERIALIZATION]: 'Use safe deserialization methods and validate input.',
+      [VulnerabilityType.INSECURE_PERMISSIONS]: 'Set appropriate file and directory permissions.',
+      [VulnerabilityType.IDOR]: 'Implement proper access controls and object-level authorization.'
     };
     
     return recommendations[type] || 'Review the code for potential security issues.';

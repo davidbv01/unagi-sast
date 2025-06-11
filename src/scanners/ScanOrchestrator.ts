@@ -15,8 +15,12 @@ export class ScanOrchestrator {
 
   public async scanFile(document: vscode.TextDocument): Promise<ScanResult> {
     const startTime = Date.now();
+    console.log(`🔍 Starting scan of file: ${document.fileName}`);
+    console.log(`📄 Language: ${document.languageId}`);
+    
     const content = document.getText();
     const lines = content.split('\n');
+    console.log(`📊 File contains ${lines.length} lines`);
     
     vscode.window.withProgress({
       location: vscode.ProgressLocation.Window,
@@ -24,8 +28,10 @@ export class ScanOrchestrator {
       cancellable: false
     }, async (progress) => {
       progress.report({ message: `Scanning ${document.fileName}...` });
+      console.log('⚙️ Running security rule engine...');
       
       const vulnerabilities = await this.ruleEngine.scanContent(content, document.languageId, document.fileName);
+      console.log(`🔎 Found ${vulnerabilities.length} potential vulnerabilities`);
       
       const result: ScanResult = {
         file: document.fileName,
@@ -34,9 +40,12 @@ export class ScanOrchestrator {
         linesScanned: lines.length
       };
 
+      console.log(`⏱️ Scan completed in ${result.scanTime}ms`);
+      console.log('📤 Displaying results...');
       await this.outputManager.displayResults(result);
       
       progress.report({ message: `Found ${vulnerabilities.length} vulnerabilities` });
+      console.log('✅ Scan process completed');
       
       return result;
     });

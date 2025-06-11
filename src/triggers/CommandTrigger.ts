@@ -38,34 +38,43 @@ export class CommandTrigger {
   }
 
   private async scanCurrentFile(): Promise<void> {
+    console.log('🔍 Initiating current file scan...');
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      vscode.window.showWarningMessage('Unagi: No active file to scan.');
+      console.log('⚠️ No active text editor found');
+      vscode.window.showWarningMessage('Unagi: No active text editor.');
       return;
     }
 
-    const fileName = editor.document.fileName;
-    vscode.window.showInformationMessage(`Unagi: Scanning file ${fileName}`);
-    
+    console.log(`📄 Scanning file: ${editor.document.fileName}`);
     try {
+      console.log('⚙️ Starting file scan...');
       await this.scanOrchestrator.scanFile(editor.document);
+      console.log('✅ File scan completed successfully');
     } catch (error) {
+      console.error('❌ Error during file scan:', error);
       vscode.window.showErrorMessage(`Unagi: Error scanning file - ${error}`);
     }
   }
 
   private async scanWorkspace(): Promise<void> {
+    console.log('🔍 Initiating workspace scan...');
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
+      console.log('⚠️ No workspace folder found');
       vscode.window.showWarningMessage('Unagi: No workspace folder found.');
       return;
     }
 
+    console.log(`📁 Found workspace folder: ${workspaceFolders[0].name}`);
     vscode.window.showInformationMessage('Unagi: Scanning workspace...');
     
     try {
+      console.log('⚙️ Starting workspace scan...');
       await this.scanOrchestrator.scanWorkspace();
+      console.log('✅ Workspace scan completed successfully');
     } catch (error) {
+      console.error('❌ Error during workspace scan:', error);
       vscode.window.showErrorMessage(`Unagi: Error scanning workspace - ${error}`);
     }
   }
