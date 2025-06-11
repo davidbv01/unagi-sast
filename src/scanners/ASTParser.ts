@@ -29,11 +29,38 @@ export class ASTParser {
     }
   }
 
+  private safeTraverse(ast: any): typeof traverse {
+    const safeTraverseFn = (ast: any, visitor: any) => {
+      try {
+        return traverse(ast, visitor);
+      } catch (error) {
+        console.warn('Traverse failed, returning safe traverse function:', error);
+        // Return a no-op traverse function that won't throw errors
+        return {
+          stop: () => {},
+          skip: () => {},
+          remove: () => {},
+          replaceWith: () => {},
+          insertBefore: () => {},
+          insertAfter: () => {},
+          skipKey: () => {}
+        };
+      }
+    };
+
+    // Copy all properties from the original traverse function
+    Object.assign(safeTraverseFn, traverse);
+    return safeTraverseFn as typeof traverse;
+  }
+
   public parseJavaScript(code: string, fileName?: string): ParsedAST {
     try {
       const ast = parser.parse(code, {
         sourceType: 'module',
         allowImportExportEverywhere: true,
+        allowAwaitOutsideFunction: true,
+        allowSuperOutsideMethod: true,
+        allowReturnOutsideFunction: true,
         plugins: [
           'jsx',
           'typescript',
@@ -42,7 +69,20 @@ export class ASTParser {
           'asyncGenerators',
           'functionBind',
           'exportDefaultFrom',
-          'dynamicImport'
+          'dynamicImport',
+          'classPrivateProperties',
+          'classPrivateMethods',
+          'doExpressions',
+          'exportNamespaceFrom',
+          'functionSent',
+          'logicalAssignment',
+          'nullishCoalescingOperator',
+          'numericSeparator',
+          'objectRestSpread',
+          'optionalCatchBinding',
+          'optionalChaining',
+          'pipelineOperator',
+          'throwExpressions'
         ]
       });
 
@@ -52,7 +92,7 @@ export class ASTParser {
 
       return {
         ast,
-        traverse,
+        traverse: this.safeTraverse(ast),
         types: t,
         sourceCode: code
       };
@@ -72,7 +112,9 @@ export class ASTParser {
         comments: true,
         errorOnUnknownASTType: false,
         errorOnTypeScriptSyntacticAndSemanticIssues: false,
-        jsx: true
+        jsx: true,
+        useJSXTextNode: true,
+        project: './tsconfig.json'
       });
 
       if (fileName) {
@@ -81,7 +123,7 @@ export class ASTParser {
 
       return {
         ast,
-        traverse,
+        traverse: this.safeTraverse(ast),
         types: t,
         sourceCode: code
       };
