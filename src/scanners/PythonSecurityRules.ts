@@ -188,23 +188,20 @@ export class PythonSecurityRules {
     return {
       id: 'py-idor-1',
       name: 'Insecure Direct Object Reference',
-      description: 'Potential IDOR vulnerability',
-      severity: Severity.MEDIUM,
-      type: VulnerabilityType.IDOR,
+      description: 'Potential IDOR vulnerability in route handler',
+      severity: Severity.HIGH,
+      type: VulnerabilityType.INSECURE_DIRECT_OBJECT_REFERENCE,
       languages: ['python'],
       enabled: true,
       checker: (node: any, context: ASTScanContext): ASTVulnerabilityMatch | null => {
-        if (node.type === 'Route' || 
-            (node.type === 'FunctionDef' && node.decorator_list?.some((d: any) => 
-              d.func?.id?.name === 'route'))) {
-          const pathParams = this.getPathParameters(node);
-          if (pathParams.length > 0) {
-            return {
-              node,
-              message: 'Potential IDOR vulnerability - implement proper access controls',
-              additionalInfo: { parameters: pathParams }
-            };
-          }
+        if (node.type === 'FunctionDef' && 
+            node.decorator_list?.some((d: any) => 
+              d.func?.attr === 'route' || d.func?.id?.name === 'route')) {
+          return {
+            node,
+            message: 'Route handler may be vulnerable to IDOR - implement proper access controls',
+            additionalInfo: { route: node.name }
+          };
         }
         return null;
       }

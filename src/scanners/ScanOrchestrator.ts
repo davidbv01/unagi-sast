@@ -37,7 +37,8 @@ export class ScanOrchestrator {
         file: document.fileName,
         vulnerabilities,
         scanTime: Date.now() - startTime,
-        linesScanned: lines.length
+        linesScanned: lines.length,
+        language: document.languageId
       };
 
       console.log(`⏱️ Scan completed in ${result.scanTime}ms`);
@@ -54,7 +55,8 @@ export class ScanOrchestrator {
       file: document.fileName,
       vulnerabilities: [],
       scanTime: 0,
-      linesScanned: 0
+      linesScanned: 0,
+      language: document.languageId
     };
   }
 

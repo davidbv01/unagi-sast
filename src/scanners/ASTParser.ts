@@ -4,6 +4,7 @@ import * as t from '@babel/types';
 import { parse as parseTypeScript } from '@typescript-eslint/parser';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Position } from '../types';
 
 export interface ParsedAST {
   ast: any;
@@ -134,45 +135,68 @@ export class ASTParser {
     }
   }
 
-  public parse(code: string, languageId: string, fileName?: string): ParsedAST | null {
+  public parse(content: string, languageId: string, fileName: string): any {
+    if (languageId !== 'python') {
+      return null;
+    }
+
     try {
-      switch (languageId) {
-        case 'javascript':
-        case 'jsx':
-          return this.parseJavaScript(code, fileName);
-        
-        case 'typescript':
-        case 'tsx':
-          return this.parseTypeScript(code, fileName);
-        
-        default:
-          console.warn(`AST parsing not supported for language: ${languageId}`);
-          return null;
-      }
+      // Use Python's built-in ast module
+      const { execSync } = require('child_process');
+      const pythonCode = `
+import ast
+import json
+
+def parse_ast(code):
+    tree = ast.parse(code)
+    return ast.dump(tree, include_attributes=True)
+
+code = '''${content.replace(/'/g, "\\'")}'''
+result = parse_ast(code)
+print(json.dumps(result))
+      `;
+
+      const astJson = execSync(`python -c "${pythonCode}"`).toString();
+      const tree = JSON.parse(astJson);
+
+      return {
+        ast: tree,
+        traverse: (ast: any, visitor: any) => {
+          const traverseNode = (node: any) => {
+            if (visitor.enter) {
+              visitor.enter(node);
+            }
+            
+            // Traverse child nodes
+            for (const key in node) {
+              if (node[key] && typeof node[key] === 'object') {
+                if (Array.isArray(node[key])) {
+                  node[key].forEach(traverseNode);
+                } else {
+                  traverseNode(node[key]);
+                }
+              }
+            }
+
+            if (visitor.exit) {
+              visitor.exit(node);
+            }
+          };
+
+          traverseNode(ast);
+        }
+      };
     } catch (error) {
-      console.error(`Failed to parse code for language ${languageId}:`, error);
+      console.error(`Failed to parse Python file ${fileName}:`, error);
       return null;
     }
   }
 
-  public getNodePosition(node: any, sourceCode: string): { line: number; column: number } {
-    if (node.loc) {
-      return {
-        line: node.loc.start.line,
-        column: node.loc.start.column
-      };
-    }
-    
-    // Fallback: calculate line/column from start position
-    if (node.start !== undefined) {
-      const lines = sourceCode.substring(0, node.start).split('\n');
-      return {
-        line: lines.length,
-        column: lines[lines.length - 1].length
-      };
-    }
-
-    return { line: 1, column: 0 };
+  public getNodePosition(node: any, content: string): Position {
+    return {
+      line: node.lineno || 1,
+      column: node.col_offset || 0
+    };
   }
 
   public getNodeText(node: any, sourceCode: string): string {

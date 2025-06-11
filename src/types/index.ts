@@ -28,7 +28,8 @@ export enum VulnerabilityType {
   GENERIC = 'GENERIC',
   INSECURE_DESERIALIZATION = 'INSECURE_DESERIALIZATION',
   INSECURE_PERMISSIONS = 'INSECURE_PERMISSIONS',
-  IDOR = 'IDOR'
+  IDOR = 'IDOR',
+  INSECURE_DIRECT_OBJECT_REFERENCE = 'INSECURE_DIRECT_OBJECT_REFERENCE'
 }
 
 export enum Severity {
@@ -44,13 +45,14 @@ export interface ScanResult {
   vulnerabilities: Vulnerability[];
   scanTime: number;
   linesScanned: number;
+  language: string;
 }
 
 export interface ScanConfiguration {
   enabledRules: string[];
   excludePatterns: string[];
   includePatterns: string[];
-  severity: Severity[];
+  severityThreshold: Severity;
   outputFormat: OutputFormat;
 }
 
@@ -93,4 +95,9 @@ export interface ASTPosition {
   column: number;
   start: number;
   end: number;
+}
+
+export interface Position {
+  line: number;
+  column: number;
 }

@@ -1,23 +1,23 @@
 import { Vulnerability, VulnerabilityType, Severity, ASTScanRule, ASTScanContext } from '../types';
 import { ASTParser } from './ASTParser';
-import { ASTSecurityRules } from './ASTSecurityRules';
+import { PythonSecurityRules } from './PythonSecurityRules';
 
 export class ASTSecurityEngine {
   private parser: ASTParser;
-  private securityRules: ASTSecurityRules;
+  private pythonRules: PythonSecurityRules;
   private rules: ASTScanRule[];
 
   constructor() {
     this.parser = new ASTParser();
-    this.securityRules = new ASTSecurityRules();
-    this.rules = this.securityRules.getASTRules();
+    this.pythonRules = new PythonSecurityRules();
+    this.rules = this.pythonRules.getPythonRules();
   }
 
   public async scanContent(content: string, languageId: string, fileName: string): Promise<Vulnerability[]> {
     const vulnerabilities: Vulnerability[] = [];
 
-    // Only process JavaScript/TypeScript for now
-    if (!['javascript', 'typescript', 'jsx', 'tsx'].includes(languageId)) {
+    // Only process Python files
+    if (languageId !== 'python') {
       return vulnerabilities;
     }
 
@@ -65,7 +65,7 @@ export class ASTSecurityEngine {
       });
 
     } catch (error) {
-      console.error(`AST scanning failed for ${fileName}:`, error);
+      console.error(`Error scanning file ${fileName}:`, error);
     }
 
     return vulnerabilities;
@@ -76,63 +76,49 @@ export class ASTSecurityEngine {
       fileName,
       sourceCode: content,
       languageId,
+      getNodeText: (node: any) => {
+        return content.substring(node.start, node.end);
+      },
       isUserInput: (node: any) => {
-        // Simplified heuristic - could be enhanced with data flow analysis
-        return this.isLikelyUserInput(node);
+        // Check if node represents user input (e.g., function parameters, form values)
+        return node.type === 'Identifier' || node.type === 'MemberExpression';
       },
       isTainted: (node: any) => {
-        // Simplified taint analysis - could be enhanced
-        return this.isLikelyTainted(node);
-      },
-      getNodeText: (node: any) => {
-        return this.parser.getNodeText(node, content);
+        // Check if node represents potentially tainted data
+        return this.isUserInput(node) || this.containsVariableExpression(node);
       },
       getParentNodes: (node: any) => {
-        // This would require path context from traverse - simplified for now
-        return [];
+        const parents: any[] = [];
+        let current = node;
+        while (current.parent) {
+          parents.push(current.parent);
+          current = current.parent;
+        }
+        return parents;
       }
     };
   }
 
-  private isLikelyUserInput(node: any): boolean {
-    // Simplified heuristic to detect user input
-    const nodeText = this.parser.getNodeText(node, '').toLowerCase();
-    const userInputIndicators = [
-      'req.body', 'req.query', 'req.params', 'request.',
-      'input', 'user', 'param', 'query', 'body',
-      'document.getElementById', 'getElementById',
-      'prompt(', 'confirm(', 'window.location'
-    ];
-    
-    return userInputIndicators.some(indicator => nodeText.includes(indicator));
-  }
-
-  private isLikelyTainted(node: any): boolean {
-    // This would need proper data flow analysis
-    // For now, we use simple heuristics
-    return this.isLikelyUserInput(node);
-  }
-
   private getRecommendation(type: VulnerabilityType): string {
     const recommendations: Record<VulnerabilityType, string> = {
-      [VulnerabilityType.SQL_INJECTION]: 'Use parameterized queries or ORM methods to prevent SQL injection.',
-      [VulnerabilityType.XSS]: 'Sanitize user input and use safe DOM manipulation methods like textContent.',
-      [VulnerabilityType.HARDCODED_SECRET]: 'Store secrets in environment variables or secure configuration.',
-      [VulnerabilityType.WEAK_CRYPTO]: 'Use strong cryptographic algorithms like SHA-256 or bcrypt.',
-      [VulnerabilityType.COMMAND_INJECTION]: 'Validate input and use safe alternatives to exec/eval.',
-      [VulnerabilityType.PATH_TRAVERSAL]: 'Validate file paths and use path.resolve() with proper checks.',
-      [VulnerabilityType.CSRF]: 'Implement CSRF tokens and validate requests.',
-      [VulnerabilityType.INSECURE_RANDOM]: 'Use cryptographically secure random number generators.',
-      [VulnerabilityType.AUTHORIZATION]: 'Implement proper access controls and permission checks.',
-      [VulnerabilityType.AUTHENTICATION]: 'Use secure authentication mechanisms and session management.',
-      [VulnerabilityType.INSECURE_COMMUNICATION]: 'Use HTTPS and secure communication protocols.',
-      [VulnerabilityType.GENERIC]: 'Review the code for potential security issues.',
-      [VulnerabilityType.INSECURE_DESERIALIZATION]: 'Use safe deserialization methods and validate input.',
-      [VulnerabilityType.INSECURE_PERMISSIONS]: 'Set appropriate file and directory permissions.',
-      [VulnerabilityType.IDOR]: 'Implement proper access controls and object-level authorization.'
+      [VulnerabilityType.SQL_INJECTION]: 'Use parameterized queries or an ORM',
+      [VulnerabilityType.COMMAND_INJECTION]: 'Avoid using shell=True and validate/sanitize input',
+      [VulnerabilityType.PATH_TRAVERSAL]: 'Validate and sanitize file paths',
+      [VulnerabilityType.INSECURE_DESERIALIZATION]: 'Use safe deserialization methods or validate input',
+      [VulnerabilityType.HARDCODED_SECRET]: 'Use environment variables or secure secret management',
+      [VulnerabilityType.INSECURE_PERMISSIONS]: 'Use more restrictive file permissions',
+      [VulnerabilityType.INSECURE_DIRECT_OBJECT_REFERENCE]: 'Implement proper access controls',
+      [VulnerabilityType.XSS]: 'Sanitize user input and use proper output encoding',
+      [VulnerabilityType.WEAK_CRYPTO]: 'Use strong cryptographic algorithms and proper key management',
+      [VulnerabilityType.INSECURE_COMMUNICATION]: 'Use secure communication protocols (HTTPS, TLS)',
+      [VulnerabilityType.CSRF]: 'Implement CSRF tokens and validate requests',
+      [VulnerabilityType.INSECURE_RANDOM]: 'Use cryptographically secure random number generators',
+      [VulnerabilityType.AUTHORIZATION]: 'Implement proper authorization checks',
+      [VulnerabilityType.AUTHENTICATION]: 'Use secure authentication methods',
+      [VulnerabilityType.IDOR]: 'Implement proper access controls and object reference validation',
+      [VulnerabilityType.GENERIC]: 'Review and fix the identified security issue'
     };
-    
-    return recommendations[type] || 'Review the code for potential security issues.';
+    return recommendations[type] || recommendations[VulnerabilityType.GENERIC];
   }
 
   public enableRule(ruleId: string): void {
@@ -149,7 +135,26 @@ export class ASTSecurityEngine {
     }
   }
 
-  public getAvailableRules(): ASTScanRule[] {
-    return [...this.rules];
+  private isUserInput(node: any): boolean {
+    return node.type === 'Identifier' || node.type === 'MemberExpression';
+  }
+
+  private containsVariableExpression(node: any): boolean {
+    if (!node) return false;
+    
+    if (this.isUserInput(node)) {
+      return true;
+    }
+    
+    if (node.type === 'BinaryExpression') {
+      return this.containsVariableExpression(node.left) || 
+             this.containsVariableExpression(node.right);
+    }
+    
+    if (node.type === 'CallExpression') {
+      return true; // Function calls might return user input
+    }
+    
+    return false;
   }
 }

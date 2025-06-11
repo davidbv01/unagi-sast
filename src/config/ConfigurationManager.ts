@@ -21,7 +21,7 @@ export class ConfigurationManager {
       enabledRules: this.config.get('enabledRules', []),
       excludePatterns: this.config.get('excludePatterns', ['**/node_modules/**', '**/dist/**', '**/build/**']),
       includePatterns: this.config.get('includePatterns', ['**/*.js', '**/*.ts', '**/*.jsx', '**/*.tsx', '**/*.py', '**/*.java', '**/*.php']),
-      severity: this.config.get('minimumSeverity', [Severity.LOW, Severity.MEDIUM, Severity.HIGH, Severity.CRITICAL]),
+      severityThreshold: this.config.get('minimumSeverity', [Severity.LOW, Severity.MEDIUM, Severity.HIGH, Severity.CRITICAL])[0],
       outputFormat: this.config.get('outputFormat', OutputFormat.PROBLEMS_PANEL)
     };
   }
