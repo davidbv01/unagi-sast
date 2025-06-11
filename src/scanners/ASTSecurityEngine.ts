@@ -22,7 +22,7 @@ export class ASTSecurityEngine {
     }
 
     try {
-      const parsed = this.parser.parse(content, languageId);
+      const parsed = this.parser.parse(content, languageId, fileName);
       if (!parsed) {
         console.warn(`Could not parse AST for ${fileName}`);
         return vulnerabilities;

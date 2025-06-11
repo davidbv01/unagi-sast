@@ -2,6 +2,8 @@ import * as parser from '@babel/parser';
 import traverse from '@babel/traverse';
 import * as t from '@babel/types';
 import { parse as parseTypeScript } from '@typescript-eslint/parser';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface ParsedAST {
   ast: any;
@@ -12,7 +14,22 @@ export interface ParsedAST {
 
 export class ASTParser {
   
-  public parseJavaScript(code: string): ParsedAST {
+  private outputASTToFile(ast: any, fileName: string): void {
+    try {
+      const outputDir = path.join(process.cwd(), 'ast-debug');
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      
+      const outputPath = path.join(outputDir, `${path.basename(fileName)}.ast.json`);
+      fs.writeFileSync(outputPath, JSON.stringify(ast, null, 2));
+      console.log(`AST debug output written to: ${outputPath}`);
+    } catch (error) {
+      console.error('Failed to write AST debug output:', error);
+    }
+  }
+
+  public parseJavaScript(code: string, fileName?: string): ParsedAST {
     try {
       const ast = parser.parse(code, {
         sourceType: 'module',
@@ -29,6 +46,10 @@ export class ASTParser {
         ]
       });
 
+      if (fileName) {
+        this.outputASTToFile(ast, fileName);
+      }
+
       return {
         ast,
         traverse,
@@ -41,7 +62,7 @@ export class ASTParser {
     }
   }
 
-  public parseTypeScript(code: string): ParsedAST {
+  public parseTypeScript(code: string, fileName?: string): ParsedAST {
     try {
       // Try TypeScript parser first
       const ast = parseTypeScript(code, {
@@ -54,6 +75,10 @@ export class ASTParser {
         jsx: true
       });
 
+      if (fileName) {
+        this.outputASTToFile(ast, fileName);
+      }
+
       return {
         ast,
         traverse,
@@ -63,20 +88,20 @@ export class ASTParser {
     } catch (error) {
       // Fallback to Babel parser
       console.warn('TypeScript parser failed, falling back to Babel:', error);
-      return this.parseJavaScript(code);
+      return this.parseJavaScript(code, fileName);
     }
   }
 
-  public parse(code: string, languageId: string): ParsedAST | null {
+  public parse(code: string, languageId: string, fileName?: string): ParsedAST | null {
     try {
       switch (languageId) {
         case 'javascript':
         case 'jsx':
-          return this.parseJavaScript(code);
+          return this.parseJavaScript(code, fileName);
         
         case 'typescript':
         case 'tsx':
-          return this.parseTypeScript(code);
+          return this.parseTypeScript(code, fileName);
         
         default:
           console.warn(`AST parsing not supported for language: ${languageId}`);
