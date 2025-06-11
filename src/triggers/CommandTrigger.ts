@@ -6,9 +6,9 @@ export class CommandTrigger {
   private scanOrchestrator: ScanOrchestrator;
   private outputManager: OutputManager;
 
-  constructor(scanOrchestrator: ScanOrchestrator, outputManager: OutputManager) {
-    this.scanOrchestrator = scanOrchestrator;
-    this.outputManager = outputManager;
+  constructor() {
+    this.scanOrchestrator = new ScanOrchestrator();
+    this.outputManager = new OutputManager();
   }
 
   public registerCommands(context: vscode.ExtensionContext): void {
