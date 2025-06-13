@@ -14,7 +14,7 @@ export class CommandTrigger {
   public registerCommands(context: vscode.ExtensionContext): void {
     // Register command to scan current file
     context.subscriptions.push(
-      vscode.commands.registerCommand('unagi.scanFile', async () => {
+      vscode.commands.registerCommand('unagi.scanActualFile', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
           vscode.window.showWarningMessage('No active editor found');

@@ -1,98 +1,65 @@
-import * as child_process from 'child_process';
+import Parser from 'tree-sitter';
+import Python from 'tree-sitter-python';
 import { Position } from '../types';
 
 export class ASTParser {
-  private ast: any;
+  private parser: Parser;
+  private tree: Parser.Tree | undefined;
+
+  constructor() {
+    this.parser = new Parser();
+    this.parser.setLanguage(Python as any);
+  }
 
   public parse(content: string, languageId: string, fileName: string): any {
     try {
-      if (languageId === 'python') {
-        // Use Python's built-in ast module to parse the code
-        const pythonScript = `
-import ast
-import json
-import sys
+      if (languageId !== 'python') return null;
 
-def node_to_dict(node):
-    if isinstance(node, ast.AST):
-        fields = {}
-        for field, value in ast.iter_fields(node):
-            if isinstance(value, list):
-                fields[field] = [node_to_dict(item) for item in value]
-            else:
-                fields[field] = node_to_dict(value)
-        fields['type'] = node.__class__.__name__
-        if hasattr(node, 'lineno'):
-            fields['loc'] = {
-                'start': {'line': node.lineno, 'column': node.col_offset},
-                'end': {'line': node.end_lineno if hasattr(node, 'end_lineno') else node.lineno, 
-                       'column': node.end_col_offset if hasattr(node, 'end_col_offset') else node.col_offset}
-            }
-        return fields
-    elif isinstance(node, list):
-        return [node_to_dict(item) for item in node]
-    else:
-        return node
+      this.tree = this.parser.parse(content);
+      const rootNode = this.tree.rootNode;
 
-try:
-    # Read input from stdin instead of command line args
-    content = sys.stdin.read()
-    tree = ast.parse(content)
-    result = node_to_dict(tree)
-    # Ensure we're outputting valid JSON
-    print(json.dumps(result, ensure_ascii=False))
-except Exception as e:
-    print(json.dumps({"error": str(e)}, ensure_ascii=False))
-    sys.exit(1)
-`;
+      const ast = this.nodeToDict(rootNode);
 
-        // Create a temporary file for the Python script
-        const tempScriptPath = require('os').tmpdir() + '/ast_parser.py';
-        require('fs').writeFileSync(tempScriptPath, pythonScript);
-
-        // Execute Python script with content piped through stdin
-        const result = child_process.execSync(`python "${tempScriptPath}"`, {
-          input: content,
-          encoding: 'utf-8',
-          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-        });
-
-        // Clean up temporary file
-        require('fs').unlinkSync(tempScriptPath);
-
-        // Parse the JSON result
-        const parsedResult = JSON.parse(result);
-        
-        if (parsedResult.error) {
-          throw new Error(parsedResult.error);
-        }
-
-        this.ast = parsedResult;
-        return {
-          ast: this.ast,
-          traverse: this.traverse.bind(this)
-        };
-      }
-      return null;
+      return {
+        ast,
+        traverse: this.traverse.bind(this)
+      };
     } catch (error) {
-      console.error(`Failed to parse ${fileName}: ${error}`);
+      console.error(`Tree-sitter failed to parse ${fileName}: ${error}`);
       return null;
     }
   }
 
-  public getNodePosition(node: any, content: string): Position {
-    if (!node || !node.loc) {
-      return { line: 1, column: 1 };
+  private nodeToDict(node: Parser.SyntaxNode): any {
+    const children = node.namedChildren.map(child => this.nodeToDict(child));
+
+    const result: any = {
+      type: node.type,
+      named: node.isNamed,
+      children,
+      loc: {
+        start: { line: node.startPosition.row + 1, column: node.startPosition.column },
+        end: { line: node.endPosition.row + 1, column: node.endPosition.column }
+      }
+    };
+
+    // Add empty children array for leaf nodes
+    if (children.length === 0) {
+      result.children = [];
     }
 
+    return result;
+  }
+
+  public getNodePosition(node: any): Position {
     return {
-      line: node.loc.start.line,
-      column: node.loc.start.column
+      line: node.loc?.start.line || 1,
+      column: node.loc?.start.column || 1
     };
   }
 
   private traverse(ast: any, visitor: { enter?: (path: any) => void }): void {
-    const traverse = (node: any, parent: any = null) => {
+    const walk = (node: any, parent: any = null) => {
       if (!node) return;
 
       const path = {
@@ -105,18 +72,11 @@ except Exception as e:
         visitor.enter(path);
       }
 
-      // Recursively traverse child nodes
-      for (const key in node) {
-        if (node[key] && typeof node[key] === 'object') {
-          if (Array.isArray(node[key])) {
-            node[key].forEach((child: any) => traverse(child, node));
-          } else {
-            traverse(node[key], node);
-          }
-        }
+      for (const child of node.children || []) {
+        walk(child, node);
       }
     };
 
-    traverse(ast);
+    walk(ast);
   }
 }

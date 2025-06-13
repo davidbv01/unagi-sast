@@ -55,7 +55,7 @@ export class ASTSecurityEngine {
               const match = rule.checker(node, context);
               if (match) {
                 this.outputChannel.appendLine(`[DEBUG] Found vulnerability match for rule ${rule.id}`);
-                const position = this.parser.getNodePosition(node, content);
+                const position = this.parser.getNodePosition(node);
                 const vulnerability: Vulnerability = {
                   id: `${rule.id}-${position.line}-${position.column}`,
                   type: rule.type,
