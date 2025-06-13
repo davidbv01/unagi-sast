@@ -1,236 +1,122 @@
-import * as parser from '@babel/parser';
-import traverse from '@babel/traverse';
-import * as t from '@babel/types';
-import { parse as parseTypeScript } from '@typescript-eslint/parser';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as child_process from 'child_process';
 import { Position } from '../types';
-import * as vscode from 'vscode';
-
-export interface ParsedAST {
-  ast: any;
-  traverse: (ast: any, visitor: any) => void;
-  types?: any;
-  sourceCode: string;
-}
 
 export class ASTParser {
-  private outputChannel: vscode.OutputChannel;
+  private ast: any;
 
-  constructor() {
-    this.outputChannel = vscode.window.createOutputChannel('Unagi SAST Parser');
-  }
-
-  private outputASTToFile(ast: any, fileName: string): void {
+  public parse(content: string, languageId: string, fileName: string): any {
     try {
-      const outputDir = path.join(process.cwd(), 'ast-debug');
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
+      if (languageId === 'python') {
+        // Use Python's built-in ast module to parse the code
+        const pythonScript = `
+import ast
+import json
+import sys
+
+def node_to_dict(node):
+    if isinstance(node, ast.AST):
+        fields = {}
+        for field, value in ast.iter_fields(node):
+            if isinstance(value, list):
+                fields[field] = [node_to_dict(item) for item in value]
+            else:
+                fields[field] = node_to_dict(value)
+        fields['type'] = node.__class__.__name__
+        if hasattr(node, 'lineno'):
+            fields['loc'] = {
+                'start': {'line': node.lineno, 'column': node.col_offset},
+                'end': {'line': node.end_lineno if hasattr(node, 'end_lineno') else node.lineno, 
+                       'column': node.end_col_offset if hasattr(node, 'end_col_offset') else node.col_offset}
+            }
+        return fields
+    elif isinstance(node, list):
+        return [node_to_dict(item) for item in node]
+    else:
+        return node
+
+try:
+    # Read input from stdin instead of command line args
+    content = sys.stdin.read()
+    tree = ast.parse(content)
+    result = node_to_dict(tree)
+    # Ensure we're outputting valid JSON
+    print(json.dumps(result, ensure_ascii=False))
+except Exception as e:
+    print(json.dumps({"error": str(e)}, ensure_ascii=False))
+    sys.exit(1)
+`;
+
+        // Create a temporary file for the Python script
+        const tempScriptPath = require('os').tmpdir() + '/ast_parser.py';
+        require('fs').writeFileSync(tempScriptPath, pythonScript);
+
+        // Execute Python script with content piped through stdin
+        const result = child_process.execSync(`python "${tempScriptPath}"`, {
+          input: content,
+          encoding: 'utf-8',
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+        });
+
+        // Clean up temporary file
+        require('fs').unlinkSync(tempScriptPath);
+
+        // Parse the JSON result
+        const parsedResult = JSON.parse(result);
+        
+        if (parsedResult.error) {
+          throw new Error(parsedResult.error);
+        }
+
+        this.ast = parsedResult;
+        return {
+          ast: this.ast,
+          traverse: this.traverse.bind(this)
+        };
       }
-      
-      const outputPath = path.join(outputDir, `${path.basename(fileName)}.ast.json`);
-      fs.writeFileSync(outputPath, JSON.stringify(ast, null, 2));
-      console.log(`AST debug output written to: ${outputPath}`);
+      return null;
     } catch (error) {
-      console.error('Failed to write AST debug output:', error);
+      console.error(`Failed to parse ${fileName}: ${error}`);
+      return null;
     }
   }
 
-  private safeTraverse(ast: any): typeof traverse {
-    const safeTraverseFn = (ast: any, visitor: any) => {
-      try {
-        return traverse(ast, visitor);
-      } catch (error) {
-        console.warn('Traverse failed, returning safe traverse function:', error);
-        // Return a no-op traverse function that won't throw errors
-        return {
-          stop: () => {},
-          skip: () => {},
-          remove: () => {},
-          replaceWith: () => {},
-          insertBefore: () => {},
-          insertAfter: () => {},
-          skipKey: () => {}
-        };
+  public getNodePosition(node: any, content: string): Position {
+    if (!node || !node.loc) {
+      return { line: 1, column: 1 };
+    }
+
+    return {
+      line: node.loc.start.line,
+      column: node.loc.start.column
+    };
+  }
+
+  private traverse(ast: any, visitor: { enter?: (path: any) => void }): void {
+    const traverse = (node: any, parent: any = null) => {
+      if (!node) return;
+
+      const path = {
+        node,
+        parent,
+        getParent: () => parent
+      };
+
+      if (visitor.enter) {
+        visitor.enter(path);
+      }
+
+      // Recursively traverse child nodes
+      for (const key in node) {
+        if (node[key] && typeof node[key] === 'object') {
+          if (Array.isArray(node[key])) {
+            node[key].forEach((child: any) => traverse(child, node));
+          } else {
+            traverse(node[key], node);
+          }
+        }
       }
     };
 
-    // Copy all properties from the original traverse function
-    Object.assign(safeTraverseFn, traverse);
-    return safeTraverseFn as typeof traverse;
-  }
-
-  public parseJavaScript(code: string, fileName?: string): ParsedAST {
-    try {
-      const ast = parser.parse(code, {
-        sourceType: 'module',
-        allowImportExportEverywhere: true,
-        allowAwaitOutsideFunction: true,
-        allowSuperOutsideMethod: true,
-        allowReturnOutsideFunction: true,
-        plugins: [
-          'jsx',
-          'typescript',
-          'decorators-legacy',
-          'classProperties',
-          'asyncGenerators',
-          'functionBind',
-          'exportDefaultFrom',
-          'dynamicImport',
-          'classPrivateProperties',
-          'classPrivateMethods',
-          'doExpressions',
-          'exportNamespaceFrom',
-          'functionSent',
-          'logicalAssignment',
-          'nullishCoalescingOperator',
-          'numericSeparator',
-          'objectRestSpread',
-          'optionalCatchBinding',
-          'optionalChaining',
-          'pipelineOperator',
-          'throwExpressions'
-        ]
-      });
-
-      if (fileName) {
-        this.outputASTToFile(ast, fileName);
-      }
-
-      return {
-        ast,
-        traverse: this.safeTraverse(ast),
-        types: t,
-        sourceCode: code
-      };
-    } catch (error) {
-      console.error('Failed to parse JavaScript/TypeScript:', error);
-      throw error;
-    }
-  }
-
-  public parseTypeScript(code: string, fileName?: string): ParsedAST {
-    try {
-      // Try TypeScript parser first
-      const ast = parseTypeScript(code, {
-        loc: true,
-        range: true,
-        tokens: true,
-        comments: true,
-        errorOnUnknownASTType: false,
-        errorOnTypeScriptSyntacticAndSemanticIssues: false,
-        jsx: true,
-        useJSXTextNode: true,
-        project: './tsconfig.json'
-      });
-
-      if (fileName) {
-        this.outputASTToFile(ast, fileName);
-      }
-
-      return {
-        ast,
-        traverse: this.safeTraverse(ast),
-        types: t,
-        sourceCode: code
-      };
-    } catch (error) {
-      // Fallback to Babel parser
-      console.warn('TypeScript parser failed, falling back to Babel:', error);
-      return this.parseJavaScript(code, fileName);
-    }
-  }
-
-  public parse(content: string, languageId: string, fileName: string): any {
-    this.outputChannel.appendLine(`[DEBUG] Starting AST parsing for ${fileName}`);
-    
-    if (languageId !== 'python') {
-      return null;
-    }
-
-    try {
-      // Use Python's built-in ast module
-      const { execSync } = require('child_process');
-      const pythonCode = `
-import ast
-import json
-
-def parse_ast(code):
-    tree = ast.parse(code)
-    return ast.dump(tree, include_attributes=True)
-
-code = '''${content.replace(/'/g, "\\'")}'''
-result = parse_ast(code)
-print(json.dumps(result))
-      `;
-
-      const astJson = execSync(`python -c "${pythonCode}"`).toString();
-      const tree = JSON.parse(astJson);
-
-      this.outputChannel.appendLine(`[DEBUG] Successfully parsed AST for ${fileName}`);
-      this.outputChannel.appendLine(`[DEBUG] AST node count: ${this.countNodes(tree)}`);
-      
-      return {
-        ast: tree,
-        traverse: (ast: any, visitor: any) => {
-          this.outputChannel.appendLine(`[DEBUG] Starting AST traversal for ${fileName}`);
-          const traverseNode = (node: any) => {
-            if (visitor.enter) {
-              visitor.enter(node);
-            }
-            
-            // Traverse child nodes
-            for (const key in node) {
-              if (node[key] && typeof node[key] === 'object') {
-                if (Array.isArray(node[key])) {
-                  node[key].forEach(traverseNode);
-                } else {
-                  traverseNode(node[key]);
-                }
-              }
-            }
-
-            if (visitor.exit) {
-              visitor.exit(node);
-            }
-          };
-
-          traverseNode(ast);
-          this.outputChannel.appendLine(`[DEBUG] Completed AST traversal for ${fileName}`);
-        }
-      };
-    } catch (error) {
-      this.outputChannel.appendLine(`[DEBUG] Error parsing AST for ${fileName}: ${error}`);
-      return null;
-    }
-  }
-
-  private countNodes(ast: any): number {
-    let count = 0;
-    traverse(ast, {
-      enter: () => count++
-    });
-    return count;
-  }
-
-  public getNodePosition(node: any, content: string): { line: number; column: number } {
-    const lines = content.split('\n');
-    let line = 1;
-    let column = 1;
-    
-    if (node.loc) {
-      line = node.loc.start.line;
-      column = node.loc.start.column;
-    }
-    
-    this.outputChannel.appendLine(`[DEBUG] Getting position for node type ${node.type} at line ${line}, column ${column}`);
-    return { line, column };
-  }
-
-  public getNodeText(node: any, sourceCode: string): string {
-    if (node.start !== undefined && node.end !== undefined) {
-      return sourceCode.substring(node.start, node.end);
-    }
-    return '';
+    traverse(ast);
   }
 }
