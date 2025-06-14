@@ -44,9 +44,9 @@ export class PythonSecurityRules {
         this.outputChannel.appendLine(`[DEBUG] Checking SQL injection rule on node type: ${node.type}`);
         
         // Check for f-strings, string formatting, or string concatenation with SQL keywords
-        if (node.type === 'JoinedStr' || 
-            (node.type === 'BinOp' && node.op.type === 'Add') ||
-            (node.type === 'Call' && node.func?.attr === 'format')) {
+        if (node.type === 'string' || 
+            (node.type === 'binary_operator' && node.operator === '+') ||
+            (node.type === 'call' && node.func?.attr === 'format')) {
           const nodeText = context.getNodeText(node).toLowerCase();
           this.outputChannel.appendLine(`[DEBUG] Found string formatting node with text: ${nodeText}`);
           const sqlKeywords = ['select', 'insert', 'update', 'delete', 'drop', 'create', 'alter'];
@@ -82,7 +82,7 @@ export class PythonSecurityRules {
         console.log(`[DEBUG] Checking command injection rule on node type: ${node.type}`);
         this.outputChannel.appendLine(`[DEBUG] Checking command injection rule on node type: ${node.type}`);
         
-        if (node.type === 'Call') {
+        if (node.type === 'call') {
           const funcName = this.getFunctionName(node);
           this.outputChannel.appendLine(`[DEBUG] Found function call: ${funcName}`);
           
@@ -132,9 +132,9 @@ export class PythonSecurityRules {
         console.log(`[DEBUG] Checking path traversal rule for node type: ${node.type}`);
         this.outputChannel.appendLine(`[DEBUG] Checking path traversal rule for node type: ${node.type}`);
         
-        if (node.type === 'JoinedStr' || 
-            (node.type === 'BinOp' && node.op.type === 'Add') ||
-            (node.type === 'Call' && node.func?.attr === 'join')) {
+        if (node.type === 'string' || 
+            (node.type === 'binary_operator' && node.operator === '+') ||
+            (node.type === 'call' && node.func?.attr === 'join')) {
           const nodeText = context.getNodeText(node);
           this.outputChannel.appendLine(`[DEBUG] Found string formatting node with text: ${nodeText}`);
           
@@ -172,7 +172,7 @@ export class PythonSecurityRules {
         console.log(`[DEBUG] Checking insecure deserialization rule for node type: ${node.type}`);
         this.outputChannel.appendLine(`[DEBUG] Checking insecure deserialization rule for node type: ${node.type}`);
         
-        if (node.type === 'Call') {
+        if (node.type === 'call') {
           const funcName = this.getFunctionName(node);
           this.outputChannel.appendLine(`[DEBUG] Found function call: ${funcName}`);
           
@@ -212,7 +212,7 @@ export class PythonSecurityRules {
         console.log(`[DEBUG] Checking hardcoded secrets rule for node type: ${node.type}`);
         this.outputChannel.appendLine(`[DEBUG] Checking hardcoded secrets rule for node type: ${node.type}`);
         
-        if (node.type === 'Assign') {
+        if (node.type === 'assignment') {
           const targetName = this.getVariableName(node.targets[0]);
           this.outputChannel.appendLine(`[DEBUG] Found assignment to variable: ${targetName}`);
           
@@ -258,7 +258,7 @@ export class PythonSecurityRules {
         console.log(`[DEBUG] Checking insecure file permissions rule for node type: ${node.type}`);
         this.outputChannel.appendLine(`[DEBUG] Checking insecure file permissions rule for node type: ${node.type}`);
         
-        if (node.type === 'Call' && this.getFunctionName(node) === 'chmod') {
+        if (node.type === 'call' && this.getFunctionName(node) === 'chmod') {
           console.log('[DEBUG] Found chmod call');
           this.outputChannel.appendLine('[DEBUG] Found chmod call');
           
@@ -294,7 +294,7 @@ export class PythonSecurityRules {
         console.log(`[DEBUG] Checking IDOR rule for node type: ${node.type}`);
         this.outputChannel.appendLine(`[DEBUG] Checking IDOR rule for node type: ${node.type}`);
         
-        if (node.type === 'FunctionDef' && 
+        if (node.type === 'function_definition' && 
             node.decorator_list?.some((d: any) => 
               d.func?.attr === 'route' || d.func?.id?.name === 'route')) {
           console.log(`[DEBUG] Found route handler: ${node.name}`);
@@ -334,28 +334,24 @@ export class PythonSecurityRules {
     return '';
   }
 
+  private isUserInput(node: any): boolean {
+    return node.type === 'identifier' || node.type === 'attribute';
+  }
+
   private containsVariableExpression(node: any): boolean {
     if (!node) return false;
     
-    if (node.type === 'Name') {
+    if (this.isUserInput(node)) {
       return true;
     }
     
-    if (node.type === 'JoinedStr') {
-      return true;
-    }
-    
-    if (node.type === 'Call') {
-      return true;
-    }
-    
-    if (node.type === 'BinOp') {
+    if (node.type === 'binary_operator') {
       return this.containsVariableExpression(node.left) || 
              this.containsVariableExpression(node.right);
     }
     
-    if (node.type === 'Attribute') {
-      return this.containsVariableExpression(node.value);
+    if (node.type === 'call') {
+      return true; // Function calls might return user input
     }
     
     return false;

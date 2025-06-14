@@ -93,11 +93,18 @@ export class ASTSecurityEngine {
       sourceCode: content,
       languageId,
       getNodeText: (node: any) => {
-        return content.substring(node.start, node.end);
+        if (!node || !node.loc) return '';
+        const start = node.loc.start;
+        const end = node.loc.end;
+        const lines = content.split('\n');
+        if (start.line === end.line) {
+          return lines[start.line - 1].substring(start.column, end.column);
+        }
+        return lines.slice(start.line - 1, end.line).join('\n');
       },
       isUserInput: (node: any) => {
         // Check if node represents user input (e.g., function parameters, form values)
-        return node.type === 'Identifier' || node.type === 'MemberExpression';
+        return node.type === 'Name' || node.type === 'Attribute';
       },
       isTainted: (node: any) => {
         // Check if node represents potentially tainted data
@@ -152,7 +159,7 @@ export class ASTSecurityEngine {
   }
 
   private isUserInput(node: any): boolean {
-    return node.type === 'Identifier' || node.type === 'MemberExpression';
+    return node.type === 'Name' || node.type === 'Attribute';
   }
 
   private containsVariableExpression(node: any): boolean {
@@ -162,12 +169,12 @@ export class ASTSecurityEngine {
       return true;
     }
     
-    if (node.type === 'BinaryExpression') {
+    if (node.type === 'BinOp') {
       return this.containsVariableExpression(node.left) || 
              this.containsVariableExpression(node.right);
     }
     
-    if (node.type === 'CallExpression') {
+    if (node.type === 'Call') {
       return true; // Function calls might return user input
     }
     
