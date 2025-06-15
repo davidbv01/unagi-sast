@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { Vulnerability, ScanResult } from '../types';
-import { SecurityRuleEngine } from './SecurityRuleEngine';
+import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
 import { OutputManager } from '../output/OutputManager';
 import { configManager } from '../config/ConfigurationManager';
 
@@ -30,7 +30,7 @@ export class ScanOrchestrator {
       progress.report({ message: `Scanning ${document.fileName}...` });
       console.log('[DEBUG] ⚙️ Running security rule engine...');
       
-      const vulnerabilities = await this.ruleEngine.scanContent(content, document.languageId, document.fileName);
+      const vulnerabilities = await this.ruleEngine.analyzeFile(content, document.languageId, document.fileName);
       console.log(`[DEBUG] 🔎 Found ${vulnerabilities.length} potential vulnerabilities`);
       
       if (vulnerabilities.length === 0) {
@@ -112,4 +112,4 @@ export class ScanOrchestrator {
   public clearResults(): void {
     this.outputManager.clearResults();
   }
-}
+} 

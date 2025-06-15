@@ -1,8 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { CommandTrigger } from './triggers/CommandTrigger';
-import { AutoTrigger } from './triggers/AutoTrigger';
+import { CommandTrigger } from './core/CommandTrigger';
 import { configManager } from './config/ConfigurationManager';
 
 // This method is called when your extension is activated
@@ -21,12 +20,6 @@ export function activate(context: vscode.ExtensionContext) {
 	const commandTrigger = new CommandTrigger();
 	commandTrigger.registerCommands(context);
 	console.log('✅ Command triggers registered');
-
-	// Initialize auto triggers
-	console.log('🔄 Setting up auto triggers...');
-	const autoTrigger = new AutoTrigger();
-	autoTrigger.registerAutoTriggers(context);
-	console.log('✅ Auto triggers registered');
 
 	// Register configuration change listener
 	console.log('👂 Registering configuration change listener...');

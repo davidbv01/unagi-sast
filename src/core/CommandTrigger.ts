@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ScanOrchestrator } from '../scanners/ScanOrchestrator';
+import { ScanOrchestrator } from './ScanOrchestrator';
 import { OutputManager } from '../output/OutputManager';
 
 export class CommandTrigger {

@@ -1,0 +1,35 @@
+id: user-input-sources
+name: User Input Sources
+description: Identifies points where user input enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: http-request
+    pattern: request\.(?:form|args|query|json|get_json|data|files)\.[a-zA-Z0-9_]+
+    message: User input from HTTP request
+    description: Data from HTTP request parameters
+    severity: HIGH
+
+  - id: console-input
+    pattern: input\(|sys\.stdin\.read
+    message: User input from console
+    description: Data from console input
+    severity: HIGH
+
+  - id: file-read
+    pattern: open\(.*\)\.read\(|read\(|readline\(|readlines\(
+    message: User input from file
+    description: Data from file read operations
+    severity: MEDIUM
+
+  - id: environment
+    pattern: os\.environ\.get\(|os\.getenv\(
+    message: User input from environment
+    description: Data from environment variables
+    severity: MEDIUM
+
+  - id: database
+    pattern: cursor\.execute\(|db\.query\(|session\.query\(
+    message: User input from database
+    description: Data from database queries
+    severity: MEDIUM 

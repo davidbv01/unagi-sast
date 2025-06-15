@@ -1,0 +1,47 @@
+id: input-validation
+name: Input Validation and Sanitization
+description: Identifies input validation and sanitization points
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: sql-parameterized
+    pattern: cursor\.execute\(.*\?.*\)|db\.execute\(.*\?.*\)
+    message: Parameterized SQL query
+    description: SQL query using parameterized statements
+    effectiveness: 1.0
+
+  - id: command-args
+    pattern: subprocess\.(?:run|call|Popen)\(.*args\s*=\s*\[
+    message: Command execution with argument list
+    description: Command execution using argument list instead of shell
+    effectiveness: 0.9
+
+  - id: path-sanitize
+    pattern: os\.path\.normpath\(|os\.path\.abspath\(|os\.path\.realpath\(
+    message: Path normalization
+    description: Path normalization to prevent traversal
+    effectiveness: 0.8
+
+  - id: yaml-safe
+    pattern: yaml\.safe_load\(
+    message: Safe YAML loading
+    description: Safe YAML deserialization
+    effectiveness: 1.0
+
+  - id: input-validation
+    pattern: re\.match\(|re\.search\(|re\.fullmatch\(
+    message: Regular expression validation
+    description: Input validation using regular expressions
+    effectiveness: 0.7
+
+  - id: string-escape
+    pattern: re\.escape\(|html\.escape\(|cgi\.escape\(
+    message: String escaping
+    description: String escaping to prevent injection
+    effectiveness: 0.8
+
+  - id: type-check
+    pattern: isinstance\(|type\(.*\)\s*==\s*
+    message: Type checking
+    description: Type checking for input validation
+    effectiveness: 0.6 
