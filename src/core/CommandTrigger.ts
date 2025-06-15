@@ -43,43 +43,5 @@ export class CommandTrigger {
         }
       })
     );
-
-    // Register command to scan workspace
-    context.subscriptions.push(
-      vscode.commands.registerCommand('unagi.scanWorkspace', async () => {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-          vscode.window.showWarningMessage('No workspace folder found');
-          return;
-        }
-
-        try {
-          vscode.window.withProgress({
-            location: vscode.ProgressLocation.Window,
-            title: "Unagi",
-            cancellable: false
-          }, async (progress) => {
-            progress.report({ message: 'Scanning workspace...' });
-            
-            // Find all Python files in workspace
-            const pythonFiles = await vscode.workspace.findFiles('**/*.py');
-            let totalVulnerabilities = 0;
-
-            for (const file of pythonFiles) {
-              const document = await vscode.workspace.openTextDocument(file);
-              progress.report({ message: `Scanning ${file.fsPath}...` });
-              
-              const result = await this.scanOrchestrator.scanFile(document);
-              await this.outputManager.displayResults(result);
-              totalVulnerabilities += result.vulnerabilities.length;
-            }
-
-            progress.report({ message: `Found ${totalVulnerabilities} vulnerabilities across ${pythonFiles.length} files` });
-          });
-        } catch (error: any) {
-          vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
-        }
-      })
-    );
   }
 } 

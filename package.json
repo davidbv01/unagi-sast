@@ -58,14 +58,6 @@
         "title": "Unagi: Scan Actual File"
       },
       {
-        "command": "unagi.scanWorkspace",
-        "title": "Unagi: Scan Workspace"
-      },
-      {
-        "command": "unagi.scanSelected",
-        "title": "Unagi: Scan Selected File"
-      },
-      {
         "command": "unagi.clearResults",
         "title": "Unagi: Clear Results"
       }
@@ -145,13 +137,6 @@
       }
     },
     "menus": {
-      "explorer/context": [
-        {
-          "when": "resourceExtname =~ /\\.(js|ts|jsx|tsx|py|java|php)$/",
-          "command": "unagi.scanSelected",
-          "group": "navigation"
-        }
-      ],
       "editor/context": [
         {
           "when": "resourceExtname =~ /\\.(js|ts|jsx|tsx|py|java|php)$/",

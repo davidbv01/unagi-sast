@@ -24,7 +24,7 @@ export class SecurityRuleEngine {
     this.sanitizerDetector = new SanitizerDetector();
   }
 
-  public analyzeFile(content: string, languageId: string, file: string): Vulnerability[] {
+  public analyzeFile(ast: any, languageId: string, file: string, content: string): Vulnerability[] {
     try {
       console.log(`[DEBUG] 🔍 Starting security analysis for file: ${file}`);
       console.log(`[DEBUG] 📄 Language: ${languageId}`);
@@ -41,7 +41,7 @@ export class SecurityRuleEngine {
 
       // Taint analysis
       console.log('[DEBUG] 🔄 Running taint analysis');
-      const taintPaths = this.taintAnalyzer.analyzeTaintFlow(content, file);
+      const taintPaths = this.taintAnalyzer.analyzeTaintFlow(ast, content);
       const taintVulnerabilities = this.taintAnalyzer.getVulnerabilitiesFromPaths(taintPaths);
       console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
 
