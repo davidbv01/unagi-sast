@@ -5,6 +5,7 @@ import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SourceDetector } from '../analysis/detectors/SourceDetector';
 import { SinkDetector } from '../analysis/detectors/SinkDetector';
 import { SanitizerDetector } from '../analysis/detectors/SanitizerDetector';
+import * as vscode from 'vscode';
 
 export class SecurityRuleEngine {
   private astParser: ASTParser;
@@ -23,46 +24,56 @@ export class SecurityRuleEngine {
     this.sanitizerDetector = new SanitizerDetector();
   }
 
-  public async analyzeFile(content: string, file: string, languageId: string): Promise<Vulnerability[]> {
-    const vulnerabilities: Vulnerability[] = [];
-
+  public analyzeFile(content: string, languageId: string, file: string): Vulnerability[] {
     try {
-      // 1. Pattern-based analysis
-      const patternVulnerabilities = this.patternMatcher.findPatterns(content, file);
-      vulnerabilities.push(...patternVulnerabilities);
+      console.log(`[DEBUG] 🔍 Starting security analysis for file: ${file}`);
+      console.log(`[DEBUG] 📄 Language: ${languageId}`);
+      
+      // Pattern-based analysis
+      console.log('[DEBUG] 📊 Running pattern-based analysis');
+      const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
+      console.log(`[DEBUG] 📌 Found ${patternVulnerabilities.length} pattern-based vulnerabilities`);
 
-      // 2. AST-based analysis (for supported languages)
-      if (languageId === 'python') {
-        const ast = await this.astParser.parse(content, languageId, file);
-        if (ast) {
-          // 2.1 Taint analysis
-          const taintPaths = this.taintAnalyzer.analyzeTaintFlow(ast, content);
-          const taintVulnerabilities = this.taintAnalyzer.getVulnerabilitiesFromPaths(taintPaths);
-          
-          // Add file information to vulnerabilities
-          taintVulnerabilities.forEach(v => v.file = file);
-          vulnerabilities.push(...taintVulnerabilities);
-        }
-      }
+      // Set file path for pattern vulnerabilities
+      patternVulnerabilities.forEach(vuln => {
+        vuln.file = file;
+      });
 
-      // 3. Remove duplicates (same vulnerability type at same location)
-      return this.removeDuplicates(vulnerabilities);
+      // Taint analysis
+      console.log('[DEBUG] 🔄 Running taint analysis');
+      const taintPaths = this.taintAnalyzer.analyzeTaintFlow(content, file);
+      const taintVulnerabilities = this.taintAnalyzer.getVulnerabilitiesFromPaths(taintPaths);
+      console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
+
+      // Set file path for taint vulnerabilities
+      taintVulnerabilities.forEach(vuln => {
+        vuln.file = file;
+      });
+
+      // Combine results
+      const allVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
+      console.log(`[DEBUG] ✅ Analysis complete. Total vulnerabilities found: ${allVulnerabilities.length}`);
+
+      return allVulnerabilities;
     } catch (error) {
-      console.error(`Error analyzing file ${file}:`, error);
-      return vulnerabilities;
+      console.error(`[ERROR] Failed to analyze file ${file}:`, error);
+      vscode.window.showErrorMessage(`Failed to analyze file: ${file}`);
+      return [];
     }
   }
 
-  private removeDuplicates(vulnerabilities: Vulnerability[]): Vulnerability[] {
-    const seen = new Set<string>();
-    return vulnerabilities.filter(v => {
-      const key = `${v.type}-${v.file}-${v.line}-${v.column}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
+  public reloadRules(): void {
+    try {
+      console.log('[DEBUG] 🔄 Reloading all security rules');
+      this.patternMatcher.reloadRules();
+      this.sourceDetector.reloadRules();
+      this.sinkDetector.reloadRules();
+      this.sanitizerDetector.reloadRules();
+      console.log('[DEBUG] ✅ Rules reloaded successfully');
+    } catch (error) {
+      console.error('[ERROR] Failed to reload rules:', error);
+      vscode.window.showErrorMessage('Failed to reload security rules');
+    }
   }
 
   public getSourceDetector(): SourceDetector {

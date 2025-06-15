@@ -5,22 +5,22 @@ severity: CRITICAL
 type: SINK
 sinks:
   - id: sql-injection
-    pattern: cursor\.execute\(.*\+.*\)|db\.execute\(.*\+.*\)
-    message: SQL query with string concatenation
+    pattern: cursor\.execute\(.*\{.*\}\)|db\.execute\(.*\{.*\}\)
+    message: SQL query with string interpolation
     description: Potential SQL injection vulnerability
     vulnerabilityType: SQL_INJECTION
     severity: CRITICAL
 
   - id: command-injection
-    pattern: subprocess\.(?:run|call|Popen)\(.*shell\s*=\s*True
+    pattern: subprocess\.(?:run|call|Popen|check_output)\(.*shell\s*=\s*True
     message: Command execution with shell=True
     description: Potential command injection vulnerability
     vulnerabilityType: COMMAND_INJECTION
     severity: CRITICAL
 
   - id: path-traversal
-    pattern: open\(.*\+.*\)|os\.path\.join\(.*\+.*\)
-    message: File operation with path concatenation
+    pattern: open\(.*\{.*\}\)|os\.path\.join\(.*\{.*\}\)
+    message: File operation with path interpolation
     description: Potential path traversal vulnerability
     vulnerabilityType: PATH_TRAVERSAL
     severity: HIGH

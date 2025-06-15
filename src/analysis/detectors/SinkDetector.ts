@@ -24,7 +24,7 @@ export interface Sink {
 
 export class SinkDetector extends RuleLoader {
   constructor() {
-    super(path.join(__dirname, '../rules/sinks'));
+    super('sinks');
     this.loadRules();
   }
 

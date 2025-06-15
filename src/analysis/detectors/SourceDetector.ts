@@ -21,7 +21,7 @@ export interface Source {
 
 export class SourceDetector extends RuleLoader {
   constructor() {
-    super(path.join(__dirname, '../rules/sources'));
+    super('sources');
     this.loadRules();
   }
 

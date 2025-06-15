@@ -21,7 +21,7 @@ export interface Sanitizer {
 
 export class SanitizerDetector extends RuleLoader {
   constructor() {
-    super(path.join(__dirname, '../rules/sanitizers'));
+    super('sanitizers');
     this.loadRules();
   }
 

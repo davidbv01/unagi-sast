@@ -23,7 +23,8 @@
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run copy-rules",
+    "copy-rules": "node scripts/copy-rules.js",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@types/babel__traverse": "^7.20.7",
+    "@types/fs-extra": "^11.0.4",
     "@types/glob": "^8.1.0",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.6",
@@ -40,6 +42,7 @@
     "@typescript-eslint/parser": "^6.13.1",
     "@vscode/test-electron": "^2.3.8",
     "eslint": "^8.54.0",
+    "fs-extra": "^11.3.0",
     "glob": "^10.3.10",
     "mocha": "^10.2.0",
     "typescript": "^5.3.2"

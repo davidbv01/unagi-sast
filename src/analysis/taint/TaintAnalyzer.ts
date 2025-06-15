@@ -36,22 +36,36 @@ export class TaintAnalyzer {
   }
 
   public analyzeTaintFlow(ast: any, content: string): TaintPath[] {
+    console.log('[DEBUG] 🔍 Starting taint flow analysis');
     const paths: TaintPath[] = [];
     const taintNodes = this.buildTaintGraph(ast, content);
+    console.log(`[DEBUG] 📊 Built taint graph with ${taintNodes.length} nodes`);
 
     // Find all paths from sources to sinks
     for (const source of this.sourceDetector.getAllSources()) {
+      console.log(`[DEBUG] 🔎 Looking for source: ${source.id} (${source.description})`);
       const sourceNodes = this.findSourceNodes(taintNodes, source);
+      console.log(`[DEBUG] 📌 Found ${sourceNodes.length} source nodes for ${source.id}`);
       
       for (const sourceNode of sourceNodes) {
+        console.log(`[DEBUG] 🎯 Analyzing source node at line ${sourceNode.location.line}`);
+        
         for (const sink of this.sinkDetector.getAllSinks()) {
+          console.log(`[DEBUG] 🔍 Looking for sink: ${sink.id} (${sink.description})`);
           const sinkNodes = this.findSinkNodes(taintNodes, sink);
+          console.log(`[DEBUG] 📌 Found ${sinkNodes.length} sink nodes for ${sink.id}`);
           
           for (const sinkNode of sinkNodes) {
+            console.log(`[DEBUG] 🎯 Analyzing sink node at line ${sinkNode.location.line}`);
             const path = this.findPath(sourceNode, sinkNode, taintNodes);
+            
             if (path) {
+              console.log(`[DEBUG] 🛣️ Found path from source to sink (${path.length} nodes)`);
               const sanitizationPoints = this.findSanitizationPoints(path);
+              console.log(`[DEBUG] 🛡️ Found ${sanitizationPoints.length} sanitization points`);
+              
               const isVulnerable = this.isPathVulnerable(path, sanitizationPoints);
+              console.log(`[DEBUG] ⚠️ Path is ${isVulnerable ? 'vulnerable' : 'safe'}`);
               
               paths.push({
                 source,
@@ -66,10 +80,12 @@ export class TaintAnalyzer {
       }
     }
 
+    console.log(`[DEBUG] ✅ Taint flow analysis complete. Found ${paths.length} paths`);
     return paths;
   }
 
   private buildTaintGraph(ast: any, content: string): TaintNode[] {
+    console.log('[DEBUG] 🏗️ Building taint graph');
     const nodes: TaintNode[] = [];
     
     const traverse = (node: any, parent: TaintNode | null = null) => {
@@ -90,6 +106,7 @@ export class TaintAnalyzer {
       // Check if node is a source
       const source = this.sourceDetector.detectSource(node, content);
       if (source) {
+        console.log(`[DEBUG] 📥 Found source at line ${taintNode.location.line}: ${source.id}`);
         taintNode.source = source;
         taintNode.tainted = true;
       }
@@ -97,6 +114,7 @@ export class TaintAnalyzer {
       // Check if node is a sanitizer
       const sanitizer = this.sanitizerDetector.detectSanitizer(node, content);
       if (sanitizer) {
+        console.log(`[DEBUG] 🛡️ Found sanitizer at line ${taintNode.location.line}: ${sanitizer.id}`);
         taintNode.sanitizers.push(sanitizer);
       }
 
@@ -130,6 +148,7 @@ export class TaintAnalyzer {
   }
 
   private findPath(source: TaintNode, sink: TaintNode, nodes: TaintNode[]): TaintNode[] | null {
+    console.log(`[DEBUG] 🔍 Finding path from source (line ${source.location.line}) to sink (line ${sink.location.line})`);
     const visited = new Set<string>();
     const path: TaintNode[] = [];
 
@@ -152,7 +171,17 @@ export class TaintAnalyzer {
       return false;
     };
 
-    return dfs(source) ? path : null;
+    const result = dfs(source);
+    if (result) {
+      console.log(`[DEBUG] 🛣️ Found path with ${path.length} nodes`);
+      path.forEach((node, index) => {
+        console.log(`[DEBUG] 📍 Path node ${index + 1}: ${node.type} at line ${node.location.line}`);
+      });
+    } else {
+      console.log('[DEBUG] ❌ No path found');
+    }
+
+    return result ? path : null;
   }
 
   private findSanitizationPoints(path: TaintNode[]): Sanitizer[] {
@@ -165,6 +194,7 @@ export class TaintAnalyzer {
 
   private isPathVulnerable(path: TaintNode[], sanitizers: Sanitizer[]): boolean {
     const effectiveness = this.sanitizerDetector.calculateSanitizationEffectiveness(sanitizers);
+    console.log(`[DEBUG] 🛡️ Sanitization effectiveness: ${effectiveness * 100}%`);
     return effectiveness < 0.9; // Consider path vulnerable if sanitization effectiveness is less than 90%
   }
 
@@ -175,20 +205,24 @@ export class TaintAnalyzer {
   }
 
   public getVulnerabilitiesFromPaths(paths: TaintPath[]): Vulnerability[] {
+    console.log(`[DEBUG] 📊 Converting ${paths.length} paths to vulnerabilities`);
     return paths
       .filter(path => path.isVulnerable)
-      .map(path => ({
-        id: `${path.source.id}-${path.sink.id}-${path.path[0].location.line}`,
-        type: path.sink.vulnerabilityType,
-        severity: path.sink.severity,
-        message: `Potential ${path.sink.vulnerabilityType} vulnerability: ${path.source.description} flows to ${path.sink.description}`,
-        file: '', // This should be set by the caller
-        line: path.path[0].location.line,
-        column: path.path[0].location.column,
-        rule: path.sink.id,
-        description: `Data flows from ${path.source.description} to ${path.sink.description} without proper sanitization`,
-        recommendation: this.getRecommendation(path.sink.vulnerabilityType)
-      }));
+      .map(path => {
+        console.log(`[DEBUG] ⚠️ Creating vulnerability for path from ${path.source.id} to ${path.sink.id}`);
+        return {
+          id: `${path.source.id}-${path.sink.id}-${path.path[0].location.line}`,
+          type: path.sink.vulnerabilityType,
+          severity: path.sink.severity,
+          message: `Potential ${path.sink.vulnerabilityType} vulnerability: ${path.source.description} flows to ${path.sink.description}`,
+          file: '', // This should be set by the caller
+          line: path.path[0].location.line,
+          column: path.path[0].location.column,
+          rule: path.sink.id,
+          description: `Data flows from ${path.source.description} to ${path.sink.description} without proper sanitization`,
+          recommendation: this.getRecommendation(path.sink.vulnerabilityType)
+        };
+      });
   }
 
   private getRecommendation(type: VulnerabilityType): string {
