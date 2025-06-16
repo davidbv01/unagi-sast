@@ -9,3 +9,8 @@ sanitizers:
     message: Parameterized SQL query
     description: SQL query using parameterized statements
     effectiveness: 1.0
+  - id: alphanumeric-validation
+    pattern: \.isalnum\(\)|\.isalpha\(\)|\.isdigit\(\)
+    message: Input validation using character type checking
+    description: Input validation using alphanumeric/alphabetic/digit checks
+    effectiveness: 0.8
