@@ -13,7 +13,6 @@ export interface Source extends BaseDetectorItem {
 export class SourceDetector extends RuleLoader {
   constructor() {
     super('sources');
-    this.loadRules();
   }
 
   public detectSource(node: any, content: string): Source | null {

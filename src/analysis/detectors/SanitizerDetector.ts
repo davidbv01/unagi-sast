@@ -13,7 +13,6 @@ export interface Sanitizer extends BaseDetectorItem {
 export class SanitizerDetector extends RuleLoader {
   constructor() {
     super('sanitizers');
-    this.loadRules();
   }
 
   public detectSanitizer(node: any, content: string): Sanitizer | null {

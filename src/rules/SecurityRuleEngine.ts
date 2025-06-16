@@ -27,11 +27,13 @@ export class SecurityRuleEngine {
 
   constructor() {
     this.astParser = new ASTParser();
-    this.taintAnalyzer = new TaintAnalyzer();
     this.patternMatcher = new PatternMatcher();
     this.sourceDetector = new SourceDetector();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
+    
+    // Pass shared detector instances to TaintAnalyzer to avoid duplicate rule loading
+    this.taintAnalyzer = new TaintAnalyzer(this.sourceDetector, this.sinkDetector, this.sanitizerDetector);
   }
 
   public analyzeFile(ast: any, languageId: string, file: string, content: string): AnalysisResult {

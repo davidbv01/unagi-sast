@@ -40,10 +40,10 @@ export class TaintAnalyzer {
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
 
-  constructor() {
-    this.sourceDetector = new SourceDetector();
-    this.sinkDetector = new SinkDetector();
-    this.sanitizerDetector = new SanitizerDetector();
+  constructor(sourceDetector: SourceDetector, sinkDetector: SinkDetector, sanitizerDetector: SanitizerDetector) {
+    this.sourceDetector = sourceDetector;
+    this.sinkDetector = sinkDetector;
+    this.sanitizerDetector = sanitizerDetector;
   }
 
   public analyzeTaintFlow(ast: any, content: string): TaintPath[] {

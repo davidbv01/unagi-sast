@@ -15,7 +15,6 @@ export interface Sink extends BaseDetectorItem {
 export class SinkDetector extends RuleLoader {
   constructor() {
     super('sinks');
-    this.loadRules();
   }
 
   public detectSink(node: any, content: string): Sink | null {
