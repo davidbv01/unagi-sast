@@ -39,9 +39,20 @@ export class ScanOrchestrator {
         let ast;
         try {
           ast = this.astParser.parse(content, document.languageId, document.fileName);
+          if (!ast) {
+            throw new Error('AST parser returned null or undefined');
+          }
         } catch (error) {
-          console.error('[ERROR] Failed to parse file into AST:', error);
-          ast = null;
+          console.error('[ERROR] Failed to parse file into AST:', {
+            file: document.fileName,
+            language: document.languageId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined
+          });
+          vscode.window.showErrorMessage(
+            `Failed to parse ${document.fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
+          return this.createScanResult(document, [], startTime, lines.length);
         }
         let vulnerabilities: Vulnerability[] = [];
         
@@ -52,22 +63,14 @@ export class ScanOrchestrator {
             
             if (vulnerabilities.length === 0) {
               console.log('[DEBUG] ℹ️ No vulnerabilities found. Checking if rules were properly loaded...');
-              console.log('[DEBUG] ℹ️ File content preview:', content.substring(0, 200) + '...');
             }
           } catch (error) {
             console.error('[ERROR] Failed to analyze AST:', error);
             vscode.window.showErrorMessage(`Failed to analyze file: ${document.fileName}`);
           }
         } else {
-          console.log('[DEBUG] ⚠️ Could not parse file into AST, skipping taint analysis');
-          // Still run pattern-based analysis even if AST parsing fails
-          try {
-            vulnerabilities = await this.ruleEngine.analyzeFile(content, document.languageId, document.fileName, content);
-            console.log(`[DEBUG] 🔎 Found ${vulnerabilities.length} pattern-based vulnerabilities`);
-          } catch (error) {
-            console.error('[ERROR] Failed to run pattern analysis:', error);
-            vscode.window.showErrorMessage(`Failed to run pattern analysis on file: ${document.fileName}`);
-          }
+          console.log('[DEBUG] ⚠️ Could not parse file into AST, skipping analysis');
+          vscode.window.showWarningMessage(`Could not parse file into AST: ${document.fileName}`);
         }
         
         const result = this.createScanResult(document, vulnerabilities, startTime, lines.length);

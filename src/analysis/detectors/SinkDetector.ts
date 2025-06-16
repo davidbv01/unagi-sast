@@ -1,23 +1,13 @@
 import { VulnerabilityType, Severity } from '../../types';
 import { RuleLoader, Rule } from '../rules/RuleLoader';
+import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
 import * as path from 'path';
 
-interface SinkRule extends Rule {
-  sinks: {
-    id: string;
-    pattern: string;
-    message: string;
-    description: string;
-    vulnerabilityType: string;
-    severity: string;
-  }[];
+interface SinkRule extends BaseRule {
+  sinks: BaseDetectorItem[];
 }
 
-export interface Sink {
-  id: string;
-  type: string;
-  pattern: string;
-  description: string;
+export interface Sink extends BaseDetectorItem {
   vulnerabilityType: VulnerabilityType;
   severity: Severity;
 }
@@ -29,47 +19,47 @@ export class SinkDetector extends RuleLoader {
   }
 
   public detectSink(node: any, content: string): Sink | null {
-    for (const rule of this.getAllRules() as SinkRule[]) {
-      for (const sink of rule.sinks) {
-        const regex = new RegExp(sink.pattern);
-        const nodeText = this.getNodeText(node, content);
-        
-        if (regex.test(nodeText)) {
-          return {
-            id: sink.id,
-            type: rule.type,
-            pattern: sink.pattern,
-            description: sink.description,
-            vulnerabilityType: sink.vulnerabilityType as VulnerabilityType,
-            severity: sink.severity as Severity
-          };
-        }
-      }
+    const rules = this.getAllRules() as SinkRule[];
+    const sinks = DetectorUtils.getAllItems(rules, 'sinks');
+    const detectedItem = DetectorUtils.detectItem(node, content, sinks);
+    
+    if (detectedItem) {
+      return {
+        ...detectedItem,
+        vulnerabilityType: this.getVulnerabilityTypeForSink(detectedItem.id, rules),
+        severity: this.getSeverityForSink(detectedItem.id, rules)
+      };
     }
     return null;
   }
 
-  private getNodeText(node: any, content: string): string {
-    if (!node || !node.loc) return '';
-    const start = node.loc.start.offset;
-    const end = node.loc.end.offset;
-    return content.substring(start, end);
+  private getVulnerabilityTypeForSink(sinkId: string, rules: SinkRule[]): VulnerabilityType {
+    for (const rule of rules) {
+      const sink = rule.sinks.find(s => s.id === sinkId);
+      if (sink) {
+        return rule.type as VulnerabilityType;
+      }
+    }
+    return VulnerabilityType.GENERIC;
+  }
+
+  private getSeverityForSink(sinkId: string, rules: SinkRule[]): Severity {
+    for (const rule of rules) {
+      const sink = rule.sinks.find(s => s.id === sinkId);
+      if (sink) {
+        return rule.severity as Severity;
+      }
+    }
+    return Severity.MEDIUM;
   }
 
   public getAllSinks(): Sink[] {
-    const sinks: Sink[] = [];
-    for (const rule of this.getAllRules() as SinkRule[]) {
-      for (const sink of rule.sinks) {
-        sinks.push({
-          id: sink.id,
-          type: rule.type,
-          pattern: sink.pattern,
-          description: sink.description,
-          vulnerabilityType: sink.vulnerabilityType as VulnerabilityType,
-          severity: sink.severity as Severity
-        });
-      }
-    }
-    return sinks;
+    const rules = this.getAllRules() as SinkRule[];
+    const sinks = DetectorUtils.getAllItems(rules, 'sinks');
+    return sinks.map(sink => ({
+      ...sink,
+      vulnerabilityType: this.getVulnerabilityTypeForSink(sink.id, rules),
+      severity: this.getSeverityForSink(sink.id, rules)
+    }));
   }
 } 

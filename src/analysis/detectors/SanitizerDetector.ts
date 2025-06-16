@@ -1,22 +1,13 @@
 import { RuleLoader, Rule } from '../rules/RuleLoader';
+import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
 import * as path from 'path';
 
-interface SanitizerRule extends Rule {
-  sanitizers: {
-    id: string;
-    pattern: string;
-    message: string;
-    description: string;
-    effectiveness: number;
-  }[];
+interface SanitizerRule extends BaseRule {
+  sanitizers: BaseDetectorItem[];
 }
 
-export interface Sanitizer {
-  id: string;
-  type: string;
-  pattern: string;
-  description: string;
-  effectiveness: number; // 0-1 scale of how effective the sanitization is
+export interface Sanitizer extends BaseDetectorItem {
+  effectiveness: number;
 }
 
 export class SanitizerDetector extends RuleLoader {
@@ -26,46 +17,36 @@ export class SanitizerDetector extends RuleLoader {
   }
 
   public detectSanitizer(node: any, content: string): Sanitizer | null {
-    for (const rule of this.getAllRules() as SanitizerRule[]) {
-      for (const sanitizer of rule.sanitizers) {
-        const regex = new RegExp(sanitizer.pattern);
-        const nodeText = this.getNodeText(node, content);
-        
-        if (regex.test(nodeText)) {
-          return {
-            id: sanitizer.id,
-            type: rule.type,
-            pattern: sanitizer.pattern,
-            description: sanitizer.description,
-            effectiveness: sanitizer.effectiveness
-          };
-        }
-      }
+    const rules = this.getAllRules() as SanitizerRule[];
+    const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
+    const detectedItem = DetectorUtils.detectItem(node, content, sanitizers);
+    
+    if (detectedItem) {
+      return {
+        ...detectedItem,
+        effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules)
+      };
     }
     return null;
   }
 
-  private getNodeText(node: any, content: string): string {
-    if (!node || !node.loc) return '';
-    const start = node.loc.start.offset;
-    const end = node.loc.end.offset;
-    return content.substring(start, end);
+  private getEffectivenessForSanitizer(sanitizerId: string, rules: SanitizerRule[]): number {
+    for (const rule of rules) {
+      const sanitizer = rule.sanitizers.find(s => s.id === sanitizerId);
+      if (sanitizer) {
+        return (sanitizer as any).effectiveness || 0.5; // Default to 0.5 if not specified
+      }
+    }
+    return 0.5; // Default effectiveness
   }
 
   public getAllSanitizers(): Sanitizer[] {
-    const sanitizers: Sanitizer[] = [];
-    for (const rule of this.getAllRules() as SanitizerRule[]) {
-      for (const sanitizer of rule.sanitizers) {
-        sanitizers.push({
-          id: sanitizer.id,
-          type: rule.type,
-          pattern: sanitizer.pattern,
-          description: sanitizer.description,
-          effectiveness: sanitizer.effectiveness
-        });
-      }
-    }
-    return sanitizers;
+    const rules = this.getAllRules() as SanitizerRule[];
+    const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
+    return sanitizers.map(sanitizer => ({
+      ...sanitizer,
+      effectiveness: this.getEffectivenessForSanitizer(sanitizer.id, rules)
+    }));
   }
 
   public calculateSanitizationEffectiveness(sanitizers: Sanitizer[]): number {
