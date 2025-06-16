@@ -1,7 +1,6 @@
 import { VulnerabilityType, Severity } from '../../types';
-import { RuleLoader, Rule } from '../rules/RuleLoader';
+import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
-import * as path from 'path';
 
 interface SinkRule extends BaseRule {
   sinks: BaseDetectorItem[];

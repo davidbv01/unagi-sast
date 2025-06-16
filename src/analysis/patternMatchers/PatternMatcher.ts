@@ -1,6 +1,5 @@
 import { Vulnerability, VulnerabilityType, Severity } from '../../types';
 import { Rule, RuleLoader } from '../rules/RuleLoader';
-import * as path from 'path';
 
 export interface Pattern {
   id: string;

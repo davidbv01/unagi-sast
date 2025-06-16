@@ -1,5 +1,4 @@
 import { Vulnerability } from '../types';
-import { ASTParser } from '../parser/ASTParser';
 import { TaintAnalyzer } from '../analysis/taint/TaintAnalyzer';
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SourceDetector } from '../analysis/detectors/SourceDetector';
@@ -18,7 +17,6 @@ export interface AnalysisResult {
 }
 
 export class SecurityRuleEngine {
-  private astParser: ASTParser;
   private taintAnalyzer: TaintAnalyzer;
   private patternMatcher: PatternMatcher;
   private sourceDetector: SourceDetector;
@@ -26,7 +24,6 @@ export class SecurityRuleEngine {
   private sanitizerDetector: SanitizerDetector;
 
   constructor() {
-    this.astParser = new ASTParser();
     this.patternMatcher = new PatternMatcher();
     this.sourceDetector = new SourceDetector();
     this.sinkDetector = new SinkDetector();
