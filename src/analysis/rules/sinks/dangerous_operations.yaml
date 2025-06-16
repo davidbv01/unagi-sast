@@ -4,51 +4,9 @@ description: Identifies dangerous operations that could lead to vulnerabilities
 severity: CRITICAL
 type: SINK
 sinks:
-  - id: sql-injection
-    pattern: cursor\.execute\(.*\{.*\}\)|db\.execute\(.*\{.*\}\)
-    message: SQL query with string interpolation
-    description: Potential SQL injection vulnerability
-    vulnerabilityType: SQL_INJECTION
-    severity: CRITICAL
-
-  - id: command-injection
-    pattern: subprocess\.(?:run|call|Popen|check_output)\(.*shell\s*=\s*True
-    message: Command execution with shell=True
-    description: Potential command injection vulnerability
-    vulnerabilityType: COMMAND_INJECTION
-    severity: CRITICAL
-
   - id: path-traversal
     pattern: open\(.*\{.*\}\)|os\.path\.join\(.*\{.*\}\)
     message: File operation with path interpolation
     description: Potential path traversal vulnerability
     vulnerabilityType: PATH_TRAVERSAL
     severity: HIGH
-
-  - id: yaml-deserialization
-    pattern: yaml\.load\(
-    message: Unsafe YAML deserialization
-    description: Potential insecure deserialization vulnerability
-    vulnerabilityType: INSECURE_DESERIALIZATION
-    severity: HIGH
-
-  - id: pickle-deserialization
-    pattern: pickle\.loads?\(
-    message: Unsafe Pickle deserialization
-    description: Potential insecure deserialization vulnerability
-    vulnerabilityType: INSECURE_DESERIALIZATION
-    severity: HIGH
-
-  - id: eval-injection
-    pattern: eval\(
-    message: Code execution with eval
-    description: Potential command injection vulnerability
-    vulnerabilityType: COMMAND_INJECTION
-    severity: CRITICAL
-
-  - id: exec-injection
-    pattern: exec\(
-    message: Code execution with exec
-    description: Potential command injection vulnerability
-    vulnerabilityType: COMMAND_INJECTION
-    severity: CRITICAL 
