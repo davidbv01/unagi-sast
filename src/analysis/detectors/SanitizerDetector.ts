@@ -14,11 +14,11 @@ export class SanitizerDetector extends RuleLoader {
     super('sanitizers');
   }
 
-  public detectSanitizer(node: any, content: string): Sanitizer | null {
+  public detectSanitizer(node: any): Sanitizer | null {
     if (node.type === 'call' || node.type === 'expression_statement') {
       const rules = this.getAllRules() as SanitizerRule[];
       const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
-      const detectedItem = DetectorUtils.detectItem(node, content, sanitizers);
+      const detectedItem = DetectorUtils.detectItem(node, sanitizers);
       
       if (detectedItem) {
         return {

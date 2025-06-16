@@ -16,11 +16,11 @@ export class SinkDetector extends RuleLoader {
     super('sinks');
   }
 
-  public detectSink(node: any, content: string): Sink | null {
+  public detectSink(node: any): Sink | null {
     if (node.type === 'call' || node.type === 'expression_statement') {
       const rules = this.getAllRules() as SinkRule[];
       const sinks = DetectorUtils.getAllItems(rules, 'sinks');
-      const detectedItem = DetectorUtils.detectItem(node, content, sinks);
+      const detectedItem = DetectorUtils.detectItem(node, sinks);
       
       if (detectedItem) {
         return {

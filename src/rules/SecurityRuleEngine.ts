@@ -48,7 +48,7 @@ export class SecurityRuleEngine {
         if (!node) return;
         
         // Check for sources
-        const source = this.sourceDetector.detectSource(node, content);
+        const source = this.sourceDetector.detectSource(node);
         if (source) {
           detectedSources.push({
             ...source,
@@ -60,7 +60,7 @@ export class SecurityRuleEngine {
         }
         
         // Check for sinks
-        const sink = this.sinkDetector.detectSink(node, content);
+        const sink = this.sinkDetector.detectSink(node);
         if (sink) {
           detectedSinks.push({
             ...sink,
@@ -72,7 +72,7 @@ export class SecurityRuleEngine {
         }
         
         // Check for sanitizers
-        const sanitizer = this.sanitizerDetector.detectSanitizer(node, content);
+        const sanitizer = this.sanitizerDetector.detectSanitizer(node);
         if (sanitizer) {
           detectedSanitizers.push({
             ...sanitizer,

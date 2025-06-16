@@ -46,10 +46,10 @@ export class TaintAnalyzer {
     this.sanitizerDetector = sanitizerDetector;
   }
 
-  public analyzeTaintFlow(ast: any, content: string): TaintPath[] {
+  public analyzeTaintFlow(ast: any): TaintPath[] {
     console.log('[DEBUG] 🔍 Starting taint flow analysis');
     const paths: TaintPath[] = [];
-    const taintNodes = this.buildTaintGraph(ast, content);
+    const taintNodes = this.buildTaintGraph(ast);
     console.log(`[DEBUG] 📊 Built taint graph with ${taintNodes.length} nodes`);
 
     // Find all paths from sources to sinks
@@ -95,7 +95,7 @@ export class TaintAnalyzer {
     return paths;
   }
 
-  private buildTaintGraph(ast: any, content: string): TaintNode[] {
+  private buildTaintGraph(ast: any): TaintNode[] {
     console.log('[DEBUG] 🏗️ Building taint graph');
     const nodes: TaintNode[] = [];
     
@@ -131,7 +131,7 @@ export class TaintAnalyzer {
       };
 
       // Check if node is a source
-      const source = this.sourceDetector.detectSource(node, content);
+      const source = this.sourceDetector.detectSource(node);
       if (source) {
         console.log(`[DEBUG] 📥 Found source at line ${taintNode.location.line}: ${source.id}`);
         taintNode.source = source;

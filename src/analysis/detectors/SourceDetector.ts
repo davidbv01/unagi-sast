@@ -14,11 +14,11 @@ export class SourceDetector extends RuleLoader {
     super('sources');
   }
 
-  public detectSource(node: any, content: string): Source | null {
+  public detectSource(node: any): Source | null {
     if (node.type === 'call' || node.type === 'expression_statement') {
       const rules = this.getAllRules() as SourceRule[];
       const sources = DetectorUtils.getAllItems(rules, 'sources');
-      const detectedItem = DetectorUtils.detectItem(node, content, sources);
+      const detectedItem = DetectorUtils.detectItem(node, sources);
     
     
       if (detectedItem) {
