@@ -139,11 +139,11 @@ export class TaintAnalyzer {
       }
 
       // Check if node is a sanitizer
-      const sanitizer = this.sanitizerDetector.detectSanitizer(node, content);
+      /*const sanitizer = this.sanitizerDetector.detectSanitizer(node, content);
       if (sanitizer) {
         console.log(`[DEBUG] 🛡️ Found sanitizer at line ${taintNode.location.line}: ${sanitizer.id}`);
         taintNode.sanitizers.push(sanitizer);
-      }
+      }*/
 
       nodes.push(taintNode);
 

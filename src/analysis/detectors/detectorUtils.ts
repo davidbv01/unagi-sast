@@ -22,9 +22,27 @@ export class DetectorUtils {
    */
   public static getNodeText(node: any, content: string): string {
     if (!node || !node.loc) return '';
-    const start = node.loc.start.offset;
-    const end = node.loc.end.offset;
-    return content.substring(start, end);
+    
+    // Split content into lines
+    const lines = content.split('\n');
+    
+    // Get start and end positions
+    const startLine = node.loc.start.line - 1; // Convert to 0-based index
+    const startCol = node.loc.start.column;
+    const endLine = node.loc.end.line - 1; // Convert to 0-based index
+    const endCol = node.loc.end.column;
+    
+    // If it's a single line
+    if (startLine === endLine) {
+      return lines[startLine].substring(startCol, endCol);
+    }
+    
+    // For multi-line nodes
+    const firstLine = lines[startLine].substring(startCol);
+    const lastLine = lines[endLine].substring(0, endCol);
+    const middleLines = lines.slice(startLine + 1, endLine);
+    
+    return [firstLine, ...middleLines, lastLine].join('\n');
   }
 
   /**

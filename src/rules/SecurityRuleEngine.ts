@@ -5,7 +5,17 @@ import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SourceDetector } from '../analysis/detectors/SourceDetector';
 import { SinkDetector } from '../analysis/detectors/SinkDetector';
 import { SanitizerDetector } from '../analysis/detectors/SanitizerDetector';
+import { Source } from '../analysis/detectors/SourceDetector';
+import { Sink } from '../analysis/detectors/SinkDetector';
+import { Sanitizer } from '../analysis/detectors/SanitizerDetector';
 import * as vscode from 'vscode';
+
+export interface AnalysisResult {
+  vulnerabilities: Vulnerability[];
+  sources: (Source & { line: number; column: number; endLine: number; endColumn: number })[];
+  sinks: (Sink & { line: number; column: number; endLine: number; endColumn: number })[];
+  sanitizers: (Sanitizer & { line: number; column: number; endLine: number; endColumn: number })[];
+}
 
 export class SecurityRuleEngine {
   private astParser: ASTParser;
@@ -24,10 +34,80 @@ export class SecurityRuleEngine {
     this.sanitizerDetector = new SanitizerDetector();
   }
 
-  public analyzeFile(ast: any, languageId: string, file: string, content: string): Vulnerability[] {
+  public analyzeFile(ast: any, languageId: string, file: string, content: string): AnalysisResult {
     try {
       console.log(`[DEBUG] 🔍 Starting security analysis for file: ${file}`);
       console.log(`[DEBUG] 📄 Language: ${languageId}`);
+      
+      // Detect sources, sinks, and sanitizers by traversing the AST
+      console.log('[DEBUG] 🔍 Detecting sources, sinks, and sanitizers');
+      const detectedSources: (Source & { line: number; column: number; endLine: number; endColumn: number })[] = [];
+      const detectedSinks: (Sink & { line: number; column: number; endLine: number; endColumn: number })[] = [];
+      const detectedSanitizers: (Sanitizer & { line: number; column: number; endLine: number; endColumn: number })[] = [];
+      
+      const traverse = (node: any) => {
+        if (!node) return;
+        
+        // Check for sources
+        const source = this.sourceDetector.detectSource(node, content);
+        if (source) {
+          detectedSources.push({
+            ...source,
+            line: node.loc?.start?.line || 1,
+            column: node.loc?.start?.column || 0,
+            endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
+            endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
+          });
+        }
+        
+        // Check for sinks
+        const sink = this.sinkDetector.detectSink(node, content);
+        if (sink) {
+          detectedSinks.push({
+            ...sink,
+            line: node.loc?.start?.line || 1,
+            column: node.loc?.start?.column || 0,
+            endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
+            endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
+          });
+        }
+        
+        // Check for sanitizers
+        const sanitizer = this.sanitizerDetector.detectSanitizer(node, content);
+        if (sanitizer) {
+          detectedSanitizers.push({
+            ...sanitizer,
+            line: node.loc?.start?.line || 1,
+            column: node.loc?.start?.column || 0,
+            endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
+            endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
+          });
+        }
+        
+        // Recursively traverse children
+        if (node.children) {
+          for (const child of node.children) {
+            traverse(child);
+          }
+        }
+      };
+      
+      traverse(ast);
+      
+      console.log(`[DEBUG] 📌 Found ${detectedSources.length} sources:`);
+      detectedSources.forEach((source, index) => {
+        console.log(`[DEBUG]   ${index + 1}. ${source.type} - ${source.description} (Line: ${source.line}, Column: ${source.column})`);
+      });
+      
+      console.log(`[DEBUG] 📌 Found ${detectedSinks.length} sinks:`);
+      detectedSinks.forEach((sink, index) => {
+        console.log(`[DEBUG]   ${index + 1}. ${sink.type} - ${sink.description} (Line: ${sink.line}, Column: ${sink.column})`);
+      });
+      
+      console.log(`[DEBUG] 📌 Found ${detectedSanitizers.length} sanitizers:`);
+      detectedSanitizers.forEach((sanitizer, index) => {
+        console.log(`[DEBUG]   ${index + 1}. ${sanitizer.type} - ${sanitizer.description} (Line: ${sanitizer.line}, Column: ${sanitizer.column})`);
+      });
       
       // Pattern-based analysis
       console.log('[DEBUG] 📊 Running pattern-based analysis');
@@ -39,26 +119,23 @@ export class SecurityRuleEngine {
         vuln.file = file;
       });
 
-      // Taint analysis
-      console.log('[DEBUG] 🔄 Running taint analysis');
-      const taintPaths = this.taintAnalyzer.analyzeTaintFlow(ast, content);
-      const taintVulnerabilities = this.taintAnalyzer.getVulnerabilitiesFromPaths(taintPaths);
-      console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
+      console.log(`[DEBUG] ✅ Analysis complete. Found ${patternVulnerabilities.length} vulnerabilities, ${detectedSources.length} sources, ${detectedSinks.length} sinks, ${detectedSanitizers.length} sanitizers`);
 
-      // Set file path for taint vulnerabilities
-      taintVulnerabilities.forEach(vuln => {
-        vuln.file = file;
-      });
-
-      // Combine results
-      const allVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
-      console.log(`[DEBUG] ✅ Analysis complete. Total vulnerabilities found: ${allVulnerabilities.length}`);
-
-      return allVulnerabilities;
+      return {
+        vulnerabilities: patternVulnerabilities,
+        sources: detectedSources,
+        sinks: detectedSinks,
+        sanitizers: detectedSanitizers
+      };
     } catch (error) {
       console.error(`[ERROR] Failed to analyze file ${file}:`, error);
       vscode.window.showErrorMessage(`Failed to analyze file: ${file}`);
-      return [];
+      return {
+        vulnerabilities: [],
+        sources: [],
+        sinks: [],
+        sanitizers: []
+      };
     }
   }
 

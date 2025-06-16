@@ -17,15 +17,18 @@ export class SourceDetector extends RuleLoader {
   }
 
   public detectSource(node: any, content: string): Source | null {
-    const rules = this.getAllRules() as SourceRule[];
-    const sources = DetectorUtils.getAllItems(rules, 'sources');
-    const detectedItem = DetectorUtils.detectItem(node, content, sources);
+    if (node.type === 'call' || node.type === 'expression_statement') {
+      const rules = this.getAllRules() as SourceRule[];
+      const sources = DetectorUtils.getAllItems(rules, 'sources');
+      const detectedItem = DetectorUtils.detectItem(node, content, sources);
     
-    if (detectedItem) {
-      return {
-        ...detectedItem,
-        severity: this.getSeverityForSource(detectedItem.id, rules)
-      };
+    
+      if (detectedItem) {
+        return {
+          ...detectedItem,
+          severity: this.getSeverityForSource(detectedItem.id, rules)
+        };
+      }
     }
     return null;
   }

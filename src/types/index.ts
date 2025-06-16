@@ -43,6 +43,36 @@ export enum Severity {
 export interface ScanResult {
   file: string;
   vulnerabilities: Vulnerability[];
+  sources: Array<{ 
+    id: string; 
+    type: string; 
+    pattern: string; 
+    description: string; 
+    line: number; 
+    column: number; 
+    endLine: number; 
+    endColumn: number; 
+  }>;
+  sinks: Array<{ 
+    id: string; 
+    type: string; 
+    pattern: string; 
+    description: string; 
+    line: number; 
+    column: number; 
+    endLine: number; 
+    endColumn: number; 
+  }>;
+  sanitizers: Array<{ 
+    id: string; 
+    type: string; 
+    pattern: string; 
+    description: string; 
+    line: number; 
+    column: number; 
+    endLine: number; 
+    endColumn: number; 
+  }>;
   scanTime: number;
   linesScanned: number;
   language: string;

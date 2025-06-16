@@ -7,8 +7,8 @@ export class CommandTrigger {
   private outputManager: OutputManager;
 
   constructor() {
-    this.scanOrchestrator = new ScanOrchestrator();
     this.outputManager = new OutputManager();
+    this.scanOrchestrator = new ScanOrchestrator(this.outputManager);
   }
 
   public registerCommands(context: vscode.ExtensionContext): void {
@@ -35,7 +35,6 @@ export class CommandTrigger {
           }, async (progress) => {
             progress.report({ message: `Scanning ${document.fileName}...` });
             const result = await this.scanOrchestrator.scanFile(document);
-            await this.outputManager.displayResults(result);
             progress.report({ message: `Found ${result.vulnerabilities.length} vulnerabilities` });
           });
         } catch (error: any) {
