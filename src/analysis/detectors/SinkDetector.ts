@@ -17,16 +17,18 @@ export class SinkDetector extends RuleLoader {
   }
 
   public detectSink(node: any, content: string): Sink | null {
-    const rules = this.getAllRules() as SinkRule[];
-    const sinks = DetectorUtils.getAllItems(rules, 'sinks');
-    const detectedItem = DetectorUtils.detectItem(node, content, sinks);
-    
-    if (detectedItem) {
-      return {
-        ...detectedItem,
-        vulnerabilityType: this.getVulnerabilityTypeForSink(detectedItem.id, rules),
-        severity: this.getSeverityForSink(detectedItem.id, rules)
-      };
+    if (node.type === 'call' || node.type === 'expression_statement') {
+      const rules = this.getAllRules() as SinkRule[];
+      const sinks = DetectorUtils.getAllItems(rules, 'sinks');
+      const detectedItem = DetectorUtils.detectItem(node, content, sinks);
+      
+      if (detectedItem) {
+        return {
+          ...detectedItem,
+          vulnerabilityType: this.getVulnerabilityTypeForSink(detectedItem.id, rules),
+          severity: this.getSeverityForSink(detectedItem.id, rules)
+        };
+      }
     }
     return null;
   }

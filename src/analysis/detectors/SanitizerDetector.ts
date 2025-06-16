@@ -15,15 +15,17 @@ export class SanitizerDetector extends RuleLoader {
   }
 
   public detectSanitizer(node: any, content: string): Sanitizer | null {
-    const rules = this.getAllRules() as SanitizerRule[];
-    const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
-    const detectedItem = DetectorUtils.detectItem(node, content, sanitizers);
-    
-    if (detectedItem) {
-      return {
-        ...detectedItem,
-        effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules)
-      };
+    if (node.type === 'call' || node.type === 'expression_statement') {
+      const rules = this.getAllRules() as SanitizerRule[];
+      const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
+      const detectedItem = DetectorUtils.detectItem(node, content, sanitizers);
+      
+      if (detectedItem) {
+        return {
+          ...detectedItem,
+          effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules)
+        };
+      }
     }
     return null;
   }

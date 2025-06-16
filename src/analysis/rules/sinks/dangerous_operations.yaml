@@ -4,9 +4,9 @@ description: Identifies dangerous operations that could lead to vulnerabilities
 severity: CRITICAL
 type: SINK
 sinks:
-  - id: path-traversal
-    pattern: open\(.*\{.*\}\)|os\.path\.join\(.*\{.*\}\)
-    message: File operation with path interpolation
-    description: Potential path traversal vulnerability
-    vulnerabilityType: PATH_TRAVERSAL
+  - id: command-injection
+    pattern: os\.system\(|subprocess\.call\(|subprocess\.run\(|subprocess\.Popen\(|os\.popen\(
+    message: Command execution function
+    description: Potential command injection vulnerability
+    vulnerabilityType: COMMAND_INJECTION
     severity: HIGH
