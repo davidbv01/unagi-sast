@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { ScanResult, Vulnerability, OutputFormat, Severity } from '../types';
-import { configManager } from '../config/ConfigurationManager';
+import { ScanResult, Vulnerability, Severity } from '../types';
 
 export class OutputManager {
   private outputChannel: vscode.OutputChannel;
@@ -44,33 +43,6 @@ export class OutputManager {
     console.log('✅ Results display completed');
   }
 
-  public async displayWorkspaceResults(results: ScanResult[]): Promise<void> {
-    const totalVulnerabilities = results.reduce((total, result) => total + result.vulnerabilities.length, 0);
-    
-    // Update status bar
-    this.updateStatusBar(results);
-    
-    // Display all results in problems panel
-    this.displayMultipleInProblemsPanel(results);
-    
-    // Log summary to output channel
-    this.logWorkspaceSummary(results);
-    
-    // Show notification
-    if (totalVulnerabilities > 0) {
-      vscode.window.showWarningMessage(
-        `Unagi: Found ${totalVulnerabilities} security issues across ${results.length} files.`,
-        'View Problems'
-      ).then(selection => {
-        if (selection === 'View Problems') {
-          vscode.commands.executeCommand('workbench.panel.markers.view.focus');
-        }
-      });
-    } else {
-      vscode.window.showInformationMessage('Unagi: No security issues found in workspace.');
-    }
-  }
-
   private displayInProblemsPanel(result: ScanResult): void {
     const diagnostics: vscode.Diagnostic[] = result.vulnerabilities.map(vuln => {
       const range = new vscode.Range(
@@ -103,113 +75,12 @@ export class OutputManager {
     }
   }
 
-  private displayInOutputChannel(result: ScanResult): void {
-    this.outputChannel.clear();
-    this.outputChannel.appendLine(`=== Unagi SAST Scan Results ===`);
-    this.outputChannel.appendLine(`File: ${result.file}`);
-    this.outputChannel.appendLine(`Scan Time: ${result.scanTime}ms`);
-    this.outputChannel.appendLine(`Lines Scanned: ${result.linesScanned}`);
-    this.outputChannel.appendLine(`Vulnerabilities Found: ${result.vulnerabilities.length}`);
-    this.outputChannel.appendLine('');
-    
-    if (result.vulnerabilities.length === 0) {
-      this.outputChannel.appendLine('✅ No security issues found.');
-    } else {
-      result.vulnerabilities.forEach((vuln, index) => {
-        this.outputChannel.appendLine(`${index + 1}. ${vuln.severity.toUpperCase()}: ${vuln.message}`);
-        this.outputChannel.appendLine(`   Line ${vuln.line}: ${vuln.description}`);
-        this.outputChannel.appendLine(`   Recommendation: ${vuln.recommendation}`);
-        this.outputChannel.appendLine('');
-      });
-    }
-    
-    this.outputChannel.show();
-  }
-
   private displayInline(result: ScanResult): void {
     console.log('🎯 Displaying inline results...');
     vscode.window.showInformationMessage(
       `Scan complete: ${result.vulnerabilities.length} issues found`
     );
     console.log('✅ Inline results displayed');
-  }
-
-  private async generateReportFile(results: ScanResult[]): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      return;
-    }
-
-    const reportContent = this.generateHTMLReport(results);
-    const reportPath = vscode.Uri.joinPath(workspaceFolder.uri, 'unagi-security-report.html');
-    
-    await vscode.workspace.fs.writeFile(reportPath, Buffer.from(reportContent));
-    
-    vscode.window.showInformationMessage(
-      'Security report generated successfully!',
-      'Open Report'
-    ).then(selection => {
-      if (selection === 'Open Report') {
-        vscode.env.openExternal(reportPath);
-      }
-    });
-  }
-
-  private generateHTMLReport(results: ScanResult[]): string {
-    const totalVulnerabilities = results.reduce((total, result) => total + result.vulnerabilities.length, 0);
-    const timestamp = new Date().toISOString();
-    
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Unagi SAST Security Report</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { background: #f5f5f5; padding: 20px; border-radius: 5px; }
-        .summary { display: flex; gap: 20px; margin: 20px 0; }
-        .stat { background: #e3f2fd; padding: 15px; border-radius: 5px; flex: 1; text-align: center; }
-        .vulnerability { border-left: 4px solid #ff9800; margin: 10px 0; padding: 10px; background: #fff3e0; }
-        .critical { border-left-color: #f44336; background: #ffebee; }
-        .high { border-left-color: #ff9800; background: #fff3e0; }
-        .medium { border-left-color: #ff5722; background: #fce4ec; }
-        .low { border-left-color: #4caf50; background: #e8f5e9; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🛡️ Unagi SAST Security Report</h1>
-        <p>Generated on: ${timestamp}</p>
-    </div>
-    
-    <div class="summary">
-        <div class="stat">
-            <h3>${results.length}</h3>
-            <p>Files Scanned</p>
-        </div>
-        <div class="stat">
-            <h3>${totalVulnerabilities}</h3>
-            <p>Issues Found</p>
-        </div>
-    </div>
-    
-    ${results.map(result => `
-        <h2>📄 ${result.file}</h2>
-        <p>Scan Time: ${result.scanTime}ms | Lines: ${result.linesScanned}</p>
-        
-        ${result.vulnerabilities.length === 0 ? 
-          '<p>✅ No security issues found in this file.</p>' :
-          result.vulnerabilities.map(vuln => `
-            <div class="vulnerability ${vuln.severity}">
-                <h4>${vuln.severity.toUpperCase()}: ${vuln.message}</h4>
-                <p><strong>Line ${vuln.line}:</strong> ${vuln.description}</p>
-                <p><strong>Recommendation:</strong> ${vuln.recommendation}</p>
-            </div>
-          `).join('')
-        }
-    `).join('')}
-</body>
-</html>`;
   }
 
   private logWorkspaceSummary(results: ScanResult[]): void {
