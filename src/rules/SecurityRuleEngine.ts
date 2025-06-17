@@ -88,18 +88,23 @@ export class SecurityRuleEngine {
       
       traverse(ast);
       
-      console.log(`[DEBUG] 📌 Found ${detectedSources.length} sources:`);
-      detectedSources.forEach((source, index) => {
+      // Deduplicate sources, sinks, and sanitizers
+      const uniqueSources = this.deduplicateDetections(detectedSources);
+      const uniqueSinks = this.deduplicateDetections(detectedSinks);
+      const uniqueSanitizers = this.deduplicateDetections(detectedSanitizers);
+      
+      console.log(`[DEBUG] 📌 Found ${uniqueSources.length} unique sources (${detectedSources.length - uniqueSources.length} duplicates removed):`);
+      uniqueSources.forEach((source, index) => {
         console.log(`[DEBUG]   ${index + 1}. ${source.type} - ${source.description} (Line: ${source.line}, Column: ${source.column})`);
       });
       
-      console.log(`[DEBUG] 📌 Found ${detectedSinks.length} sinks:`);
-      detectedSinks.forEach((sink, index) => {
+      console.log(`[DEBUG] 📌 Found ${uniqueSinks.length} unique sinks (${detectedSinks.length - uniqueSinks.length} duplicates removed):`);
+      uniqueSinks.forEach((sink, index) => {
         console.log(`[DEBUG]   ${index + 1}. ${sink.type} - ${sink.description} (Line: ${sink.line}, Column: ${sink.column})`);
       });
       
-      console.log(`[DEBUG] 📌 Found ${detectedSanitizers.length} sanitizers:`);
-      detectedSanitizers.forEach((sanitizer, index) => {
+      console.log(`[DEBUG] 📌 Found ${uniqueSanitizers.length} unique sanitizers (${detectedSanitizers.length - uniqueSanitizers.length} duplicates removed):`);
+      uniqueSanitizers.forEach((sanitizer, index) => {
         console.log(`[DEBUG]   ${index + 1}. ${sanitizer.type} - ${sanitizer.description} (Line: ${sanitizer.line}, Column: ${sanitizer.column})`);
       });
         // Pattern-based analysis
@@ -112,12 +117,12 @@ export class SecurityRuleEngine {
         vuln.file = file;
       });      // Taint analysis - check for unsanitized paths between sources and sinks
       console.log('[DEBUG] 🧬 Running taint analysis');
-      const taintVulnerabilities = this.performTaintAnalysis(detectedSources, detectedSinks, detectedSanitizers, file, content);
+      const taintVulnerabilities = this.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers, file, content);
       
       // Enhanced data flow analysis (for more sophisticated tracking)
       console.log('[DEBUG] 🔬 Running enhanced data flow analysis');
       try {
-        const dataFlows = this.analyzeDataFlow(ast, detectedSources, detectedSinks, detectedSanitizers);
+        const dataFlows = this.analyzeDataFlow(ast, uniqueSources, uniqueSinks, uniqueSanitizers);
         console.log(`[DEBUG] 📊 Enhanced analysis found ${dataFlows.length} data flow paths`);
         
         // Add vulnerabilities from enhanced analysis
@@ -151,13 +156,13 @@ export class SecurityRuleEngine {
       // Combine all vulnerabilities
       const allVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
 
-      console.log(`[DEBUG] ✅ Analysis complete. Found ${allVulnerabilities.length} total vulnerabilities, ${detectedSources.length} sources, ${detectedSinks.length} sinks, ${detectedSanitizers.length} sanitizers`);
+      console.log(`[DEBUG] ✅ Analysis complete. Found ${allVulnerabilities.length} total vulnerabilities, ${uniqueSources.length} sources, ${uniqueSinks.length} sinks, ${uniqueSanitizers.length} sanitizers`);
 
       return {
         vulnerabilities: allVulnerabilities,
-        sources: detectedSources,
-        sinks: detectedSinks,
-        sanitizers: detectedSanitizers
+        sources: uniqueSources,
+        sinks: uniqueSinks,
+        sanitizers: uniqueSanitizers
       };
     } catch (error) {
       console.error(`[ERROR] Failed to analyze file ${file}:`, error);
@@ -535,5 +540,24 @@ export class SecurityRuleEngine {
     }
     
     return summary;
+  }
+
+  private deduplicateDetections(detections: any[]): any[] {
+    const uniqueDetections: any[] = [];
+    const seen: Set<string> = new Set();
+
+    for (const detection of detections) {
+      // Create a key based on detection type, line number, and detection ID (ignoring column differences)
+      const key = `${detection.type}_${detection.id}_${detection.line}`;
+      
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueDetections.push(detection);
+      } else {
+        console.log(`[DEBUG] 🔄 Removing duplicate detection: ${detection.type} (${detection.id}) at line ${detection.line}`);
+      }
+    }
+
+    return uniqueDetections;
   }
 }
