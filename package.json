@@ -150,7 +150,9 @@
     "@babel/parser": "^7.27.5",
     "@babel/traverse": "^7.27.4",
     "@babel/types": "^7.27.6",
+    "openai": "^5.5.1",
     "tree-sitter": "^0.22.4",
-    "tree-sitter-python": "^0.23.6"
+    "tree-sitter-python": "^0.23.6",
+    "zod": "^3.25.67"
   }
 }

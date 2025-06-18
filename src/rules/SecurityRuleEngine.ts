@@ -6,7 +6,7 @@ import { SanitizerDetector } from '../analysis/detectors/SanitizerDetector';
 import { Source } from '../analysis/detectors/SourceDetector';
 import { Sink } from '../analysis/detectors/SinkDetector';
 import { Sanitizer } from '../analysis/detectors/SanitizerDetector';
-import { CodeExtractor, DataFlowCodeExtraction } from '../ai';
+import { AiEngine, AiAnalysisRequest, AiAnalysisResult } from '../ai';
 import * as vscode from 'vscode';
 
 export interface AnalysisResult {
@@ -29,7 +29,7 @@ export class SecurityRuleEngine {
     this.sanitizerDetector = new SanitizerDetector();
       }
 
-  public analyzeFile(ast: any, languageId: string, file: string, content: string): AnalysisResult {
+  public async analyzeFile(ast: any, languageId: string, file: string, content: string): Promise<AnalysisResult> {
     try {
       console.log(`[DEBUG] 🔍 Starting security analysis for file: ${file}`);
       console.log(`[DEBUG] 📄 Language: ${languageId}`);
@@ -124,16 +124,26 @@ export class SecurityRuleEngine {
       // Enhanced data flow analysis (for more sophisticated tracking)
       console.log('[DEBUG] 🔬 Running enhanced data flow analysis');
       
-      // AI-powered code extraction for each data flow
-      console.log('[DEBUG] 🤖 Running AI code extraction for data flows');
-      const codeExtractions: DataFlowCodeExtraction[] = [];
+      // AI-powered analysis using AiEngine (code extraction + verification)
+      console.log('[DEBUG] 🤖 Running AI analysis with AiEngine');
+      let aiAnalysisResult: AiAnalysisResult | null = null;
       
-      for (const vulnerability of taintVulnerabilities) {
+      if (taintVulnerabilities.length > 0) {
         try {
-          const extraction = CodeExtractor.extractDataFlowCode(file, vulnerability.pathLines ?? []);
-          codeExtractions.push(extraction);
-        } catch (extractionError) {
-          console.log(`[DEBUG] ⚠️ Code extraction failed for data flow: ${extractionError}`);
+          const aiEngine = new AiEngine();
+          const aiRequest: AiAnalysisRequest = {
+            file,
+            vulnerabilities: taintVulnerabilities,
+            context: {
+              language: languageId,
+              additionalInfo: `Static analysis detected ${taintVulnerabilities.length} potential vulnerabilities`
+            }
+          };
+          
+          aiAnalysisResult = await aiEngine.analyzeVulnerabilities(aiRequest);
+          console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
+        } catch (aiError) {
+          console.log(`[DEBUG] ⚠️ AI analysis failed: ${aiError}`);
         }
       }
       
