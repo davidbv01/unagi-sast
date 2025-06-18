@@ -6,6 +6,7 @@ import { SanitizerDetector } from '../analysis/detectors/SanitizerDetector';
 import { Source } from '../analysis/detectors/SourceDetector';
 import { Sink } from '../analysis/detectors/SinkDetector';
 import { Sanitizer } from '../analysis/detectors/SanitizerDetector';
+import { CodeExtractor, DataFlowCodeExtraction } from '../ai';
 import * as vscode from 'vscode';
 
 export interface AnalysisResult {
@@ -107,7 +108,8 @@ export class SecurityRuleEngine {
       uniqueSanitizers.forEach((sanitizer, index) => {
         console.log(`[DEBUG]   ${index + 1}. ${sanitizer.type} - ${sanitizer.description} (Line: ${sanitizer.line}, Column: ${sanitizer.column})`);
       });
-        // Pattern-based analysis
+
+      // Pattern-based analysis
       console.log('[DEBUG] 📊 Running pattern-based analysis');
       const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
       console.log(`[DEBUG] 📌 Found ${patternVulnerabilities.length} pattern-based vulnerabilities`);
@@ -121,41 +123,24 @@ export class SecurityRuleEngine {
       
       // Enhanced data flow analysis (for more sophisticated tracking)
       console.log('[DEBUG] 🔬 Running enhanced data flow analysis');
-      try {
-        const dataFlows = this.analyzeDataFlow(ast, uniqueSources, uniqueSinks, uniqueSanitizers);
-        console.log(`[DEBUG] 📊 Enhanced analysis found ${dataFlows.length} data flow paths`);
-        
-        // Add vulnerabilities from enhanced analysis
-        for (const flow of dataFlows) {
-          if (!flow.sanitized) {
-            const enhancedVuln = this.createTaintVulnerability(
-              flow.sourceNode, 
-              flow.sinkNode, 
-              file, 
-              []
-            );
-            enhancedVuln.id = `ENHANCED_${enhancedVuln.id}`;
-            enhancedVuln.message = `Enhanced analysis: ${enhancedVuln.message}`;
-            taintVulnerabilities.push(enhancedVuln);
-            
-            console.log(`[VULNERABILITY] 🔬 Enhanced Taint Analysis Vulnerability:`);
-            console.log(`  📁 File: ${file}`);
-            console.log(`  🔗 Data flow path detected through variable tracking`);
-            console.log(`  📍 Source: ${flow.sourceNode.type} at line ${flow.sourceNode.line}`);
-            console.log(`  🎯 Sink: ${flow.sinkNode.type} at line ${flow.sinkNode.line}`);
-            console.log(`  🔒 Sanitization: None detected in variable flow`);
-          }
+      
+      // AI-powered code extraction for each data flow
+      console.log('[DEBUG] 🤖 Running AI code extraction for data flows');
+      const codeExtractions: DataFlowCodeExtraction[] = [];
+      
+      for (const vulnerability of taintVulnerabilities) {
+        try {
+          const extraction = CodeExtractor.extractDataFlowCode(file, vulnerability.pathLines ?? []);
+          codeExtractions.push(extraction);
+        } catch (extractionError) {
+          console.log(`[DEBUG] ⚠️ Code extraction failed for data flow: ${extractionError}`);
         }
-      } catch (error) {
-        console.log('[DEBUG] ⚠️ Enhanced data flow analysis failed, continuing with basic analysis');
-        console.log(`[DEBUG] Error: ${error}`);
       }
       
       console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
 
       // Combine all vulnerabilities
       const allVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
-
       console.log(`[DEBUG] ✅ Analysis complete. Found ${allVulnerabilities.length} total vulnerabilities, ${uniqueSources.length} sources, ${uniqueSinks.length} sinks, ${uniqueSanitizers.length} sanitizers`);
 
       return {
@@ -244,21 +229,6 @@ export class SecurityRuleEngine {
             const vulnerability = this.createTaintVulnerability(source, sink, file, pathSanitizers);
             vulnerabilities.push(vulnerability);
             
-            // Log vulnerability details to console as requested
-            console.log(`[VULNERABILITY] 🚨 Taint Analysis Vulnerability Detected:`);
-            console.log(`  📁 File: ${file}`);
-            console.log(`  📍 Source: ${source.type} (${source.description}) at line ${source.line}`);
-            console.log(`  🎯 Sink: ${sink.type} (${sink.description}) at line ${sink.line}`);
-            console.log(`  🔒 Sanitizers: ${pathSanitizers.length > 0 ? `${pathSanitizers.length} found but insufficient` : 'None found in path'}`);
-            if (pathSanitizers.length > 0) {
-              pathSanitizers.forEach((sanitizer, index) => {
-                console.log(`    ${index + 1}. ${sanitizer.type} (effectiveness: ${sanitizer.effectiveness}) at line ${sanitizer.line}`);
-              });
-            }
-            console.log(`  ⚡ Vulnerability Type: ${sink.vulnerabilityType}`);
-            console.log(`  📊 Severity: ${sink.severity}`);
-            console.log(`  💡 Recommendation: Add or improve sanitization between source and sink`);
-            
           } else {
             console.log(`[DEBUG] ✅ Path is adequately sanitized with ${pathSanitizers.length} sanitizer(s)`);
             pathSanitizers.forEach((sanitizer, index) => {
@@ -308,138 +278,13 @@ export class SecurityRuleEngine {
       severity: sink.severity,
       message: `Untrusted data from ${source.type} flows to ${sink.type} without adequate sanitization`,
       file: file,
+      pathLines: [source.line, sink.line],
       line: sink.line,
       column: sink.column,
       rule: 'taint-analysis',
       description: `Data from untrusted source '${source.description}' at line ${source.line} flows to sensitive sink '${sink.description}' at line ${sink.line} without being adequately sanitized.${sanitizerInfo} This could lead to ${sink.vulnerabilityType} vulnerabilities.`,
       recommendation: `Sanitize the data between the source (line ${source.line}) and sink (line ${sink.line}) using appropriate validation and encoding functions. Consider input validation, output encoding, or parameterized queries depending on the context. ${sanitizers && sanitizers.length > 0 ? 'Improve existing sanitization methods or add additional layers of protection.' : 'Add proper sanitization functions.'}`
     };
-  }
-
-  /**
-   * Enhanced taint analysis that considers variable tracking and data flow
-   */
-  private analyzeDataFlow(
-    ast: any,
-    sources: (Source & { line: number; column: number; endLine: number; endColumn: number })[],
-    sinks: (Sink & { line: number; column: number; endLine: number; endColumn: number })[],
-    sanitizers: (Sanitizer & { line: number; column: number; endLine: number; endColumn: number })[]
-  ): { sourceNode: any; sinkNode: any; path: any[]; sanitized: boolean }[] {
-    const dataFlows: { sourceNode: any; sinkNode: any; path: any[]; sanitized: boolean }[] = [];
-    const variables = new Map<string, { source?: any; sanitized: boolean; line: number }>();
-    
-    // Simple variable tracking through AST traversal
-    const trackVariables = (node: any) => {
-      if (!node) return;
-      
-      // Track variable assignments from sources
-      if (node.type === 'assignment' || node.type === 'variable_declaration') {
-        const varName = this.extractVariableName(node);
-        if (varName) {
-          // Check if the assignment involves a source
-          const sourceInAssignment = sources.find(s => 
-            Math.abs(s.line - (node.loc?.start?.line || 0)) <= 1
-          );
-          
-          if (sourceInAssignment) {
-            variables.set(varName, {
-              source: sourceInAssignment,
-              sanitized: false,
-              line: node.loc?.start?.line || 0
-            });
-            console.log(`[DEBUG] 📝 Tracked tainted variable: ${varName} from source ${sourceInAssignment.type}`);
-          }
-          
-          // Check if the assignment involves sanitization
-          const sanitizerInAssignment = sanitizers.find(s => 
-            Math.abs(s.line - (node.loc?.start?.line || 0)) <= 1
-          );
-          
-          if (sanitizerInAssignment && variables.has(varName)) {
-            const varInfo = variables.get(varName)!;
-            varInfo.sanitized = true;
-            console.log(`[DEBUG] 🧼 Variable ${varName} sanitized with ${sanitizerInAssignment.type}`);
-          }
-        }
-      }
-      
-      // Check if sinks use tracked variables
-      if (node.type === 'call' || node.type === 'expression_statement') {
-        const sinkAtNode = sinks.find(s => 
-          Math.abs(s.line - (node.loc?.start?.line || 0)) <= 1
-        );
-        
-        if (sinkAtNode) {
-          const usedVars = this.extractUsedVariables(node);
-          for (const varName of usedVars) {
-            const varInfo = variables.get(varName);
-            if (varInfo && varInfo.source) {
-              dataFlows.push({
-                sourceNode: varInfo.source,
-                sinkNode: sinkAtNode,
-                path: [varInfo.source, sinkAtNode],
-                sanitized: varInfo.sanitized
-              });
-              console.log(`[DEBUG] 🔗 Data flow detected: ${varName} from ${varInfo.source.type} to ${sinkAtNode.type} (sanitized: ${varInfo.sanitized})`);
-            }
-          }
-        }
-      }
-      
-      // Recursively process children
-      if (node.children) {
-        for (const child of node.children) {
-          trackVariables(child);
-        }
-      }
-    };
-    
-    trackVariables(ast);
-    return dataFlows;
-  }
-
-  /**
-   * Extracts variable name from assignment or declaration nodes
-   */
-  private extractVariableName(node: any): string | null {
-    // This is a simplified implementation - would need to be enhanced for specific languages
-    if (node.type === 'assignment' && node.left) {
-      return node.left.name || node.left.property?.name || null;
-    }
-    if (node.type === 'variable_declaration' && node.declarations?.[0]) {
-      return node.declarations[0].id?.name || null;
-    }
-    return null;
-  }
-
-  /**
-   * Extracts variables used in an expression or call
-   */
-  private extractUsedVariables(node: any): string[] {
-    const variables: string[] = [];
-    
-    const extractVars = (n: any) => {
-      if (!n) return;
-      
-      if (n.type === 'identifier' && n.name) {
-        variables.push(n.name);
-      }
-      
-      if (n.arguments) {
-        for (const arg of n.arguments) {
-          extractVars(arg);
-        }
-      }
-      
-      if (n.children) {
-        for (const child of n.children) {
-          extractVars(child);
-        }
-      }
-    };
-    
-    extractVars(node);
-    return [...new Set(variables)]; // Remove duplicates
   }
 
   /**

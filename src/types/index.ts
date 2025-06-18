@@ -5,6 +5,7 @@ export interface Vulnerability {
   type: VulnerabilityType;
   severity: Severity;
   message: string;
+  pathLines?: number[];
   file: string;
   line: number;
   column: number;
