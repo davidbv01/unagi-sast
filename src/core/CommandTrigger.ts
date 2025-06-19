@@ -78,6 +78,13 @@ export class CommandTrigger {
         }
       })
     );
+
+    // Register command to create a security report
+    context.subscriptions.push(
+      vscode.commands.registerCommand('unagi.createReport', async () => {
+        await this.scanOrchestrator.createReport();
+      })
+    );
   }
 }
 

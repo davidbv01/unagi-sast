@@ -117,6 +117,7 @@ export class SecurityRuleEngine {
             file,
             vulnerabilities: taintVulnerabilities,
             context: {
+              
               language: languageId,
               additionalInfo: `Static analysis detected ${taintVulnerabilities.length} potential vulnerabilities`
             }

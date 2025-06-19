@@ -68,6 +68,10 @@
       {
         "command": "unagiSast.configureOpenAIApiKey",
         "title": "Unagi: Configure OpenAI API Key"
+      },
+      {
+        "command": "unagi.createReport",
+        "title": "Unagi: Create Security Report"
       }
     ],
     "configuration": {
