@@ -9,4 +9,4 @@ unagi-sast/
 *.js
 *.js.map
 
-.env*
+.env
