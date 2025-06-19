@@ -46,6 +46,24 @@ export class CommandTrigger {
     // Register command to configure OpenAI API key
     context.subscriptions.push(
       vscode.commands.registerCommand('unagiSast.configureOpenAIApiKey', async () => {
+        const existingKey = context.globalState.get<string>('OPENAI_API_KEY');
+        if (existingKey) {
+          const action = await vscode.window.showQuickPick([
+            'Replace API Key',
+            'Delete API Key',
+            'Cancel'
+          ], {
+            placeHolder: 'An OpenAI API Key is already set. What would you like to do?'
+          });
+          if (action === 'Delete API Key') {
+            await context.globalState.update('OPENAI_API_KEY', undefined);
+            vscode.window.showInformationMessage('OpenAI API Key deleted.');
+            return;
+          } else if (action !== 'Replace API Key') {
+            vscode.window.showInformationMessage('No changes made to OpenAI API Key.');
+            return;
+          }
+        }
         const apiKey = await vscode.window.showInputBox({
           prompt: 'Enter your OpenAI API Key',
           ignoreFocusOut: true,

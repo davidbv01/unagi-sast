@@ -31,8 +31,8 @@ export interface AiAnalysisResult {
 export class AiEngine {
   private vulnerabilityVerifier: VulnerabilityVerifier;
 
-  constructor(openaiApiKey?: string) {
-    this.vulnerabilityVerifier = new VulnerabilityVerifier(openaiApiKey);
+  constructor(apiKey: string) {
+    this.vulnerabilityVerifier = new VulnerabilityVerifier(apiKey);
   }
 
   /**

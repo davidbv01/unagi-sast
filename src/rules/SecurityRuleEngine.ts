@@ -18,7 +18,7 @@ export class SecurityRuleEngine {
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
   private taintEngine: TaintEngine;
-  private aiEngine: AiEngine;
+  private aiEngine?: AiEngine;
 
   constructor(apiKey: string) {
     this.patternMatcher = new PatternMatcher();
@@ -26,7 +26,9 @@ export class SecurityRuleEngine {
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
     this.taintEngine = new TaintEngine();
-    this.aiEngine = new AiEngine(apiKey);
+    if (apiKey){
+      this.aiEngine = new AiEngine(apiKey);
+    }
   }
 
   public async analyzeFile(ast: any, languageId: string, file: string, content: string): Promise<AnalysisResult> {
@@ -101,7 +103,12 @@ export class SecurityRuleEngine {
       });      // Taint analysis - check for unsanitized paths between sources and sinks
       const taintVulnerabilities = this.taintEngine.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers,ast, file);
       
-      // AI-powered analysis using AiEngine (code extraction + verification)
+      // Verify that we have api keys for AI analysis
+      if (!this.aiEngine) {
+        console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
+      }
+      else {
+        // AI-powered analysis using AiEngine (code extraction + verification)
       let aiAnalysisResult: AiAnalysisResult | null = null;
       
       if (taintVulnerabilities.length > 0) {
@@ -123,7 +130,10 @@ export class SecurityRuleEngine {
       }
       
       console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
+      // TODO: Handle AI analysis results
+      }
 
+      
       // Combine all vulnerabilities
       const allVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
       console.log(`[DEBUG] ✅ Analysis complete. Found ${allVulnerabilities.length} total vulnerabilities, ${uniqueSources.length} sources, ${uniqueSinks.length} sinks, ${uniqueSanitizers.length} sanitizers`);
