@@ -1,17 +1,23 @@
 // Types and interfaces for the SAST extension
 
 export interface Vulnerability {
+  //Definition of a vulnerability
   id: string;
   type: VulnerabilityType;
   severity: Severity;
   message: string;
-  pathLines?: number[];
   file: string;
   line: number;
   column: number;
   rule: string;
   description: string;
   recommendation: string;
+  
+  //Relations in the AST
+  pathLines?: number[];
+  sourceId?: number;
+  sinkId?: number;
+  sanitizerIds?: number[];
 }
 
 export enum VulnerabilityType {
