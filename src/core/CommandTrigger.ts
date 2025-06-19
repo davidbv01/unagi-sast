@@ -6,9 +6,9 @@ export class CommandTrigger {
   private scanOrchestrator: ScanOrchestrator;
   private outputManager: OutputManager;
 
-  constructor() {
+  constructor(apiKey: string) {
     this.outputManager = new OutputManager();
-    this.scanOrchestrator = new ScanOrchestrator(this.outputManager);
+    this.scanOrchestrator = new ScanOrchestrator(this.outputManager, apiKey);
   }
 
   public registerCommands(context: vscode.ExtensionContext): void {
@@ -42,5 +42,24 @@ export class CommandTrigger {
         }
       })
     );
+
+    // Register command to configure OpenAI API key
+    context.subscriptions.push(
+      vscode.commands.registerCommand('unagiSast.configureOpenAIApiKey', async () => {
+        const apiKey = await vscode.window.showInputBox({
+          prompt: 'Enter your OpenAI API Key',
+          ignoreFocusOut: true,
+          password: true,
+          placeHolder: 'sk-...'
+        });
+        if (apiKey) {
+          await context.globalState.update('OPENAI_API_KEY', apiKey);
+          vscode.window.showInformationMessage('OpenAI API Key saved successfully!');
+        } else {
+          vscode.window.showWarningMessage('OpenAI API Key not set.');
+        }
+      })
+    );
   }
-} 
+}
+

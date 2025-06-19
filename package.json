@@ -60,6 +60,14 @@
       {
         "command": "unagi.clearResults",
         "title": "Unagi: Clear Results"
+      },
+      {
+        "command": "unagi.showSettings",
+        "title": "Unagi: Configuración de Seguridad"
+      },
+      {
+        "command": "unagiSast.configureOpenAIApiKey",
+        "title": "Unagi: Configure OpenAI API Key"
       }
     ],
     "configuration": {

@@ -9,26 +9,20 @@ export class ScanOrchestrator {
   private outputManager: OutputManager;
   private astParser: ASTParser;
 
-  constructor(outputManager: OutputManager) {
-    this.ruleEngine = new SecurityRuleEngine();
+  constructor(outputManager: OutputManager, apiKey: string) {
+    this.ruleEngine = new SecurityRuleEngine(apiKey);
     this.outputManager = outputManager;
     this.astParser = new ASTParser();
   }
 
   public async scanFile(document: vscode.TextDocument): Promise<ScanResult> {
     const startTime = Date.now();
-    console.log(`[DEBUG] 🔍 Starting scan of file: ${document.fileName}`);
-    console.log(`[DEBUG] 📄 Language: ${document.languageId}`);
-    
     const content = document.getText();
     const lines = content.split('\n');
-    console.log(`[DEBUG] 📊 File contains ${lines.length} lines`);
     
     try {
-      console.log('[DEBUG] ⚙️ Running security rule engine...');
       
       // Parse content into AST
-      console.log('[DEBUG] 🔄 Parsing content into AST');
       let ast;
       try {
         ast = this.astParser.parse(content, document.languageId, document.fileName);
@@ -55,35 +49,24 @@ export class ScanOrchestrator {
         try {
           analysisResult = await this.ruleEngine.analyzeFile(ast, document.languageId, document.fileName, content);
           vulnerabilities = analysisResult.vulnerabilities;
-          console.log(`[DEBUG] 🔎 Analysis results: ${vulnerabilities.length} vulnerabilities, ${analysisResult.sources.length} sources, ${analysisResult.sinks.length} sinks, ${analysisResult.sanitizers.length} sanitizers`);
-          
-          if (vulnerabilities.length === 0) {
-            console.log('[DEBUG] ℹ️ No vulnerabilities found. Checking if rules were properly loaded...');
-          }
         } catch (error) {
           console.error('[ERROR] Failed to analyze AST:', error);
           vscode.window.showErrorMessage(`Failed to analyze file: ${document.fileName}`);
         }
       } else {
-        console.log('[DEBUG] ⚠️ Could not parse file into AST, skipping analysis');
         vscode.window.showWarningMessage(`Could not parse file into AST: ${document.fileName}`);
       }
       
       const result = this.createScanResult(document, analysisResult || { vulnerabilities: [], sources: [], sinks: [], sanitizers: [] }, startTime, lines.length);
-      console.log(`[DEBUG] ⏱️ Scan completed in ${result.scanTime}ms`);
-      console.log('[DEBUG] 📤 Displaying results...');
       
       try {
         await this.outputManager.displayResults(result);
       } catch (error) {
-        console.error('[ERROR] Failed to display results:', error);
         vscode.window.showErrorMessage('Failed to display scan results');
       }
-      
-      console.log('[DEBUG] ✅ Scan process completed');
+
       return result;
     } catch (error) {
-      console.error('[ERROR] Scan process failed:', error);
       vscode.window.showErrorMessage(`Scan failed for file: ${document.fileName}`);
       return this.createScanResult(document, { vulnerabilities: [], sources: [], sinks: [], sanitizers: [] }, startTime, lines.length);
     }

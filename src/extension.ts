@@ -15,9 +15,17 @@ export function activate(context: vscode.ExtensionContext) {
 	configManager.refresh();
 	console.log('✅ Configuration loaded successfully');
 
+	// Get the API key from the global state
+	const apiKey: string | undefined = getOpenAIApiKey(context);
+	if (apiKey) {
+		console.log('🔑 API key loaded');
+	} else {
+		console.log('🔑 No API key found');
+	}
+
 	// Initialize command triggers
 	console.log('🔧 Setting up command triggers...');
-	const commandTrigger = new CommandTrigger();
+	const commandTrigger = new CommandTrigger(apiKey || '');
 	commandTrigger.registerCommands(context);
 	console.log('✅ Command triggers registered');
 
@@ -39,3 +47,9 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
 	console.log('🛑 Unagi SAST extension is being deactivated');
 }
+
+
+// Helper to retrieve the API key from global state
+export function getOpenAIApiKey(context: vscode.ExtensionContext): string | undefined {
+	return context.globalState.get<string>('OPENAI_API_KEY');
+  } 

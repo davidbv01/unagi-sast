@@ -18,14 +18,16 @@ export class SecurityRuleEngine {
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
   private taintEngine: TaintEngine;
+  private aiEngine: AiEngine;
 
-  constructor() {
+  constructor(apiKey: string) {
     this.patternMatcher = new PatternMatcher();
     this.sourceDetector = new SourceDetector();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
     this.taintEngine = new TaintEngine();
-      }
+    this.aiEngine = new AiEngine(apiKey);
+  }
 
   public async analyzeFile(ast: any, languageId: string, file: string, content: string): Promise<AnalysisResult> {
     try {
@@ -104,7 +106,6 @@ export class SecurityRuleEngine {
       
       if (taintVulnerabilities.length > 0) {
         try {
-          const aiEngine = new AiEngine();
           const aiRequest: AiAnalysisRequest = {
             file,
             vulnerabilities: taintVulnerabilities,
@@ -114,7 +115,7 @@ export class SecurityRuleEngine {
             }
           };
           
-          aiAnalysisResult = await aiEngine.analyzeVulnerabilities(aiRequest);
+          aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest);
           console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
         } catch (aiError) {
           console.log(`[DEBUG] ⚠️ AI analysis failed: ${aiError}`);
