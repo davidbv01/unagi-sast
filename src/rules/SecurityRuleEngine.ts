@@ -48,6 +48,7 @@ export class SecurityRuleEngine {
         if (source) {
           detectedSources.push({
             ...source,
+            id: node.id,
             line: node.loc?.start?.line || 1,
             column: node.loc?.start?.column || 0,
             endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
@@ -60,6 +61,7 @@ export class SecurityRuleEngine {
         if (sink) {
           detectedSinks.push({
             ...sink,
+            id: node.id,
             line: node.loc?.start?.line || 1,
             column: node.loc?.start?.column || 0,
             endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
@@ -72,6 +74,7 @@ export class SecurityRuleEngine {
         if (sanitizer) {
           detectedSanitizers.push({
             ...sanitizer,
+            id: node.id,
             line: node.loc?.start?.line || 1,
             column: node.loc?.start?.column || 0,
             endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
@@ -119,7 +122,7 @@ export class SecurityRuleEngine {
         vuln.file = file;
       });      // Taint analysis - check for unsanitized paths between sources and sinks
       console.log('[DEBUG] 🧬 Running taint analysis');
-      const taintVulnerabilities = this.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers, file, content);
+      const taintVulnerabilities = this.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers, file);
       
       // Enhanced data flow analysis (for more sophisticated tracking)
       console.log('[DEBUG] 🔬 Running enhanced data flow analysis');
@@ -200,6 +203,7 @@ export class SecurityRuleEngine {
   public getPatternMatcher(): PatternMatcher {
     return this.patternMatcher;
   }
+
   /**
    * Performs taint analysis to detect vulnerabilities in data flow between sources and sinks
    */
@@ -207,8 +211,7 @@ export class SecurityRuleEngine {
     sources: (Source & { line: number; column: number; endLine: number; endColumn: number })[],
     sinks: (Sink & { line: number; column: number; endLine: number; endColumn: number })[],
     sanitizers: (Sanitizer & { line: number; column: number; endLine: number; endColumn: number })[],
-    file: string,
-    content: string
+    file: string
   ): Vulnerability[] {
     const vulnerabilities: Vulnerability[] = [];
     

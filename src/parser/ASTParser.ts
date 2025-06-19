@@ -5,6 +5,7 @@ import { Position } from '../types';
 export class ASTParser {
   private parser: Parser;
   private tree: Parser.Tree | undefined;
+  private nodeCounter = 0;
 
   constructor() {
     this.parser = new Parser();
@@ -27,6 +28,8 @@ export class ASTParser {
   }
 
   private nodeToDict(node: Parser.SyntaxNode, content?: string): any {
+    const nodeId = this.nodeCounter++; // Generate a unique incremental ID
+
     const children = node.namedChildren.map(child => this.nodeToDict(child, content));
 
     // Get raw positions from tree-sitter
@@ -86,6 +89,7 @@ export class ASTParser {
     }
 
     const result: any = {
+      id: nodeId,
       type: node.type,
       named: node.isNamed,
       text: text,
