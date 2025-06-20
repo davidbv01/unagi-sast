@@ -18,6 +18,14 @@ export interface Vulnerability {
   sourceId?: number;
   sinkId?: number;
   sanitizerIds?: number[];
+
+  //AI analysis
+  ai?: {
+    confidenceScore: number;
+    shortExplanation: string;
+    exploitExample: string;
+    remediation: string;
+  };
 }
 
 export enum VulnerabilityType {

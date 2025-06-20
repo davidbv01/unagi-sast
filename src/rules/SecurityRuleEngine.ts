@@ -31,6 +31,16 @@ export class SecurityRuleEngine {
     }
   }
 
+  public updateAiEngine(apiKey: string | null): void {
+    if (apiKey && apiKey.trim() !== '') {
+      this.aiEngine = new AiEngine(apiKey);
+      console.log('[INFO] AI Engine initialized');
+    } else {
+      this.aiEngine = undefined;
+      console.log('[INFO] AI Engine disabled (no API key)');
+    }
+  }
+
   public async analyzeFile(ast: any, languageId: string, file: string, content: string): Promise<AnalysisResult> {
     try {
       // Detect sources, sinks, and sanitizers by traversing the AST
@@ -103,9 +113,14 @@ export class SecurityRuleEngine {
       });      // Taint analysis - check for unsanitized paths between sources and sinks
       const taintVulnerabilities = this.taintEngine.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers,ast, file);
       
+      // Initialize finalVulnerabilities with pattern vulnerabilities
+      let finalVulnerabilities: Vulnerability[] = [...patternVulnerabilities];
+
       // Verify that we have api keys for AI analysis
       if (!this.aiEngine) {
         console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
+        vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
+        finalVulnerabilities.push(...taintVulnerabilities);
       }
       else {
         // AI-powered analysis using AiEngine (code extraction + verification)
@@ -122,25 +137,39 @@ export class SecurityRuleEngine {
               additionalInfo: `Static analysis detected ${taintVulnerabilities.length} potential vulnerabilities`
             }
           };
-          
+
           aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest);
           console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
+          
+          if (aiAnalysisResult) {
+            for (const verified of aiAnalysisResult.verifiedVulnerabilities) {
+              if (verified.isConfirmed) {
+                finalVulnerabilities.push({
+                  ...verified.originalVulnerability,
+                  ai: {
+                    confidenceScore: verified.aiAnalysis.confidenceScore,
+                    shortExplanation: verified.aiAnalysis.shortExplanation,
+                    exploitExample: verified.aiAnalysis.exploitExample,
+                    remediation: verified.aiAnalysis.remediation
+                  }
+                });
+              }
+            }
+          }
         } catch (aiError) {
           console.log(`[DEBUG] ⚠️ AI analysis failed: ${aiError}`);
         }
       }
       
       console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
-      // TODO: Handle AI analysis results
       }
 
-      
+
       // Combine all vulnerabilities
-      const allVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
-      console.log(`[DEBUG] ✅ Analysis complete. Found ${allVulnerabilities.length} total vulnerabilities, ${uniqueSources.length} sources, ${uniqueSinks.length} sinks, ${uniqueSanitizers.length} sanitizers`);
+      console.log(`[DEBUG] ✅ Analysis complete. Found ${finalVulnerabilities.length} total vulnerabilities, ${uniqueSources.length} sources, ${uniqueSinks.length} sinks, ${uniqueSanitizers.length} sanitizers`);
 
       return {
-        vulnerabilities: allVulnerabilities,
+        vulnerabilities: finalVulnerabilities,
         sources: uniqueSources,
         sinks: uniqueSinks,
         sanitizers: uniqueSanitizers

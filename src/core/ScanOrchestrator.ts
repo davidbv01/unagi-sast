@@ -5,7 +5,7 @@ import { OutputManager } from '../output/OutputManager';
 import { ASTParser } from '../parser/ASTParser';
 
 export class ScanOrchestrator {
-  private ruleEngine: SecurityRuleEngine;
+  public ruleEngine: SecurityRuleEngine;
   private outputManager: OutputManager;
   private astParser: ASTParser;
 

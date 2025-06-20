@@ -58,6 +58,7 @@ export class CommandTrigger {
           if (action === 'Delete API Key') {
             await context.globalState.update('OPENAI_API_KEY', undefined);
             vscode.window.showInformationMessage('OpenAI API Key deleted.');
+            this.scanOrchestrator.ruleEngine.updateAiEngine(null);
             return;
           } else if (action !== 'Replace API Key') {
             vscode.window.showInformationMessage('No changes made to OpenAI API Key.');
@@ -73,6 +74,7 @@ export class CommandTrigger {
         if (apiKey) {
           await context.globalState.update('OPENAI_API_KEY', apiKey);
           vscode.window.showInformationMessage('OpenAI API Key saved successfully!');
+          this.scanOrchestrator.ruleEngine.updateAiEngine(apiKey);
         } else {
           vscode.window.showWarningMessage('OpenAI API Key not set.');
         }
