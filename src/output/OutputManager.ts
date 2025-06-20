@@ -264,7 +264,7 @@ export class OutputManager {
             <h2>Vulnerabilities (${vulnerabilities.length})</h2>
             ${vulnerabilities.length === 0 ? '<p>No vulnerabilities found.</p>' : `
               <table>
-                <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th></tr>
+                <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
                 ${vulnerabilities.map(vuln => `
                   <tr>
                     <td>${vuln.type}</td>
@@ -272,6 +272,10 @@ export class OutputManager {
                     <td>${vuln.message}</td>
                     <td>${vuln.line ?? ''}</td>
                     <td>${vuln.description ?? ''}</td>
+                    <td>${vuln.ai && vuln.ai.confidenceScore !== undefined ? (vuln.ai.confidenceScore * 100).toFixed(0) + '%' : '-'}</td>
+                    <td>${vuln.ai && vuln.ai.shortExplanation ? vuln.ai.shortExplanation : '-'}</td>
+                    <td>${vuln.ai && vuln.ai.exploitExample ? vuln.ai.exploitExample : '-'}</td>
+                    <td>${vuln.ai && vuln.ai.remediation ? vuln.ai.remediation : '-'}</td>
                   </tr>
                 `).join('')}
               </table>
