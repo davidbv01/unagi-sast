@@ -3,7 +3,7 @@
   "displayName": "🛡️ Unagi SAST",
   "description": "Static Application Security Testing extension for VS Code. Automatically detect security vulnerabilities in JavaScript, TypeScript, Python, Java, PHP and more.",
   "version": "0.0.1",
-  "publisher": "your-publisher-name",
+  "publisher": "unagi-tech",
   "engines": {
     "vscode": "^1.100.0"
   },
