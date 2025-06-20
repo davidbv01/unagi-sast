@@ -157,6 +157,9 @@ export class SecurityRuleEngine {
             }
           }
         } catch (aiError) {
+          // Handle AI analysis errors
+          finalVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
+          vscode.window.showWarningMessage(`AI analysis failed: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`);
           console.log(`[DEBUG] ⚠️ AI analysis failed: ${aiError}`);
         }
       }

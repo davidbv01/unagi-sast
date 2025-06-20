@@ -41,45 +41,31 @@ export class AiEngine {
     let totalConfidence = 0, confirmed = 0, falsePositives = 0;
 
     const codeExtractions = vulnerabilities.map(vuln => {
-      try {
-        return CodeExtractor.extractDataFlowCode(file, vuln.pathLines ?? [vuln.line]);
-      } catch (err) {
-        return this.buildFallbackExtraction(file, vuln.line, err);
-      }
+      return CodeExtractor.extractDataFlowCode(file, vuln.pathLines ?? [vuln.line]);
     });
 
     for (let i = 0; i < vulnerabilities.length; i++) {
       const vuln = vulnerabilities[i];
       const code = codeExtractions[i];
 
-      try {
-        const analysis = await this.verifier.verifyVulnerability({
-          codeExtraction: code,
-          initialVulnerabilityAssessment: {
-            type: vuln.type,
-            severity: vuln.severity,
-            message: vuln.message,
-            description: vuln.description
-          },
-          context
-        });
+      const analysis = await this.verifier.verifyVulnerability({
+        codeExtraction: code,
+        initialVulnerabilityAssessment: {
+          type: vuln.type,
+          severity: vuln.severity,
+          message: vuln.message,
+          description: vuln.description
+        },
+        context
+      });
 
-        const isConfirmed = analysis.isVulnerable && analysis.confidenceScore >= 0.7;
-        if (isConfirmed) confirmed++;
-        else falsePositives++;
-        totalConfidence += analysis.confidenceScore;
+      const isConfirmed = analysis.isVulnerable && analysis.confidenceScore >= 0.7;
+      if (isConfirmed) confirmed++;
+      else falsePositives++;
+      totalConfidence += analysis.confidenceScore;
 
-        verified.push({ originalVulnerability: vuln, codeExtraction: code, aiAnalysis: analysis, isConfirmed });
+      verified.push({ originalVulnerability: vuln, codeExtraction: code, aiAnalysis: analysis, isConfirmed });
 
-      } catch (err) {
-        verified.push({
-          originalVulnerability: vuln,
-          codeExtraction: code,
-          aiAnalysis: this.buildFallbackAnalysis(vuln.type, err),
-          isConfirmed: false
-        });
-        falsePositives++;
-      }
     }
 
     return {
@@ -101,25 +87,6 @@ export class AiEngine {
   ): Promise<AiAnalysisResult['verifiedVulnerabilities'][0]> {
     const result = await this.analyzeVulnerabilities({ file, vulnerabilities: [vulnerability], context });
     return result.verifiedVulnerabilities[0];
-  }
-
-  private buildFallbackExtraction(file: string, line: number, err: unknown): DataFlowCodeExtraction {
-    return {
-      involvedLines: [line],
-      fullContext: `Error extracting code: ${err}`,
-      filePath: file,
-      sanitizerFunctions: []
-    };
-  }
-
-  private buildFallbackAnalysis(type: string, err: unknown): VulnerabilityAnalysis {
-    return {
-      isVulnerable: false,
-      confidenceScore: 0,
-      shortExplanation: `Verification failed: ${err}`,
-      exploitExample: 'N/A',
-      remediation: 'Manual review recommended due to verification error'
-    };
   }
   
 }
