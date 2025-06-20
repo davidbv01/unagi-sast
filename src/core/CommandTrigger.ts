@@ -6,8 +6,8 @@ export class CommandTrigger {
   private scanOrchestrator: ScanOrchestrator;
   private outputManager: OutputManager;
 
-  constructor(apiKey: string) {
-    this.outputManager = new OutputManager();
+  constructor(apiKey: string, folderPath: string) {
+    this.outputManager = new OutputManager(folderPath);
     this.scanOrchestrator = new ScanOrchestrator(this.outputManager, apiKey);
   }
 
@@ -82,7 +82,7 @@ export class CommandTrigger {
     // Register command to create a security report
     context.subscriptions.push(
       vscode.commands.registerCommand('unagi.createReport', async () => {
-        await this.scanOrchestrator.createReport();
+        await this.outputManager.createReport();
       })
     );
   }

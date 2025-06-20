@@ -1,154 +1,66 @@
 import * as vscode from 'vscode';
 import { ScanResult, Vulnerability, Severity } from '../types';
+import { AnalysisResult } from '../rules/SecurityRuleEngine';
+import * as fs from 'fs';
 
 export class OutputManager {
   private outputChannel: vscode.OutputChannel;
   private diagnosticCollection: vscode.DiagnosticCollection;
   private statusBarItem: vscode.StatusBarItem;
+  private folderPath: string;
+  private filePath: string;
 
-  constructor() {
-    console.log('📊 Initializing Output Manager...');
+  constructor(folderPath: string) {
     this.outputChannel = vscode.window.createOutputChannel('Unagi SAST');
     this.diagnosticCollection = vscode.languages.createDiagnosticCollection('unagi');
     this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    this.statusBarItem.show();
-    console.log('✅ Output Manager initialized');
+    this.statusBarItem.show();  
+    this.folderPath = folderPath;
+    fs.mkdirSync(this.folderPath, { recursive: true });
+    this.filePath = this.folderPath + '/sast-results.json';
   }
 
   public async displayResults(result: ScanResult): Promise<void> {
-    console.log(`📝 Processing scan results for ${result.file}`);
-    console.log(`📊 Found ${result.vulnerabilities.length} vulnerabilities, ${result.sources.length} sources, ${result.sinks.length} sinks, ${result.sanitizers.length} sanitizers`);
-    
-    // Log detailed information about detected items
-    if (result.sources.length > 0) {
-      console.log(`📥 Sources detected:`);
-      result.sources.forEach((source: any, index: number) => {
-        console.log(`  ${index + 1}. ${source.type} - ${source.description} (Line: ${source.line}, Columns: ${source.column}-${source.endColumn})`);
-      });
-    }
-    
-    if (result.sinks.length > 0) {
-      console.log(`📤 Sinks detected:`);
-      result.sinks.forEach((sink: any, index: number) => {
-        console.log(`  ${index + 1}. ${sink.type} - ${sink.description} (Line: ${sink.line}, Columns: ${sink.column}-${sink.endColumn})`);
-      });
-    }
-    
-    if (result.sanitizers.length > 0) {
-      console.log(`🛡️ Sanitizers detected:`);
-      result.sanitizers.forEach((sanitizer: any, index: number) => {
-        console.log(`  ${index + 1}. ${sanitizer.type} - ${sanitizer.description} (Line: ${sanitizer.line}, Columns: ${sanitizer.column}-${sanitizer.endColumn})`);
-      });
-    }
-    
+  
     // Clear previous results
     this.diagnosticCollection.clear();
-    console.log('🧹 Cleared previous diagnostic results');
 
     // Create diagnostics for all detected items
     const allDiagnostics: vscode.Diagnostic[] = [];
     
     // Convert vulnerabilities to diagnostics (highest priority - errors)
     result.vulnerabilities.forEach(vuln => {
-      console.log(`🔍 Processing vulnerability: ${vuln.type} (${vuln.severity})`);
       allDiagnostics.push(this.createDiagnostic(vuln));
     });
 
     // Convert sources to diagnostics (information level with specific styling)
     result.sources.forEach((source: any) => {
-      console.log(`📥 Processing source: ${source.type} (Line: ${source.line}, Columns: ${source.column}-${source.endColumn})`);
       allDiagnostics.push(this.createSourceDiagnostic(source));
     });
 
     // Convert sinks to diagnostics (warning level with specific styling)
     result.sinks.forEach((sink: any) => {
-      console.log(`📤 Processing sink: ${sink.type} (Line: ${sink.line}, Columns: ${sink.column}-${sink.endColumn})`);
       allDiagnostics.push(this.createSinkDiagnostic(sink));
-    });
+    }); 
 
     // Convert sanitizers to diagnostics (hint level with specific styling)
-    result.sanitizers.forEach((sanitizer: any) => {
-      console.log(`🛡️ Processing sanitizer: ${sanitizer.type} (Line: ${sanitizer.line}, Columns: ${sanitizer.column}-${sanitizer.endColumn})`);
+      result.sanitizers.forEach((sanitizer: any) => {
       allDiagnostics.push(this.createSanitizerDiagnostic(sanitizer));
     });
 
     // Update diagnostics collection
     const uri = vscode.Uri.file(result.file);
     this.diagnosticCollection.set(uri, allDiagnostics);
-    console.log(`📌 Updated diagnostics for ${result.file} (${allDiagnostics.length} total items)`);
 
     // Update status bar
     this.updateStatusBar(result);
-    console.log('📊 Updated status bar');
-
     // Display inline results with enhanced summary
     this.displayInline(result);
-    console.log('✅ Results display completed');
-  }
-
-  private displayInProblemsPanel(result: ScanResult): void {
-    const diagnostics: vscode.Diagnostic[] = result.vulnerabilities.map(vuln => {
-      const range = new vscode.Range(
-        new vscode.Position(vuln.line - 1, vuln.column),
-        new vscode.Position(vuln.line - 1, vuln.column + 10)
-      );
-      
-      const diagnostic = new vscode.Diagnostic(
-        range,
-        `${vuln.message}: ${vuln.description}`,
-        this.severityToDiagnosticSeverity(vuln.severity)
-      );
-      
-      diagnostic.code = vuln.rule;
-      diagnostic.source = 'Unagi SAST';
-      
-      return diagnostic;
-    });
-    
-    const uri = vscode.Uri.file(result.file);
-    this.diagnosticCollection.set(uri, diagnostics);
-  }
-
-  private displayMultipleInProblemsPanel(results: ScanResult[]): void {
-    // Clear existing diagnostics
-    this.diagnosticCollection.clear();
-    
-    for (const result of results) {
-      this.displayInProblemsPanel(result);
-    }
   }
 
   private displayInline(result: ScanResult): void {
-    console.log('🎯 Displaying inline results...');
     const summary = `Scan complete: ${result.vulnerabilities.length} vulnerabilities, ${result.sources.length} sources, ${result.sinks.length} sinks, ${result.sanitizers.length} sanitizers`;
     vscode.window.showInformationMessage(summary);
-    console.log('✅ Inline results displayed');
-  }
-
-  private logWorkspaceSummary(results: ScanResult[]): void {
-    const totalVulnerabilities = results.reduce((total, result) => total + result.vulnerabilities.length, 0);
-    const totalFiles = results.length;
-    const totalLines = results.reduce((total, result) => total + result.linesScanned, 0);
-    
-    this.outputChannel.clear();
-    this.outputChannel.appendLine('=== Unagi SAST Workspace Scan Summary ===');
-    this.outputChannel.appendLine(`Files Scanned: ${totalFiles}`);
-    this.outputChannel.appendLine(`Total Lines: ${totalLines}`);
-    this.outputChannel.appendLine(`Vulnerabilities Found: ${totalVulnerabilities}`);
-    this.outputChannel.appendLine('');
-    
-    // Group by severity
-    const bySeverity = results.flatMap(r => r.vulnerabilities)
-      .reduce((acc, vuln) => {
-        acc[vuln.severity] = (acc[vuln.severity] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-    
-    Object.entries(bySeverity).forEach(([severity, count]) => {
-      this.outputChannel.appendLine(`${severity.toUpperCase()}: ${count}`);
-    });
-    
-    this.outputChannel.show();
   }
 
   private updateStatusBar(result: ScanResult | ScanResult[]): void {
@@ -158,21 +70,6 @@ export class OutputManager {
     
     this.statusBarItem.text = `$(shield) Unagi: ${totalVulnerabilities} issues`;
     this.statusBarItem.tooltip = `Found ${totalVulnerabilities} security vulnerabilities`;
-  }
-
-  private severityToDiagnosticSeverity(severity: Severity): vscode.DiagnosticSeverity {
-    switch (severity) {
-      case Severity.CRITICAL:
-      case Severity.HIGH:
-        return vscode.DiagnosticSeverity.Error;
-      case Severity.MEDIUM:
-        return vscode.DiagnosticSeverity.Warning;
-      case Severity.LOW:
-      case Severity.INFO:
-        return vscode.DiagnosticSeverity.Information;
-      default:
-        return vscode.DiagnosticSeverity.Information;
-    }
   }
 
   public clearResults(): void {
@@ -296,5 +193,111 @@ export class OutputManager {
     diagnostic.source = 'Unagi SAST - Sanitizer';
     diagnostic.code = `sanitizer-${sanitizer.id}`;
     return diagnostic;
+  }
+
+  public async saveAnalysisResultToTempFile(analysisResult: AnalysisResult): Promise<boolean> {
+    return new Promise((resolve) => {
+      fs.writeFile(this.filePath, JSON.stringify(analysisResult, null, 2), 'utf8', (err) => {
+        if (err) {
+          console.error('[ERROR] Failed to write analysis result to fixed path:', err);
+          resolve(false);
+        } else {
+          resolve(true);
+        }
+      });
+    });
+  }
+
+  public async createReport(): Promise<void> {
+    if (!fs.existsSync(this.filePath)) {
+      vscode.window.showInformationMessage('No analysis report available. Please run a scan first.');
+      return;
+    }
+    let analysisResult: AnalysisResult;
+    try {
+      const fileContent = fs.readFileSync(this.filePath, 'utf8');
+      analysisResult = JSON.parse(fileContent);
+    } catch (err) {
+      vscode.window.showErrorMessage('Failed to read the last analysis result.');
+      return;
+    }
+    const html = this.generateHtmlReport(analysisResult);
+    const panel = vscode.window.createWebviewPanel(
+      'unagiSastReport',
+      'Unagi SAST Report',
+      vscode.ViewColumn.One,
+      { enableScripts: true }
+    );
+    panel.webview.html = html;
+  }
+
+  private generateHtmlReport(analysisResult: AnalysisResult): string {
+    const { vulnerabilities, sources, sinks, sanitizers } = analysisResult;
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Unagi SAST Report</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; background: #181818; color: #eee; margin: 0; padding: 0; }
+          .container { max-width: 900px; margin: 32px auto; background: #232323; border-radius: 12px; box-shadow: 0 2px 16px #0008; padding: 32px; }
+          h1 { color: #ffb300; }
+          h2 { color: #90caf9; margin-top: 2em; }
+          table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+          th, td { padding: 10px; border-bottom: 1px solid #333; }
+          th { background: #222; color: #ffb300; }
+          tr:nth-child(even) { background: #20232a; }
+          .severity-critical { color: #ff1744; font-weight: bold; }
+          .severity-high { color: #ff9100; font-weight: bold; }
+          .severity-medium { color: #ffd600; font-weight: bold; }
+          .severity-low { color: #00e676; font-weight: bold; }
+          .severity-info { color: #29b6f6; font-weight: bold; }
+          .section { margin-bottom: 2em; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Unagi SAST Security Report</h1>
+          <div class="section">
+            <h2>Vulnerabilities (${vulnerabilities.length})</h2>
+            ${vulnerabilities.length === 0 ? '<p>No vulnerabilities found.</p>' : `
+              <table>
+                <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th></tr>
+                ${vulnerabilities.map(vuln => `
+                  <tr>
+                    <td>${vuln.type}</td>
+                    <td class="severity-${vuln.severity.toLowerCase()}">${vuln.severity}</td>
+                    <td>${vuln.message}</td>
+                    <td>${vuln.line ?? ''}</td>
+                    <td>${vuln.description ?? ''}</td>
+                  </tr>
+                `).join('')}
+              </table>
+            `}
+          </div>
+          <div class="section">
+            <h2>Sources (${sources.length})</h2>
+            ${sources.length === 0 ? '<p>No sources found.</p>' : `
+              <ul>${sources.map(src => `<li>${src}</li>`).join('')}</ul>
+            `}
+          </div>
+          <div class="section">
+            <h2>Sinks (${sinks.length})</h2>
+            ${sinks.length === 0 ? '<p>No sinks found.</p>' : `
+              <ul>${sinks.map(sink => `<li>${sink}</li>`).join('')}</ul>
+            `}
+          </div>
+          <div class="section">
+            <h2>Sanitizers (${sanitizers.length})</h2>
+            ${sanitizers.length === 0 ? '<p>No sanitizers found.</p>' : `
+              <ul>${sanitizers.map(san => `<li>${san}</li>`).join('')}</ul>
+            `}
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
   }
 }

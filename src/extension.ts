@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Initialize command triggers
 	console.log('🔧 Setting up command triggers...');
-	const commandTrigger = new CommandTrigger(apiKey || '');
+	const commandTrigger = new CommandTrigger(apiKey || '', context.globalStorageUri.fsPath);
 	commandTrigger.registerCommands(context);
 	console.log('✅ Command triggers registered');
 
