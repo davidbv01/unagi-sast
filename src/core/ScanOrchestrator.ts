@@ -48,7 +48,6 @@ export class ScanOrchestrator {
       if (ast) {
         try {
           analysisResult = await this.ruleEngine.analyzeFile(ast, document.languageId, document.fileName, content);
-          
           await this.outputManager.saveAnalysisResultToTempFile(analysisResult);
         } catch (error) {
           console.error('[ERROR] Failed to analyze AST:', error);

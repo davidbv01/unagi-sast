@@ -264,7 +264,7 @@ export class SecurityRuleEngine {
 
     for (const detection of detections) {
       // Create a key based on detection type, line number, and detection ID (ignoring column differences)
-      const key = `${detection.type}_${detection.id}_${detection.line}`;
+      const key = `${detection.type}_${detection.line}`;
       
       if (!seen.has(key)) {
         seen.add(key);

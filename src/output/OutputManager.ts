@@ -268,7 +268,7 @@ export class OutputManager {
                 ${vulnerabilities.map(vuln => `
                   <tr>
                     <td>${vuln.type}</td>
-                    <td class="severity-${vuln.severity.toLowerCase()}">${vuln.severity}</td>
+                    <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>
                     <td>${vuln.message}</td>
                     <td>${vuln.line ?? ''}</td>
                     <td>${vuln.description ?? ''}</td>
@@ -280,19 +280,65 @@ export class OutputManager {
           <div class="section">
             <h2>Sources (${sources.length})</h2>
             ${sources.length === 0 ? '<p>No sources found.</p>' : `
-              <ul>${sources.map(src => `<li>${src}</li>`).join('')}</ul>
+              <table>
+                <tr><th>ID</th><th>Type</th><th>Pattern</th><th>Description</th><th>Severity</th><th>Line</th><th>Column</th><th>EndLine</th><th>EndColumn</th></tr>
+                ${sources.map((src: any) => `
+                  <tr>
+                    <td>${src.id ?? ''}</td>
+                    <td>${src.type ?? ''}</td>
+                    <td>${src.pattern ?? ''}</td>
+                    <td>${src.description ?? ''}</td>
+                    <td class="severity-${src.severity ? src.severity.toLowerCase() : 'info'}">${src.severity ?? ''}</td>
+                    <td>${src.line ?? ''}</td>
+                    <td>${src.column ?? ''}</td>
+                    <td>${src.endLine ?? ''}</td>
+                    <td>${src.endColumn ?? ''}</td>
+                  </tr>
+                `).join('')}
+              </table>
             `}
           </div>
           <div class="section">
             <h2>Sinks (${sinks.length})</h2>
             ${sinks.length === 0 ? '<p>No sinks found.</p>' : `
-              <ul>${sinks.map(sink => `<li>${sink}</li>`).join('')}</ul>
+              <table>
+                <tr><th>ID</th><th>Type</th><th>Pattern</th><th>Description</th><th>Vulnerability Type</th><th>Severity</th><th>Line</th><th>Column</th><th>EndLine</th><th>EndColumn</th></tr>
+                ${sinks.map((sink: any) => `
+                  <tr>
+                    <td>${sink.id ?? ''}</td>
+                    <td>${sink.type ?? ''}</td>
+                    <td>${sink.pattern ?? ''}</td>
+                    <td>${sink.description ?? ''}</td>
+                    <td>${sink.vulnerabilityType ?? ''}</td>
+                    <td class="severity-${sink.severity ? sink.severity.toLowerCase() : 'info'}">${sink.severity ?? ''}</td>
+                    <td>${sink.line ?? ''}</td>
+                    <td>${sink.column ?? ''}</td>
+                    <td>${sink.endLine ?? ''}</td>
+                    <td>${sink.endColumn ?? ''}</td>
+                  </tr>
+                `).join('')}
+              </table>
             `}
           </div>
           <div class="section">
             <h2>Sanitizers (${sanitizers.length})</h2>
             ${sanitizers.length === 0 ? '<p>No sanitizers found.</p>' : `
-              <ul>${sanitizers.map(san => `<li>${san}</li>`).join('')}</ul>
+              <table>
+                <tr><th>ID</th><th>Type</th><th>Pattern</th><th>Description</th><th>Effectiveness</th><th>Line</th><th>Column</th><th>EndLine</th><th>EndColumn</th></tr>
+                ${sanitizers.map((san: any) => `
+                  <tr>
+                    <td>${san.id ?? ''}</td>
+                    <td>${san.type ?? ''}</td>
+                    <td>${san.pattern ?? ''}</td>
+                    <td>${san.description ?? ''}</td>
+                    <td>${san.effectiveness !== undefined ? (san.effectiveness * 100).toFixed(0) + '%' : ''}</td>
+                    <td>${san.line ?? ''}</td>
+                    <td>${san.column ?? ''}</td>
+                    <td>${san.endLine ?? ''}</td>
+                    <td>${san.endColumn ?? ''}</td>
+                  </tr>
+                `).join('')}
+              </table>
             `}
           </div>
         </div>
