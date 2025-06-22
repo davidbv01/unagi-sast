@@ -21,8 +21,6 @@ export class ScanOrchestrator {
     const lines = content.split('\n');
     
     try {
-      
-      // Parse content into AST
       let ast;
       try {
         ast = this.astParser.parse(content, document.languageId, document.fileName);
@@ -30,19 +28,12 @@ export class ScanOrchestrator {
           throw new Error('AST parser returned null or undefined');
         }
       } catch (error) {
-        console.error('[ERROR] Failed to parse file into AST:', {
-          file: document.fileName,
-          language: document.languageId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined
-        });
         vscode.window.showErrorMessage(
           `Failed to parse ${document.fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
         return this.createScanResult(document, { vulnerabilities: [], sources: [], sinks: [], sanitizers: [] }, startTime, lines.length);
       }
       
-      let vulnerabilities: Vulnerability[] = [];
       let analysisResult: AnalysisResult | null = null;
       
       if (ast) {
@@ -50,7 +41,6 @@ export class ScanOrchestrator {
           analysisResult = await this.ruleEngine.analyzeFile(ast, document.languageId, document.fileName, content);
           await this.outputManager.saveAnalysisResultToTempFile(analysisResult);
         } catch (error) {
-          console.error('[ERROR] Failed to analyze AST:', error);
           vscode.window.showErrorMessage(`Failed to analyze file: ${document.fileName}`);
         }
       } else {

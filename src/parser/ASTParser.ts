@@ -1,6 +1,6 @@
 import Parser from 'tree-sitter';
 import Python from 'tree-sitter-python';
-import { Position } from '../types';
+import { Position, PythonFunction } from '../types';
 
 export class ASTParser {
   private parser: Parser;
@@ -18,9 +18,13 @@ export class ASTParser {
 
       this.tree = this.parser.parse(content);
       const rootNode = this.tree.rootNode;
+      
+      // Return the AST structure with functions and content included
+      const ast = this.nodeToDict(rootNode, content);
+      const functions = this.extractPythonFunctionsFromAST(ast);
+      ast.functions = functions;
+      return ast;
 
-      // Return the AST structure directly with content included
-      return this.nodeToDict(rootNode, content);
     } catch (error) {
       console.error(`Tree-sitter failed to parse ${fileName}: ${error}`);
       return null;
@@ -136,4 +140,29 @@ export class ASTParser {
 
     walk(ast);
   }
+
+  public extractPythonFunctionsFromAST(ast: any): PythonFunction[] {
+    const functions: PythonFunction[] = [];
+
+    this.traverse(ast, {
+      enter: (path) => {
+        const node = path.node;
+
+        if (node.type === 'function_definition') {
+          const nameNode = node.children?.find(
+            (child: any) => child.type === 'identifier'
+          );
+
+          functions.push({
+            name: nameNode?.text || 'anonymous',
+            startLine: node.loc.start.line,
+            endLine: node.loc.end.line
+          });
+        }
+      }
+    });
+
+    return functions;
+  }
+  
 }

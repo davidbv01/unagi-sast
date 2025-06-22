@@ -138,7 +138,7 @@ export class SecurityRuleEngine {
             }
           };
 
-          aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest);
+          aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest, ast);
           console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
           
           if (aiAnalysisResult) {

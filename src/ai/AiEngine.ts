@@ -1,5 +1,5 @@
 import { CodeExtractor, DataFlowCodeExtraction } from './CodeExtractor';
-import { VulnerabilityVerifier, VulnerabilityAnalysis, VerificationRequest } from './VulnerabilityVerifier';
+import { VulnerabilityVerifier, VulnerabilityAnalysis } from './VulnerabilityVerifier';
 import { Vulnerability } from '../types';
 
 export interface AiAnalysisRequest {
@@ -35,13 +35,13 @@ export class AiEngine {
     this.verifier = new VulnerabilityVerifier(apiKey);
   }
 
-  public async analyzeVulnerabilities(request: AiAnalysisRequest): Promise<AiAnalysisResult> {
+  public async analyzeVulnerabilities(request: AiAnalysisRequest, ast: any): Promise<AiAnalysisResult> {
     const { vulnerabilities, file, context } = request;
     const verified: AiAnalysisResult['verifiedVulnerabilities'] = [];
     let totalConfidence = 0, confirmed = 0, falsePositives = 0;
 
     const codeExtractions = vulnerabilities.map(vuln => {
-      return CodeExtractor.extractDataFlowCode(file, vuln.pathLines ?? [vuln.line]);
+      return CodeExtractor.extractDataFlowCode(vuln.file, vuln.pathLines ?? [vuln.line], ast.functions);
     });
 
     for (let i = 0; i < vulnerabilities.length; i++) {
@@ -79,14 +79,4 @@ export class AiEngine {
       }
     };
   }
-
-  public async analyzeSingleVulnerability(
-    file: string,
-    vulnerability: Vulnerability,
-    context?: AiAnalysisRequest['context']
-  ): Promise<AiAnalysisResult['verifiedVulnerabilities'][0]> {
-    const result = await this.analyzeVulnerabilities({ file, vulnerabilities: [vulnerability], context });
-    return result.verifiedVulnerabilities[0];
-  }
-  
 }
