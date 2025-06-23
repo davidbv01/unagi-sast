@@ -41,44 +41,37 @@ export class CodeExtractor {
 
   
   /**
-   * Extracts Python source code for functions involved in data flow analysis.
-   * This includes the source, sink, any sanitizers, and the full context involved.
+   * Extracts the source code of all Python functions that contain any of the involved lines.
+   * The full context will include the source code of these functions.
    */
   public static extractDataFlowCode(
     filePath: string,
     lines: number[],
-    functions: PythonFunction[]
+    functions: PythonFunction[],
+    fileContent: string,
   ): DataFlowCodeExtraction {
     try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      const fileLines = content.split('\n');
+      const fileLines = fileContent.split('\n');
 
-      // Get full source code for each line involved in the taint path
-      const involvedSource = lines
-        .map(line => fileLines[line - 1]) // line numbers are 1-based
-        .filter(Boolean)
-        .join('\n');
+      // Get unique line numbers
+      const uniqueLines = Array.from(new Set(lines));
 
-      // Identify all functions that overlap with any of the involved lines
+      // Find all functions that contain any of the involved lines
       const involvedFunctions = functions.filter(fn =>
-        lines.some(line => line >= fn.startLine && line <= fn.endLine)
+        uniqueLines.some(line => line >= fn.startLine && line <= fn.endLine)
       );
 
-      // Classify source, sink, and sanitizers based on first-come order
-      const [sourceFunction, sinkFunction, ...sanitizers] = involvedFunctions;
+      // Extract the full source code of those functions
+      const fullContext = involvedFunctions
+        .map(fn => this.extractFunctionSource(fileLines, fn, filePath).sourceCode)
+        .join('\n\n');
 
       return {
-        sourceFunction: sourceFunction
-          ? this.extractFunctionSource(fileLines, sourceFunction, filePath)
-          : undefined,
-        sinkFunction: sinkFunction
-          ? this.extractFunctionSource(fileLines, sinkFunction, filePath)
-          : undefined,
-        sanitizerFunctions: sanitizers.map(s =>
-          this.extractFunctionSource(fileLines, s, filePath)
-        ),
-        involvedLines: lines,
-        fullContext: involvedSource,
+        sourceFunction: undefined,
+        sinkFunction: undefined,
+        sanitizerFunctions: [], // not used in this version
+        involvedLines: uniqueLines,
+        fullContext,
         filePath
       };
     } catch (error) {
@@ -93,4 +86,4 @@ export class CodeExtractor {
       };
     }
   }
-} 
+}

@@ -22,7 +22,9 @@ export class ASTParser {
       // Return the AST structure with functions and content included
       const ast = this.nodeToDict(rootNode, content);
       const functions = this.extractPythonFunctionsFromAST(ast);
+      const contentWithoutComments = this.removeComments(content);
       ast.functions = functions;
+      ast.content = contentWithoutComments;
       return ast;
 
     } catch (error) {
@@ -165,4 +167,56 @@ export class ASTParser {
     return functions;
   }
   
+  public removeComments(content: string): string {
+    if (!this.tree) return content;
+
+    // Extraemos todos los nodos de comentario del árbol
+    const commentNodes: Parser.SyntaxNode[] = [];
+
+    const collectComments = (node: Parser.SyntaxNode) => {
+      if (node.type === 'comment') {
+        commentNodes.push(node);
+      }
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child !== null) {
+          collectComments(child);
+        }
+      }
+    };
+
+    collectComments(this.tree.rootNode);
+
+    if (commentNodes.length === 0) return content; // Sin comentarios
+
+    // Convertir contenido en array de líneas para facilitar la manipulación
+    const lines = content.split('\n');
+
+    // Para cada comentario, eliminamos la parte correspondiente en lines
+    commentNodes.forEach(node => {
+      const { startPosition, endPosition } = node;
+      const startLine = startPosition.row;
+      const startCol = startPosition.column;
+      const endLine = endPosition.row;
+      const endCol = endPosition.column;
+
+      if (startLine === endLine) {
+        // Comentario en una sola línea: cortamos desde startCol hasta endCol
+        lines[startLine] =
+          lines[startLine].substring(0, startCol) + lines[startLine].substring(endCol);
+      } else {
+        // Comentario multi-línea (raro en Python pero puede ser docstring o multilinea)
+        // Eliminamos líneas completas entre startLine+1 y endLine-1
+        lines[startLine] = lines[startLine].substring(0, startCol);
+        for (let i = startLine + 1; i < endLine; i++) {
+          lines[i] = '';
+        }
+        lines[endLine] = lines[endLine].substring(endCol);
+      }
+    });
+
+    // Unir líneas limpiadas y retornar
+    return lines.join('\n');
+  }
+
 }

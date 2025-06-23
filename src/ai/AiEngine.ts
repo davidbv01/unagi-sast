@@ -41,7 +41,7 @@ export class AiEngine {
     let totalConfidence = 0, confirmed = 0, falsePositives = 0;
 
     const codeExtractions = vulnerabilities.map(vuln => {
-      return CodeExtractor.extractDataFlowCode(vuln.file, vuln.pathLines ?? [vuln.line], ast.functions);
+      return CodeExtractor.extractDataFlowCode(vuln.file, vuln.pathLines ?? [vuln.line], ast.functions, ast.content);
     });
 
     for (let i = 0; i < vulnerabilities.length; i++) {
