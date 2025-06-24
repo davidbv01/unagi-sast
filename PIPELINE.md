@@ -5,7 +5,7 @@ Use a parser like Tree-sitter to parse the source code and generate the full AST
 2. Detect Source Nodes
 
 Traverse the AST to identify all nodes that act as data sources (external inputs, untrusted variables, etc.).
-
+ 
 3. For Each Identified Source:
 
 3.1 Initialize Taint Tracking

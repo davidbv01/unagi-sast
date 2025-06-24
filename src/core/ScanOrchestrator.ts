@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { Vulnerability, ScanResult } from '../types';
+import { ScanResult } from '../types';
 import { SecurityRuleEngine, AnalysisResult } from '../rules/SecurityRuleEngine';
 import { OutputManager } from '../output/OutputManager';
 import { ASTParser } from '../parser/ASTParser';
+import { DataFlowGraph } from '../parser/DataFlowGraph';
 
 export class ScanOrchestrator {
   public ruleEngine: SecurityRuleEngine;
@@ -24,6 +25,18 @@ export class ScanOrchestrator {
       let ast;
       try {
         ast = this.astParser.parse(content, document.languageId, document.fileName);
+        if(ast)
+        {
+          const dfg = new DataFlowGraph();
+          dfg.buildFromAst(ast);
+          dfg.propagateTaint("user_input")
+          console.log("[DEBUG] propagateTaint")
+          
+          for (const node of dfg.nodes.values()) {
+            console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
+          }
+        }
+        
         if (!ast) {
           throw new Error('AST parser returned null or undefined');
         }

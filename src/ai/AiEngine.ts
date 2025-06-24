@@ -1,6 +1,6 @@
 import { CodeExtractor, DataFlowCodeExtraction } from './CodeExtractor';
 import { VulnerabilityVerifier, VulnerabilityAnalysis } from './VulnerabilityVerifier';
-import { Vulnerability } from '../types';
+import { Vulnerability, AstNode } from '../types';
 
 export interface AiAnalysisRequest {
   file: string;
@@ -35,7 +35,7 @@ export class AiEngine {
     this.verifier = new VulnerabilityVerifier(apiKey);
   }
 
-  public async analyzeVulnerabilities(request: AiAnalysisRequest, ast: any): Promise<AiAnalysisResult> {
+  public async analyzeVulnerabilities(request: AiAnalysisRequest, ast: AstNode): Promise<AiAnalysisResult> {
     const { vulnerabilities, file, context } = request;
     const verified: AiAnalysisResult['verifiedVulnerabilities'] = [];
     let totalConfidence = 0, confirmed = 0, falsePositives = 0;

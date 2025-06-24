@@ -2,6 +2,7 @@ import { Vulnerability, Severity } from "../types";
 import { Source } from '../analysis/detectors/SourceDetector';
 import { Sink } from '../analysis/detectors/SinkDetector';
 import { Sanitizer } from '../analysis/detectors/SanitizerDetector';
+import { AstNode } from "../types";
 
         
 
@@ -14,7 +15,7 @@ export class TaintEngine {
     sources: (Source & { id: number; loc: any })[],
     sinks: (Sink & { id: number; vulnerabilityType: string; loc: any; severity: Severity })[],
     sanitizers: (Sanitizer & { id: number })[],
-    ast: any,
+    ast: AstNode,
     file: string
   ): Vulnerability[] {
     const vulnerabilities: Vulnerability[] = [];
@@ -55,7 +56,7 @@ export class TaintEngine {
     return vulnerabilities;
   }
 
-  private isNodeAfter(idA: number, idB: number, ast: any): boolean {
+  private isNodeAfter(idA: number, idB: number, ast: AstNode): boolean {
     const nodeOrder: number[] = [];
   
     const collectIds = (node: any) => {
@@ -71,7 +72,7 @@ export class TaintEngine {
   }
 
 
-  private findPathBetweenNodes(ast: any, startId: number, endId: number): any[] {
+  private findPathBetweenNodes(ast: AstNode, startId: number, endId: number): any[] {
     const path: any[] = [];
     let inRange = false;
   

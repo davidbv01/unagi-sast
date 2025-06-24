@@ -1,6 +1,6 @@
 import Parser from 'tree-sitter';
 import Python from 'tree-sitter-python';
-import { Position, PythonFunction } from '../types';
+import { Position, PythonFunction, AstNode } from '../types';
 
 export class ASTParser {
   private parser: Parser;
@@ -12,9 +12,9 @@ export class ASTParser {
     this.parser.setLanguage(Python as any);
   }
 
-  public parse(content: string, languageId: string, fileName: string): any {
+  public parse(content: string, languageId: string, fileName: string): AstNode | undefined {
     try {
-      if (languageId !== 'python') return null;
+      if (languageId !== 'python') return undefined;
 
       this.tree = this.parser.parse(content);
       const rootNode = this.tree.rootNode;
@@ -29,7 +29,7 @@ export class ASTParser {
 
     } catch (error) {
       console.error(`Tree-sitter failed to parse ${fileName}: ${error}`);
-      return null;
+      return undefined;
     }
   }
 
@@ -121,7 +121,7 @@ export class ASTParser {
     };
   }
 
-  public traverse(ast: any, visitor: { enter?: (path: any) => void }): void {
+  public traverse(ast: AstNode, visitor: { enter?: (path: any) => void }): void {
     const walk = (node: any, parent: any = null) => {
       if (!node) return;
 
@@ -143,7 +143,7 @@ export class ASTParser {
     walk(ast);
   }
 
-  public extractPythonFunctionsFromAST(ast: any): PythonFunction[] {
+  public extractPythonFunctionsFromAST(ast: AstNode): PythonFunction[] {
     const functions: PythonFunction[] = [];
 
     this.traverse(ast, {

@@ -1,4 +1,26 @@
 // Types and interfaces for the SAST extension
+//AST interfaces
+export interface AstNode {
+  id: Number;
+  children: AstNode[];
+  type: string;
+  named: boolean;
+  text: string;
+  loc:
+  {
+    start: { line: Number, column: Number },
+    end: { line: Number, column: Number }
+  };
+  functions: PythonFunction[];
+  content: string
+};
+
+export interface PythonFunction {
+  name: string;
+  startLine: number;
+  endLine: number;
+}
+
 
 export interface Vulnerability {
   //Definition of a vulnerability
@@ -112,10 +134,3 @@ export interface Position {
   line: number;
   column: number;
 }
-
-export interface PythonFunction {
-  name: string;
-  startLine: number;
-  endLine: number;
-}
-
