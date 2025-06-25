@@ -10,3 +10,6 @@ unagi-sast/
 *.js.map
 
 .env
+
+# Test files
+src/test
