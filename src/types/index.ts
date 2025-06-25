@@ -11,6 +11,7 @@ export interface AstNode {
     start: { line: Number, column: Number },
     end: { line: Number, column: Number }
   };
+  scope: string;
   functions: PythonFunction[];
   content: string
 };

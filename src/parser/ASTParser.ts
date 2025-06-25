@@ -14,6 +14,7 @@ export class ASTParser {
 
   public parse(content: string, languageId: string, fileName: string): AstNode | undefined {
     try {
+      this.nodeCounter = 0;
       if (languageId !== 'python') return undefined;
 
       this.tree = this.parser.parse(content);
@@ -33,10 +34,20 @@ export class ASTParser {
     }
   }
 
-  private nodeToDict(node: Parser.SyntaxNode, content?: string): any {
+  private nodeToDict(node: Parser.SyntaxNode, content?: string, scopeStack: string[] = []): any {
     const nodeId = this.nodeCounter++; // Generate a unique incremental ID
 
-    const children = node.namedChildren.map(child => this.nodeToDict(child, content));
+    // Detect different scope types
+    let newScopeStack = [...scopeStack]; 
+    if (node.type === "function_definition" || node.type === "class_definition") {
+      const nameNode = node.namedChildren.find(child => child.type === 'identifier');
+      if (nameNode?.text) {
+        newScopeStack.push(nameNode.text);
+      }
+    }
+    const currentScope = newScopeStack.join("::") || "global";
+
+    const children = node.namedChildren.map(child => this.nodeToDict(child, content, newScopeStack));
 
     // Get raw positions from tree-sitter
     const startRow = node.startPosition.row;
@@ -94,16 +105,19 @@ export class ASTParser {
       }
     }
 
-    const result: any = {
+    const result: AstNode = {
       id: nodeId,
       type: node.type,
       named: node.isNamed,
       text: text,
       children,
+      scope: currentScope,
       loc: {
         start: { line: finalStartLine, column: finalStartCol },
         end: { line: finalEndLine, column: finalEndCol }
-      }
+      },
+      functions: [],
+      content: ''
     };
 
     // Add empty children array for leaf nodes
