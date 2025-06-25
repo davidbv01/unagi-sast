@@ -111,7 +111,19 @@ export class SecurityRuleEngine {
       // Set file path for pattern vulnerabilities
       patternVulnerabilities.forEach(vuln => {
         vuln.file = file;
-      });      // Taint analysis - check for unsanitized paths between sources and sinks
+      });      
+      
+      for (const source of Object.values(uniqueSources)) {
+        dfg.propagateTaint(source.key, new Set<string>());
+        console.log("[DEBUG] propagateTaint for source:", source.key);
+
+          for (const node of dfg.nodes.values()) {
+            console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
+          }
+      }
+
+
+      // Taint analysis - check for unsanitized paths between sources and sinks
       const taintVulnerabilities = this.taintEngine.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers,ast, file);
       
       // Initialize finalVulnerabilities with pattern vulnerabilities

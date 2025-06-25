@@ -30,11 +30,6 @@ export class ScanOrchestrator {
         {
           
           dfg.buildFromAst(ast);
-          console.log("[DEBUG] propagateTaint");
-
-          for (const node of dfg.nodes.values()) {
-            console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
-          }
         }
         
         if (!ast) {

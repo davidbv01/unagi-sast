@@ -21,13 +21,13 @@ export class SourceDetector extends RuleLoader {
       const rules = this.getAllRules() as SourceRule[];
       const sources = DetectorUtils.getAllItems(rules, 'sources');
       const detectedItem = DetectorUtils.detectItem(node, sources);
-    
-    
-      if (detectedItem) {
+
+      if (detectedItem && node.varNames?.[0]) {
+        const key = `${node.scope}_${node.varNames[0]}`;
         return {
           ...detectedItem,
           severity: this.getSeverityForSource(detectedItem.id, rules),
-          key: `${node.scope}-${node.text}`
+          key:  key
         };
       }
     }
