@@ -29,9 +29,9 @@ export class ScanOrchestrator {
         {
           const dfg = new DataFlowGraph();
           dfg.buildFromAst(ast);
-          dfg.propagateTaint("user_input")
-          console.log("[DEBUG] propagateTaint")
-          
+          dfg.propagateTaint("10");
+          console.log("[DEBUG] propagateTaint");
+
           for (const node of dfg.nodes.values()) {
             console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
           }
