@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ScanResult } from '../types';
+import { ScanResult, AstNode } from '../types';
 import { SecurityRuleEngine, AnalysisResult } from '../rules/SecurityRuleEngine';
 import { OutputManager } from '../output/OutputManager';
 import { ASTParser } from '../parser/ASTParser';
@@ -22,14 +22,14 @@ export class ScanOrchestrator {
     const lines = content.split('\n');
     
     try {
-      let ast;
+      let ast : AstNode | undefined;
+      const dfg = new DataFlowGraph();
       try {
         ast = this.astParser.parse(content, document.languageId, document.fileName);
         if(ast)
         {
-          const dfg = new DataFlowGraph();
+          
           dfg.buildFromAst(ast);
-          dfg.propagateTaint("10");
           console.log("[DEBUG] propagateTaint");
 
           for (const node of dfg.nodes.values()) {
@@ -51,7 +51,7 @@ export class ScanOrchestrator {
       
       if (ast) {
         try {
-          analysisResult = await this.ruleEngine.analyzeFile(ast, document.languageId, document.fileName, content);
+          analysisResult = await this.ruleEngine.analyzeFile(ast, dfg, document.languageId, document.fileName, content);
           await this.outputManager.saveAnalysisResultToTempFile(analysisResult);
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to analyze file: ${document.fileName}`);

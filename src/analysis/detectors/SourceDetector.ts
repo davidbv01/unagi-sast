@@ -1,5 +1,6 @@
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
+import { AstNode } from '../../types';
 
 interface SourceRule extends BaseRule {
   sources: BaseDetectorItem[];
@@ -7,6 +8,7 @@ interface SourceRule extends BaseRule {
 
 export interface Source extends BaseDetectorItem {
   severity: string;
+  key?: string;
 }
 
 export class SourceDetector extends RuleLoader {
@@ -14,7 +16,7 @@ export class SourceDetector extends RuleLoader {
     super('sources');
   }
 
-  public detectSource(node: any): Source | null {
+  public detectSource(node: AstNode): Source | null {
     if (node.type === 'call' || node.type === 'expression_statement') {
       const rules = this.getAllRules() as SourceRule[];
       const sources = DetectorUtils.getAllItems(rules, 'sources');
@@ -24,7 +26,8 @@ export class SourceDetector extends RuleLoader {
       if (detectedItem) {
         return {
           ...detectedItem,
-          severity: this.getSeverityForSource(detectedItem.id, rules)
+          severity: this.getSeverityForSource(detectedItem.id, rules),
+          key: `${node.scope}-${node.text}`
         };
       }
     }

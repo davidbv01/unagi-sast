@@ -12,6 +12,7 @@ export interface AstNode {
     end: { line: Number, column: Number }
   };
   scope: string;
+  varNames?: string[];
   functions: PythonFunction[];
   content: string
 };

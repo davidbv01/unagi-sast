@@ -23,18 +23,18 @@ export class DataFlowGraph {
 
   getOrCreateNodes(astNode: AstNode): DfgNode[] {
     const createdNodes: DfgNode[] = [];
-    const varNames = this.extractIdentifiers(astNode); // Uses a function that filters methods
+    const varNames = astNode.varNames || []; // Obtiene solo los nombres de variable
 
     for (const varName of varNames) {
-      const symbol: Symbol = {
-        name: varName,
-        scope: astNode.scope,
-        uniqueId: `${astNode.scope}_${varName}`
-      };
-
-      const uniqueId = `${symbol.uniqueId}_${astNode.id}`;
+      const uniqueId = `${astNode.scope}_${varName}`; 
 
       if (!this.nodes.has(uniqueId)) {
+        const symbol: Symbol = {
+          name: varName,
+          scope: astNode.scope,
+          uniqueId
+        };
+
         const node: DfgNode = {
           id: uniqueId,
           name: varName,
@@ -53,6 +53,7 @@ export class DataFlowGraph {
 
     return createdNodes;
   }
+
 
 
   // Builds the graph from the AST recursively
@@ -80,30 +81,8 @@ export class DataFlowGraph {
   }
 
 
-  private extractIdentifiers(node: AstNode): string[] {
-    const result: string[] = [];
-
-    const walk = (n: AstNode) => {
-      if (n.type === 'attribute') {
-        const base = n.children?.find(child => child.type === 'identifier');
-        if (base) result.push(base.text);
-      } else if (n.type === 'identifier') {
-        result.push(n.text);
-      } else {
-        for (const child of n.children || []) {
-          walk(child);
-        }
-      }
-    };
-
-    walk(node);
-    return result;
-  }
-
-
-
   // Marks a variable or node as tainted and propagates the taint forward
-  propagateTaint(sourceId: string) {
+  propagateTaint(sourceId: string, sanitizers: Set<string>) {
     const startNode = this.nodes.get(sourceId);
     if (!startNode) return;
 
@@ -113,13 +92,19 @@ export class DataFlowGraph {
 
     while (queue.length > 0) {
       const current = queue.shift()!;
+
+      // Si el nodo actual es un sanitizer, no propagamos más desde aquí
+      if (sanitizers.has(current.id)) {
+        continue;
+      }
+
       for (const neighbor of current.edges) {
         if (!neighbor.tainted) {
           neighbor.tainted = true;
           neighbor.taintSources = new Set(current.taintSources);
           queue.push(neighbor);
         } else {
-          // If already tainted, add taint sources
+          // Si ya está tainted, añadir fuentes nuevas si hay
           for (const src of current.taintSources) {
             neighbor.taintSources.add(src);
           }

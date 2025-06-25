@@ -3,6 +3,7 @@ import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SourceDetector, SinkDetector, SanitizerDetector, Source, Sink, Sanitizer } from '../analysis/detectors/index';
 import { TaintEngine } from '../analysis/TaintEngine';
 import { AiEngine, AiAnalysisRequest, AiAnalysisResult } from '../ai';
+import { DataFlowGraph } from '../parser/DataFlowGraph';
 import * as vscode from 'vscode';
 
 export interface AnalysisResult {
@@ -41,7 +42,7 @@ export class SecurityRuleEngine {
     }
   }
 
-  public async analyzeFile(ast: AstNode, languageId: string, file: string, content: string): Promise<AnalysisResult> {
+  public async analyzeFile(ast: AstNode, dfg: DataFlowGraph, languageId: string, file: string, content: string): Promise<AnalysisResult> {
     try {
       // Detect sources, sinks, and sanitizers by traversing the AST
       const detectedSources: (Source & { line: number; column: number; endLine: number; endColumn: number })[] = [];
