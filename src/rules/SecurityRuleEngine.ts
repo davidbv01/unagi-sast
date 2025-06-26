@@ -125,6 +125,7 @@ export class SecurityRuleEngine {
         }
       }
       dfg.printGraph();
+      dfg.detectVulnerabilities();
 
 
       // Taint analysis - check for unsanitized paths between sources and sinks

@@ -193,6 +193,28 @@ export class DataFlowGraph {
     }
   }
 
+  /**
+   * Detects vulnerabilities by identifying tainted sinks
+   */
+  public detectVulnerabilities(): void {
+    console.log(chalk.redBright('\n🚨 Detected Vulnerabilities:\n'));
+
+    let found = false;
+
+    for (const node of this.nodes.values()) {
+      if (node.isSink && node.tainted) {
+        found = true;
+        console.log(`${chalk.magentaBright('Sink:')} ${chalk.blue(node.name)} (${node.infoSink})`);
+        console.log(`  ${chalk.red('Tainted from:')} ${Array.from(node.taintSources).join(', ')}`);
+        console.log('-'.repeat(40));
+      }
+    }
+
+    if (!found) {
+      console.log(chalk.green('✅ No tainted sinks found. No vulnerabilities detected.'));
+    }
+  }
+
 
   /**
    * Gets variable name by AST node ID
