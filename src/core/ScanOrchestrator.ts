@@ -30,6 +30,7 @@ export class ScanOrchestrator {
         {
           
           dfg.buildFromAst(ast);
+          dfg.printGraph();
         }
         
         if (!ast) {

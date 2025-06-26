@@ -105,21 +105,24 @@ export class SecurityRuleEngine {
       const uniqueSources = this.deduplicateDetections(detectedSources);
       const uniqueSinks = this.deduplicateDetections(detectedSinks);
       const uniqueSanitizers = this.deduplicateDetections(detectedSanitizers);
-  
+
       // Pattern-based analysis
       const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
       // Set file path for pattern vulnerabilities
       patternVulnerabilities.forEach(vuln => {
         vuln.file = file;
       });      
-      
+
+      // Create a Set<string> of unique sink keys
+      const sanitizers: Set<string> = new Set<string>(uniqueSanitizers.map(sanitizer => sanitizer.key));
+
       for (const source of Object.values(uniqueSources)) {
-        dfg.propagateTaint(source.key, new Set<string>());
+        dfg.propagateTaint(source.key, sanitizers);
         console.log("[DEBUG] propagateTaint for source:", source.key);
 
-          for (const node of dfg.nodes.values()) {
-            console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
-          }
+        for (const node of dfg.nodes.values()) {
+          console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
+        }
       }
 
 

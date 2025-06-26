@@ -7,6 +7,7 @@ interface SanitizerRule extends BaseRule {
 
 export interface Sanitizer extends BaseDetectorItem {
   effectiveness: number;
+  key?: string;
 }
 
 export class SanitizerDetector extends RuleLoader {
@@ -21,9 +22,11 @@ export class SanitizerDetector extends RuleLoader {
       const detectedItem = DetectorUtils.detectItem(node, sanitizers);
       
       if (detectedItem) {
+        const key = `test`;
         return {
           ...detectedItem,
-          effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules)
+          effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules),
+          key: key
         };
       }
     }

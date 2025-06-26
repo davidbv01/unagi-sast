@@ -22,8 +22,8 @@ export class SourceDetector extends RuleLoader {
       const sources = DetectorUtils.getAllItems(rules, 'sources');
       const detectedItem = DetectorUtils.detectItem(node, sources);
 
-      if (detectedItem && node.varNames?.[0]) {
-        const key = `${node.scope}_${node.varNames[0]}`;
+      if (detectedItem) {
+        const key = `${node.scope}_`; //TODO CHANGE
         return {
           ...detectedItem,
           severity: this.getSeverityForSource(detectedItem.id, rules),

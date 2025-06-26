@@ -124,12 +124,7 @@ export class ASTParser {
     if (children.length === 0) {
       result.children = [];
     }
-
-    if (result.type === 'assignment' && result.children.length >= 2) {
-      result.children[0].varNames = this.extractIdentifiers(result.children[0]);
-      result.children[1].varNames = this.extractIdentifiers(result.children[1]);
-    }
-
+    
     return result;
   }
 
@@ -162,25 +157,7 @@ export class ASTParser {
     walk(ast);
   }
 
-  private extractIdentifiers(node: AstNode): string[] {
-    const result: string[] = [];
-
-    const walk = (n: AstNode) => {
-      if (n.type === 'attribute') {
-        const base = n.children.find(child => child.type === 'identifier');
-        if (base) result.push(base.text);
-      } else if (n.type === 'identifier') {
-        result.push(n.text);
-      } else {
-        for (const child of n.children || []) {
-          walk(child);
-        }
-      }
-    };
-
-    walk(node);
-    return result;
-  }
+  
 
 
   public extractPythonFunctionsFromAST(ast: AstNode): PythonFunction[] {
