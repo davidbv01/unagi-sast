@@ -1,5 +1,5 @@
 import { SanitizerDetector, SinkDetector } from "../analysis/detectors";
-import { AstNode } from "../types";
+import { AstNode, Vulnerability, VulnerabilityType, Severity } from "../types";
 import chalk from 'chalk';
 
 type DfgNode = {
@@ -195,24 +195,43 @@ export class DataFlowGraph {
 
   /**
    * Detects vulnerabilities by identifying tainted sinks
+   * @returns Array of detected vulnerabilities
    */
-  public detectVulnerabilities(): void {
-    console.log(chalk.redBright('\n🚨 Detected Vulnerabilities:\n'));
-
-    let found = false;
+  public detectVulnerabilities(): Vulnerability[] {
+    const vulnerabilities: Vulnerability[] = [];
 
     for (const node of this.nodes.values()) {
       if (node.isSink && node.tainted) {
-        found = true;
-        console.log(`${chalk.magentaBright('Sink:')} ${chalk.blue(node.name)} (${node.infoSink})`);
-        console.log(`  ${chalk.red('Tainted from:')} ${Array.from(node.taintSources).join(', ')}`);
-        console.log('-'.repeat(40));
+        const vuln: Vulnerability = {
+          id: `vuln-${node.id}`,
+          type: VulnerabilityType.GENERIC, // Puedes hacer esto dinámico si quieres más tipos
+          severity: Severity.HIGH,            // También puedes variar esto según heurísticas
+          message: `Tainted data reaches sink: ${node.name}`,
+          file: node.name || "unknown", // Asegúrate que `astNode` tenga `file`, `line`, `column`
+          line: node.astNode.loc.start.line || 0,
+          column: node.astNode.loc.start.column || 0,
+          rule: "TAINTED_SINK",
+          description: `${node.name} is a sink and receives tainted input from: ${Array.from(node.taintSources).join(", ")}`,
+          recommendation: "Sanitize input before passing it to sensitive operations like this sink.",
+          sourceId: Array.from(node.taintSources).map(id => {
+            const sourceNode = this.nodes.get(id);
+            return sourceNode?.astNode?.id ?? 0;
+          })[0], // tomamos el primero
+          sinkId: node.astNode.id,
+          sanitizerIds: [], // podrías mejorar esto si quieres rastrear sanitizers en la ruta
+          ai: {
+            confidenceScore: 0.95,
+            shortExplanation: `The variable '${node.name}' is influenced by user input and reaches a critical operation.`,
+            exploitExample: `os.system(user_input)`,
+            remediation: `Use whitelist or strict validation before passing input to '${node.name}'`,
+          }
+        };
+
+        vulnerabilities.push(vuln);
       }
     }
 
-    if (!found) {
-      console.log(chalk.green('✅ No tainted sinks found. No vulnerabilities detected.'));
-    }
+    return vulnerabilities;
   }
 
 

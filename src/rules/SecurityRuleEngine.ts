@@ -43,167 +43,126 @@ export class SecurityRuleEngine {
   }
 
   public async analyzeFile(ast: AstNode, dfg: DataFlowGraph, languageId: string, file: string, content: string): Promise<AnalysisResult> {
-    try {
-      // Detect sources, sinks, and sanitizers by traversing the AST
-      const detectedSources: (Source & { line: number; column: number; endLine: number; endColumn: number })[] = [];
-      const detectedSinks: (Sink & { line: number; column: number; endLine: number; endColumn: number })[] = [];
-      const detectedSanitizers: (Sanitizer & { line: number; column: number; endLine: number; endColumn: number })[] = [];
-      
-      const traverse = (node: any) => {
-        if (!node) return;
-        
-        // Check for sources
-        const source = this.sourceDetector.detectSource(node);
-        if (source) {
-          detectedSources.push({
-            ...source,
-            id: node.id,
-            line: node.loc?.start?.line || 1,
-            column: node.loc?.start?.column || 0,
-            endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
-            endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
-          });
-        }
-        
-        // Check for sinks
-        const sink = this.sinkDetector.detectSink(node);
-        if (sink) {
-          detectedSinks.push({
-            ...sink,
-            id: node.id,
-            line: node.loc?.start?.line || 1,
-            column: node.loc?.start?.column || 0,
-            endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
-            endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
-          });
-        }
-        
-        // Check for sanitizers
-        const sanitizer = this.sanitizerDetector.detectSanitizer(node);
-        if (sanitizer) {
-          detectedSanitizers.push({
-            ...sanitizer,
-            id: node.id,
-            line: node.loc?.start?.line || 1,
-            column: node.loc?.start?.column || 0,
-            endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
-            endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
-          });
-        }
-        
-        // Recursively traverse children
-        if (node.children) {
-          for (const child of node.children) {
-            traverse(child);
-          }
-        }
-      };
-      
-      traverse(ast);
-      
-      // Deduplicate sources, sinks, and sanitizers
-      const uniqueSources = this.deduplicateDetections(detectedSources);
-      const uniqueSinks = this.deduplicateDetections(detectedSinks);
-      const uniqueSanitizers = this.deduplicateDetections(detectedSanitizers);
+      try {
+          // Detect sources
+          const detectedSources: (Source & { line: number; column: number; endLine: number; endColumn: number })[] = [];
 
-      // Pattern-based analysis
-      const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
-      // Set file path for pattern vulnerabilities
-      patternVulnerabilities.forEach(vuln => {
-        vuln.file = file;
-      });      
-
-      // Create a Set<string> of unique sink keys
-      const sanitizers: Set<string> = new Set<string>(uniqueSanitizers.map(sanitizer => sanitizer.key));
-
-      for (const source of Object.values(uniqueSources)) {
-        dfg.propagateTaint(source.key);
-        console.log("[DEBUG] propagateTaint for source:", source.key);
-
-        for (const node of dfg.nodes.values()) {
-          console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
-        }
-      }
-      dfg.printGraph();
-      dfg.detectVulnerabilities();
-
-
-      // Taint analysis - check for unsanitized paths between sources and sinks
-      const taintVulnerabilities = this.taintEngine.performTaintAnalysis(uniqueSources, uniqueSinks, uniqueSanitizers,ast, file);
-      
-      // Initialize finalVulnerabilities with pattern vulnerabilities
-      let finalVulnerabilities: Vulnerability[] = [...patternVulnerabilities];
-
-      // Verify that we have api keys for AI analysis
-      if (!this.aiEngine) {
-        console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
-        vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
-        finalVulnerabilities.push(...taintVulnerabilities);
-      }
-      else {
-        // AI-powered analysis using AiEngine (code extraction + verification)
-      let aiAnalysisResult: AiAnalysisResult | null = null;
-      
-      if (taintVulnerabilities.length > 0) {
-        try {
-          const aiRequest: AiAnalysisRequest = {
-            file,
-            vulnerabilities: taintVulnerabilities,
-            context: {
+          const traverse = (node: any) => {
+              if (!node) return;
               
-              language: languageId,
-              additionalInfo: `Static analysis detected ${taintVulnerabilities.length} potential vulnerabilities`
-            }
+              // Check for sources
+              const source = this.sourceDetector.detectSource(node);
+              if (source) {
+                  detectedSources.push({
+                      ...source,
+                      id: node.id,
+                      line: node.loc?.start?.line || 1,
+                      column: node.loc?.start?.column || 0,
+                      endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
+                      endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
+                  });
+              }
+
+              // Traverse children
+              if (node.children) {
+                  for (const child of node.children) {
+                      traverse(child);
+                  }
+              }
           };
 
-          aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest, ast);
-          console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
-          
-          if (aiAnalysisResult) {
-            for (const verified of aiAnalysisResult.verifiedVulnerabilities) {
-              if (verified.isConfirmed) {
-                finalVulnerabilities.push({
-                  ...verified.originalVulnerability,
-                  ai: {
-                    confidenceScore: verified.aiAnalysis.confidenceScore,
-                    shortExplanation: verified.aiAnalysis.shortExplanation,
-                    exploitExample: verified.aiAnalysis.exploitExample,
-                    remediation: verified.aiAnalysis.remediation
-                  }
-                });
+          // Start traversal
+          traverse(ast);
+
+          // Deduplicate sources, sinks, and sanitizers
+          const uniqueSources = this.deduplicateDetections(detectedSources);
+
+          // Pattern-based analysis
+          const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
+          // Set file path for pattern vulnerabilities
+          patternVulnerabilities.forEach(vuln => {
+              vuln.file = file;
+          });      
+
+          // Taint analysis - check for unsanitized paths between sources and sinks
+          for (const source of Object.values(uniqueSources)) {
+              dfg.propagateTaint(source.key);
+              console.log("[DEBUG] propagateTaint for source:", source.key);
+
+              for (const node of dfg.nodes.values()) {
+                  console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
               }
-            }
           }
-        } catch (aiError) {
-          // Handle AI analysis errors
-          finalVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
-          vscode.window.showWarningMessage(`AI analysis failed`);
-        }
+          dfg.printGraph();
+          const taintVulnerabilities = dfg.detectVulnerabilities();
+
+          // Initialize finalVulnerabilities with pattern vulnerabilities
+          let finalVulnerabilities: Vulnerability[] = [...patternVulnerabilities];
+
+          // Verify that we have api keys for AI analysis
+          if (!this.aiEngine) {
+              console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
+              vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
+              finalVulnerabilities.push(...taintVulnerabilities);
+          } else {
+              // AI-powered analysis using AiEngine (code extraction + verification)
+              let aiAnalysisResult: AiAnalysisResult | null = null;
+              
+              if (taintVulnerabilities.length > 0) {
+                  try {
+                      const aiRequest: AiAnalysisRequest = {
+                          file,
+                          vulnerabilities: taintVulnerabilities,
+                          context: {
+                              language: languageId,
+                              additionalInfo: `Static analysis detected ${taintVulnerabilities.length} potential vulnerabilities`
+                          }
+                      };
+
+                      aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest, ast);
+                      console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
+                      
+                      if (aiAnalysisResult) {
+                          for (const verified of aiAnalysisResult.verifiedVulnerabilities) {
+                              if (verified.isConfirmed) {
+                                  finalVulnerabilities.push({
+                                      ...verified.originalVulnerability,
+                                      ai: {
+                                          confidenceScore: verified.aiAnalysis.confidenceScore,
+                                          shortExplanation: verified.aiAnalysis.shortExplanation,
+                                          exploitExample: verified.aiAnalysis.exploitExample,
+                                          remediation: verified.aiAnalysis.remediation
+                                      }
+                                  });
+                              }
+                          }
+                      }
+                  } catch (aiError) {
+                      // Handle AI analysis errors
+                      finalVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
+                      vscode.window.showWarningMessage(`AI analysis failed`);
+                  }
+              }
+              
+              console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
+          }
+
+          return {
+              vulnerabilities: finalVulnerabilities,
+              sources: detectedSources,
+              sinks: [], // Add detected sinks if available
+              sanitizers: [] // Add detected sanitizers if available
+          };
+      } catch (error) {
+          console.error(`[ERROR] Failed to analyze file ${file}:`, error);
+          vscode.window.showErrorMessage(`Failed to analyze file: ${file}`);
+          return {
+              vulnerabilities: [],
+              sources: [],
+              sinks: [],
+              sanitizers: []
+          };
       }
-      
-      console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
-      }
-
-
-      // Combine all vulnerabilities
-      console.log(`[DEBUG] ✅ Analysis complete. Found ${finalVulnerabilities.length} total vulnerabilities, ${uniqueSources.length} sources, ${uniqueSinks.length} sinks, ${uniqueSanitizers.length} sanitizers`);
-
-      return {
-        vulnerabilities: finalVulnerabilities,
-        sources: uniqueSources,
-        sinks: uniqueSinks,
-        sanitizers: uniqueSanitizers
-      };
-    } catch (error) {
-      console.error(`[ERROR] Failed to analyze file ${file}:`, error);
-      vscode.window.showErrorMessage(`Failed to analyze file: ${file}`);
-      return {
-        vulnerabilities: [],
-        sources: [],
-        sinks: [],
-        sanitizers: []
-      };
-    }
   }
 
   public reloadRules(): void {

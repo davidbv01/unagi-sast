@@ -8,8 +8,8 @@ export interface AstNode {
   text: string;
   loc:
   {
-    start: { line: Number, column: Number },
-    end: { line: Number, column: Number }
+    start: { line: number, column: number },
+    end: { line: number, column: number }
   };
   scope: string;
   functions: PythonFunction[];
@@ -22,6 +22,17 @@ export interface PythonFunction {
   endLine: number;
 }
 
+//Output interfaces
+export interface ScanResult {
+  file: string;
+  vulnerabilities: Vulnerability[];
+  sources: Source[];
+  sinks: Sink[];
+  sanitizers: Sanitizer[];
+  scanTime: number;
+  linesScanned: number;
+  language: string;
+}
 
 export interface Vulnerability {
   //Definition of a vulnerability
@@ -51,6 +62,60 @@ export interface Vulnerability {
   };
 }
 
+export interface Source {
+  id: string;
+  type: string;
+  pattern: string;
+  description: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+
+export interface Sink {
+  id: string;
+  type: string;
+  pattern: string;
+  description: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+
+export interface Sanitizer {
+  id: string;
+  type: string;
+  pattern: string;
+  description: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+
+export interface ScanConfiguration {
+  enabledRules: string[];
+  excludePatterns: string[];
+  includePatterns: string[];
+  severityThreshold: Severity;
+  outputFormat: OutputFormat;
+}
+
+export enum OutputFormat {
+  INLINE = 'inline',
+  PROBLEMS_PANEL = 'problems',
+  OUTPUT_CHANNEL = 'output',
+  REPORT_FILE = 'file'
+}
+
+export interface Position {
+  line: number;
+  column: number;
+}
+
+//Enumerations 
 export enum VulnerabilityType {
   SQL_INJECTION = 'SQL_INJECTION',
   XSS = 'XSS',
@@ -76,62 +141,4 @@ export enum Severity {
   MEDIUM = 'medium',
   LOW = 'low',
   INFO = 'info'
-}
-
-export interface ScanResult {
-  file: string;
-  vulnerabilities: Vulnerability[];
-  sources: Array<{ 
-    id: string; 
-    type: string; 
-    pattern: string; 
-    description: string; 
-    line: number; 
-    column: number; 
-    endLine: number; 
-    endColumn: number; 
-  }>;
-  sinks: Array<{ 
-    id: string; 
-    type: string; 
-    pattern: string; 
-    description: string; 
-    line: number; 
-    column: number; 
-    endLine: number; 
-    endColumn: number; 
-  }>;
-  sanitizers: Array<{ 
-    id: string; 
-    type: string; 
-    pattern: string; 
-    description: string; 
-    line: number; 
-    column: number; 
-    endLine: number; 
-    endColumn: number; 
-  }>;
-  scanTime: number;
-  linesScanned: number;
-  language: string;
-}
-
-export interface ScanConfiguration {
-  enabledRules: string[];
-  excludePatterns: string[];
-  includePatterns: string[];
-  severityThreshold: Severity;
-  outputFormat: OutputFormat;
-}
-
-export enum OutputFormat {
-  INLINE = 'inline',
-  PROBLEMS_PANEL = 'problems',
-  OUTPUT_CHANNEL = 'output',
-  REPORT_FILE = 'file'
-}
-
-export interface Position {
-  line: number;
-  column: number;
 }
