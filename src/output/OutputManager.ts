@@ -232,7 +232,30 @@ export class OutputManager {
   }
 
   private generateHtmlReport(analysisResult: AnalysisResult): string {
-    const { vulnerabilities, sources, sinks, sanitizers } = analysisResult;
+    const { patternVulnerabilities, dataFlowVulnerabilities } = analysisResult;
+    
+    // Combine all vulnerabilities for display
+    const allVulnerabilities = [
+      ...patternVulnerabilities,
+      ...dataFlowVulnerabilities.map(dfv => ({
+        id: dfv.id,
+        type: dfv.type,
+        severity: dfv.severity,
+        message: dfv.message,
+        file: dfv.file,
+        line: dfv.pathLines?.[0] || 0,
+        column: 0,
+        rule: dfv.rule,
+        description: dfv.description,
+        recommendation: dfv.recommendation,
+        ai: dfv.ai
+      }))
+    ];
+    
+    // Extract sources, sinks, and sanitizers from data flow vulnerabilities
+    const sources = dataFlowVulnerabilities.map(dfv => dfv.source);
+    const sinks = dataFlowVulnerabilities.map(dfv => dfv.sink);
+    const sanitizers = dataFlowVulnerabilities.flatMap(dfv => dfv.sanitizers);
     return `
       <!DOCTYPE html>
       <html lang="en">
@@ -261,11 +284,11 @@ export class OutputManager {
         <div class="container">
           <h1>Unagi SAST Security Report</h1>
           <div class="section">
-            <h2>Vulnerabilities (${vulnerabilities.length})</h2>
-            ${vulnerabilities.length === 0 ? '<p>No vulnerabilities found.</p>' : `
+            <h2>Vulnerabilities (${allVulnerabilities.length})</h2>
+            ${allVulnerabilities.length === 0 ? '<p>No vulnerabilities found.</p>' : `
               <table>
                 <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
-                ${vulnerabilities.map(vuln => `
+                ${allVulnerabilities.map((vuln: any) => `
                   <tr>
                     <td>${vuln.type}</td>
                     <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>

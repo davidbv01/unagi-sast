@@ -26,6 +26,10 @@ export class SourceDetector extends RuleLoader {
       if (detectedItem && key) {
         return {
           ...detectedItem,
+          loc: {
+            start: { line: node.loc?.start?.line || 1, column: node.loc?.start?.column || 0 },
+            end: { line: node.loc?.end?.line || node.loc?.start?.line || 1, column: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10 }
+          },
           severity: this.getSeverityForSource(detectedItem.id, rules),
           key:  key
         };

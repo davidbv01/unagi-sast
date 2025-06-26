@@ -6,6 +6,11 @@ export interface BaseDetectorItem {
   type: string;
   pattern: string;
   description: string;
+  loc:
+  {
+    start: { line: number, column: number },
+    end: { line: number, column: number }
+  }
 }
 
 export interface BaseRule extends Rule {
@@ -45,7 +50,11 @@ export class DetectorUtils {
           id: item.id,
           type: rule.type,
           pattern: item.pattern,
-          description: item.description
+          description: item.description,
+          loc: {
+            start: { line: 0, column: 0 },
+            end: { line: 0, column: 0 }
+          }
         });
       }
     }

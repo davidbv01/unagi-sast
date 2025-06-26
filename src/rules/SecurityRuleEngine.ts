@@ -1,16 +1,13 @@
-import { Vulnerability, Severity, AstNode } from '../types';
+import { Vulnerability, DataFlowVulnerability, Severity, AstNode } from '../types';
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SourceDetector, SinkDetector, SanitizerDetector, Source, Sink, Sanitizer } from '../analysis/detectors/index';
-import { TaintEngine } from '../analysis/TaintEngine';
 import { AiEngine, AiAnalysisRequest, AiAnalysisResult } from '../ai';
 import { DataFlowGraph } from '../parser/DataFlowGraph';
 import * as vscode from 'vscode';
 
 export interface AnalysisResult {
-  vulnerabilities: Vulnerability[];
-  sources: (Source & { line: number; column: number; endLine: number; endColumn: number })[];
-  sinks: (Sink & { line: number; column: number; endLine: number; endColumn: number })[];
-  sanitizers: (Sanitizer & { line: number; column: number; endLine: number; endColumn: number })[];
+  patternVulnerabilities: Vulnerability[];
+  dataFlowVulnerabilities: DataFlowVulnerability[];
 }
 
 export class SecurityRuleEngine {
@@ -18,7 +15,6 @@ export class SecurityRuleEngine {
   private sourceDetector: SourceDetector;
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
-  private taintEngine: TaintEngine;
   private aiEngine?: AiEngine;
 
   constructor(apiKey: string) {
@@ -26,7 +22,6 @@ export class SecurityRuleEngine {
     this.sourceDetector = new SourceDetector();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
-    this.taintEngine = new TaintEngine();
     if (apiKey){
       this.aiEngine = new AiEngine(apiKey);
     }
@@ -84,8 +79,14 @@ export class SecurityRuleEngine {
               vuln.file = file;
           });      
 
-          // Taint analysis - check for unsanitized paths between sources and sinks
+          // Store detected sources in the DataFlowGraph and perform taint analysis
           for (const source of Object.values(uniqueSources)) {
+              // Store the detected source in the corresponding DFG node
+              const sourceNode = dfg.nodes.get(source.key);
+              if (sourceNode) {
+                  sourceNode.detectedSource = source;
+              }
+              
               dfg.propagateTaint(source.key);
               console.log("[DEBUG] propagateTaint for source:", source.key);
 
@@ -94,28 +95,42 @@ export class SecurityRuleEngine {
               }
           }
           dfg.printGraph();
-          const taintVulnerabilities = dfg.detectVulnerabilities();
+          const dataFlowVulnerabilities = dfg.detectVulnerabilities();
 
-          // Initialize finalVulnerabilities with pattern vulnerabilities
-          let finalVulnerabilities: Vulnerability[] = [...patternVulnerabilities];
+          // Initialize result with pattern vulnerabilities and empty data flow vulnerabilities
+          let finalDataFlowVulnerabilities: DataFlowVulnerability[] = [...dataFlowVulnerabilities];
 
           // Verify that we have api keys for AI analysis
           if (!this.aiEngine) {
               console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
               vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
-              finalVulnerabilities.push(...taintVulnerabilities);
+              // Keep data flow vulnerabilities as-is without AI verification
           } else {
               // AI-powered analysis using AiEngine (code extraction + verification)
               let aiAnalysisResult: AiAnalysisResult | null = null;
               
-              if (taintVulnerabilities.length > 0) {
+              if (dataFlowVulnerabilities.length > 0) {
                   try {
+                      // Convert DataFlowVulnerability to Vulnerability for AI analysis
+                      const vulnerabilitiesForAI: Vulnerability[] = dataFlowVulnerabilities.map(dfv => ({
+                          id: dfv.id,
+                          type: dfv.type,
+                          severity: dfv.severity,
+                          message: dfv.message,
+                          file: dfv.file,
+                          line: dfv.source.id === 'unknown' ? 0 : 1, // Default line
+                          column: 0, // Default column
+                          rule: dfv.rule,
+                          description: dfv.description,
+                          recommendation: dfv.recommendation
+                      }));
+
                       const aiRequest: AiAnalysisRequest = {
                           file,
-                          vulnerabilities: taintVulnerabilities,
+                          vulnerabilities: vulnerabilitiesForAI,
                           context: {
                               language: languageId,
-                              additionalInfo: `Static analysis detected ${taintVulnerabilities.length} potential vulnerabilities`
+                              additionalInfo: `Static analysis detected ${dataFlowVulnerabilities.length} potential data flow vulnerabilities`
                           }
                       };
 
@@ -123,44 +138,48 @@ export class SecurityRuleEngine {
                       console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
                       
                       if (aiAnalysisResult) {
-                          for (const verified of aiAnalysisResult.verifiedVulnerabilities) {
-                              if (verified.isConfirmed) {
-                                  finalVulnerabilities.push({
-                                      ...verified.originalVulnerability,
+                          // Update data flow vulnerabilities with AI analysis results
+                          finalDataFlowVulnerabilities = dataFlowVulnerabilities.map(dfv => {
+                              const verifiedResult = aiAnalysisResult!.verifiedVulnerabilities.find(v => v.originalVulnerability.id === dfv.id);
+                              if (verifiedResult && verifiedResult.isConfirmed) {
+                                  return {
+                                      ...dfv,
+                                      isVulnerable: true,
                                       ai: {
-                                          confidenceScore: verified.aiAnalysis.confidenceScore,
-                                          shortExplanation: verified.aiAnalysis.shortExplanation,
-                                          exploitExample: verified.aiAnalysis.exploitExample,
-                                          remediation: verified.aiAnalysis.remediation
+                                          confidenceScore: verifiedResult.aiAnalysis.confidenceScore,
+                                          shortExplanation: verifiedResult.aiAnalysis.shortExplanation,
+                                          exploitExample: verifiedResult.aiAnalysis.exploitExample,
+                                          remediation: verifiedResult.aiAnalysis.remediation
                                       }
-                                  });
+                                  };
+                              } else {
+                                  return {
+                                      ...dfv,
+                                      isVulnerable: false // AI determined it's not vulnerable
+                                  };
                               }
-                          }
+                          });
                       }
                   } catch (aiError) {
-                      // Handle AI analysis errors
-                      finalVulnerabilities = [...patternVulnerabilities, ...taintVulnerabilities];
+                      // Handle AI analysis errors - keep original data flow vulnerabilities
+                      console.error('[ERROR] AI analysis failed:', aiError);
                       vscode.window.showWarningMessage(`AI analysis failed`);
                   }
               }
               
-              console.log(`[DEBUG] 📌 Found ${taintVulnerabilities.length} taint-based vulnerabilities`);
+              console.log(`[DEBUG] 📌 Found ${dataFlowVulnerabilities.length} data flow vulnerabilities`);
           }
 
           return {
-              vulnerabilities: finalVulnerabilities,
-              sources: detectedSources,
-              sinks: [], // Add detected sinks if available
-              sanitizers: [] // Add detected sanitizers if available
+              patternVulnerabilities: patternVulnerabilities,
+              dataFlowVulnerabilities: finalDataFlowVulnerabilities
           };
       } catch (error) {
           console.error(`[ERROR] Failed to analyze file ${file}:`, error);
           vscode.window.showErrorMessage(`Failed to analyze file: ${file}`);
           return {
-              vulnerabilities: [],
-              sources: [],
-              sinks: [],
-              sanitizers: []
+              patternVulnerabilities: [],
+              dataFlowVulnerabilities: []
           };
       }
   }

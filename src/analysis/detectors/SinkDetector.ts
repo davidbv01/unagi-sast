@@ -26,6 +26,10 @@ export class SinkDetector extends RuleLoader {
       if (detectedItem) {
         return {
           ...detectedItem,
+          loc: {
+            start: { line: node.loc?.start?.line || 1, column: node.loc?.start?.column || 0 },
+            end: { line: node.loc?.end?.line || node.loc?.start?.line || 1, column: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10 }
+          },
           vulnerabilityType: this.getVulnerabilityTypeForSink(detectedItem.id, rules),
           severity: this.getSeverityForSink(detectedItem.id, rules),
           info: node.text

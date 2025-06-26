@@ -40,7 +40,7 @@ export class ScanOrchestrator {
         vscode.window.showErrorMessage(
           `Failed to parse ${document.fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
-        return this.createScanResult(document, { vulnerabilities: [], sources: [], sinks: [], sanitizers: [] }, startTime, lines.length);
+        return this.createScanResult(document, { patternVulnerabilities: [], dataFlowVulnerabilities: [] }, startTime, lines.length);
       }
       
       let analysisResult: AnalysisResult | null = null;
@@ -56,7 +56,7 @@ export class ScanOrchestrator {
         vscode.window.showWarningMessage(`Could not parse file into AST: ${document.fileName}`);
       }
       
-      const result = this.createScanResult(document, analysisResult || { vulnerabilities: [], sources: [], sinks: [], sanitizers: [] }, startTime, lines.length);
+      const result = this.createScanResult(document, analysisResult || { patternVulnerabilities: [], dataFlowVulnerabilities: [] }, startTime, lines.length);
       
       try {
         await this.outputManager.displayResults(result);
@@ -67,17 +67,40 @@ export class ScanOrchestrator {
       return result;
     } catch (error) {
       vscode.window.showErrorMessage(`Scan failed for file: ${document.fileName}`);
-      return this.createScanResult(document, { vulnerabilities: [], sources: [], sinks: [], sanitizers: [] }, startTime, lines.length);
+      return this.createScanResult(document, { patternVulnerabilities: [], dataFlowVulnerabilities: [] }, startTime, lines.length);
     }
   }
 
   private createScanResult(document: vscode.TextDocument, analysisResult: AnalysisResult, startTime: number, linesScanned: number): ScanResult {
+    // Combine all vulnerabilities for ScanResult
+    const allVulnerabilities = [
+      ...analysisResult.patternVulnerabilities,
+      ...analysisResult.dataFlowVulnerabilities.map(dfv => ({
+        id: dfv.id,
+        type: dfv.type,
+        severity: dfv.severity,
+        message: dfv.message,
+        file: dfv.file,
+        line: dfv.pathLines?.[0] || 0,
+        column: 0,
+        rule: dfv.rule,
+        description: dfv.description,
+        recommendation: dfv.recommendation,
+        ai: dfv.ai
+      }))
+    ];
+    
+    // Extract sources, sinks, and sanitizers from data flow vulnerabilities
+    const sources = analysisResult.dataFlowVulnerabilities.map(dfv => dfv.source);
+    const sinks = analysisResult.dataFlowVulnerabilities.map(dfv => dfv.sink);
+    const sanitizers = analysisResult.dataFlowVulnerabilities.flatMap(dfv => dfv.sanitizers);
+    
     return {
       file: document.fileName,
-      vulnerabilities: analysisResult.vulnerabilities,
-      sources: analysisResult.sources,
-      sinks: analysisResult.sinks,
-      sanitizers: analysisResult.sanitizers,
+      vulnerabilities: allVulnerabilities,
+      sources: sources,
+      sinks: sinks,
+      sanitizers: sanitizers,
       scanTime: Date.now() - startTime,
       linesScanned,
       language: document.languageId

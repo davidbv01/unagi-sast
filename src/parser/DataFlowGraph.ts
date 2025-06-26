@@ -1,5 +1,6 @@
 import { SanitizerDetector, SinkDetector } from "../analysis/detectors";
-import { AstNode, Vulnerability, VulnerabilityType, Severity } from "../types";
+import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity } from "../types";
+import { Source, Sink, Sanitizer } from "../analysis/detectors";
 import chalk from 'chalk';
 
 type DfgNode = {
@@ -14,6 +15,9 @@ type DfgNode = {
   isSink?: boolean;
   infoSanitizer?: string;
   infoSink?: string;
+  detectedSource?: Source;
+  detectedSink?: Sink;
+  detectedSanitizer?: Sanitizer;
 };
 
 type Symbol = {
@@ -86,6 +90,7 @@ export class DataFlowGraph {
       for (const node of sanitizerNodes) {
         node.isSanitizer = true;
         node.infoSanitizer = sanitizer.info;
+        node.detectedSanitizer = sanitizer;
         console.log(`Detected sanitizer: Node ${node.name} with id ${node.id}`);
       }
     }
@@ -97,6 +102,7 @@ export class DataFlowGraph {
       for (const node of sinkNodes) {
         node.isSink = true;
         node.infoSink = sink.info;
+        node.detectedSink = sink;
         console.log(`Detected sink: Node ${node.name} with id ${node.id}`);
       }
     }
@@ -195,30 +201,94 @@ export class DataFlowGraph {
 
   /**
    * Detects vulnerabilities by identifying tainted sinks
-   * @returns Array of detected vulnerabilities
+   * @returns Array of detected data flow vulnerabilities
    */
-  public detectVulnerabilities(): Vulnerability[] {
-    const vulnerabilities: Vulnerability[] = [];
+  public detectVulnerabilities(): DataFlowVulnerability[] {
+    const vulnerabilities: DataFlowVulnerability[] = [];
 
     for (const node of this.nodes.values()) {
       if (node.isSink && node.tainted) {
-        const vuln: Vulnerability = {
-          id: `vuln-${node.id}`,
-          type: VulnerabilityType.GENERIC, // Puedes hacer esto dinámico si quieres más tipos
-          severity: Severity.HIGH,            // También puedes variar esto según heurísticas
+        // Find the source node(s)
+        const sourceNodes = Array.from(node.taintSources).map(id => this.nodes.get(id)).filter(Boolean);
+        const primarySource = sourceNodes[0];
+        
+        // Find sanitizers in the path (nodes that are sanitizers but were bypassed)
+        const sanitizersInPath: Sanitizer[] = [];
+        for (const [nodeId, nodeData] of this.nodes.entries()) {
+          if (nodeData.isSanitizer && node.taintSources.has(nodeId)) {
+            // Use the actual detected sanitizer if available, otherwise create a default one
+            if (nodeData.detectedSanitizer) {
+              sanitizersInPath.push(nodeData.detectedSanitizer);
+            } else {
+              sanitizersInPath.push({
+                id: `sanitizer-${nodeId}`,
+                type: 'sanitizer',
+                pattern: '.*',
+                description: 'Sanitizer in data flow path',
+                loc: {
+                  start: { line: nodeData.astNode.loc?.start?.line || 1, column: nodeData.astNode.loc?.start?.column || 0 },
+                  end: { line: nodeData.astNode.loc?.end?.line || nodeData.astNode.loc?.start?.line || 1, column: nodeData.astNode.loc?.end?.column || (nodeData.astNode.loc?.start?.column || 0) + 10 }
+                },
+                info: nodeData.infoSanitizer || 'Unknown sanitizer',
+                effectiveness: 0.8,
+                key: nodeId
+              });
+            }
+          }
+        }
+
+        // Use the actual detected source if available
+        const actualSource = primarySource?.detectedSource;
+        const sourceObj: Source = actualSource || {
+          id: `source-${primarySource?.id || 'unknown'}`,
+          type: 'source',
+          pattern: '.*',
+          description: 'User input source',
+          loc: {
+            start: { line: primarySource?.astNode?.loc?.start?.line || 1, column: primarySource?.astNode?.loc?.start?.column || 0 },
+            end: { line: primarySource?.astNode?.loc?.end?.line || primarySource?.astNode?.loc?.start?.line || 1, column: primarySource?.astNode?.loc?.end?.column || (primarySource?.astNode?.loc?.start?.column || 0) + 10 }
+          },
+          severity: 'high',
+          key: primarySource?.id || 'unknown'
+        };
+
+        // Use the actual detected sink if available
+        const actualSink = node.detectedSink;
+        const sinkObj: Sink = actualSink || {
+          id: `sink-${node.id}`,
+          type: 'sink',
+          pattern: '.*',
+          description: 'Dangerous operation sink',
+          loc: {
+            start: { line: node.astNode.loc?.start?.line || 1, column: node.astNode.loc?.start?.column || 0 },
+            end: { line: node.astNode.loc?.end?.line || node.astNode.loc?.start?.line || 1, column: node.astNode.loc?.end?.column || (node.astNode.loc?.start?.column || 0) + 10 }
+          },
+          info: node.infoSink || 'Dangerous operation',
+          vulnerabilityType: VulnerabilityType.GENERIC,
+          severity: Severity.HIGH
+        };
+
+        const vuln: DataFlowVulnerability = {
+          id: `dataflow-vuln-${node.id}`,
+          type: VulnerabilityType.GENERIC,
+          severity: Severity.HIGH,
           message: `Tainted data reaches sink: ${node.name}`,
-          file: node.name || "unknown", // Asegúrate que `astNode` tenga `file`, `line`, `column`
-          line: node.astNode.loc.start.line || 0,
-          column: node.astNode.loc.start.column || 0,
+          file: node.name || "unknown",
           rule: "TAINTED_SINK",
           description: `${node.name} is a sink and receives tainted input from: ${Array.from(node.taintSources).join(", ")}`,
           recommendation: "Sanitize input before passing it to sensitive operations like this sink.",
-          sourceId: Array.from(node.taintSources).map(id => {
-            const sourceNode = this.nodes.get(id);
-            return sourceNode?.astNode?.id ?? 0;
-          })[0], // tomamos el primero
-          sinkId: node.astNode.id,
-          sanitizerIds: [], // podrías mejorar esto si quieres rastrear sanitizers en la ruta
+          
+          // Flow information with location data
+          source: sourceObj,
+          sink: sinkObj,
+          sanitizers: sanitizersInPath,
+          
+          // Determine if vulnerable (true if tainted and no effective sanitizers)
+          isVulnerable: node.tainted && sanitizersInPath.length === 0,
+          
+          // Path lines using actual location information
+          pathLines: [sourceObj.loc.start.line, sinkObj.loc.start.line],
+          
           ai: {
             confidenceScore: 0.95,
             shortExplanation: `The variable '${node.name}' is influenced by user input and reaches a critical operation.`,

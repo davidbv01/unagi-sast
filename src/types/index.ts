@@ -1,4 +1,5 @@
-// Types and interfaces for the SAST extension
+import { Sanitizer, Source, Sink } from "../analysis/detectors";
+
 //AST interfaces
 export interface AstNode {
   id: number;
@@ -62,37 +63,34 @@ export interface Vulnerability {
   };
 }
 
-export interface Source {
+export interface DataFlowVulnerability {
   id: string;
-  type: string;
-  pattern: string;
+  type: VulnerabilityType;
+  severity: Severity;
+  message: string;
+  file: string;
+  rule: string;
   description: string;
-  line: number;
-  column: number;
-  endLine: number;
-  endColumn: number;
-}
+  recommendation: string;
 
-export interface Sink {
-  id: string;
-  type: string;
-  pattern: string;
-  description: string;
-  line: number;
-  column: number;
-  endLine: number;
-  endColumn: number;
-}
+  // Información del flujo
+  source: Source;
+  sink: Sink;
+  sanitizers: Sanitizer[];
 
-export interface Sanitizer {
-  id: string;
-  type: string;
-  pattern: string;
-  description: string;
-  line: number;
-  column: number;
-  endLine: number;
-  endColumn: number;
+  // Si se considera vulnerable o no (post-sanitización o AI)
+  isVulnerable: boolean;
+
+  // AST path / trazabilidad del flujo
+  pathLines?: number[];
+
+  // AI analysis opcional
+  ai?: {
+    confidenceScore: number;
+    shortExplanation: string;
+    exploitExample: string;
+    remediation: string;
+  };
 }
 
 export interface ScanConfiguration {

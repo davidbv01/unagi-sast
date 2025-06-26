@@ -26,6 +26,10 @@ export class SanitizerDetector extends RuleLoader {
         const key = `test`;
         return {
           ...detectedItem,
+          loc: {
+            start: { line: node.loc?.start?.line || 1, column: node.loc?.start?.column || 0 },
+            end: { line: node.loc?.end?.line || node.loc?.start?.line || 1, column: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10 }
+          },
           effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules),
           key: key,
           info: node.text
