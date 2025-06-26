@@ -28,7 +28,7 @@ export class ScanOrchestrator {
         ast = this.astParser.parse(content, document.languageId, document.fileName);
         if(ast)
         {
-          
+          dfg.reset();
           dfg.buildFromAst(ast);
           dfg.printGraph();
         }

@@ -124,6 +124,7 @@ export class SecurityRuleEngine {
           console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
         }
       }
+      dfg.printGraph();
 
 
       // Taint analysis - check for unsanitized paths between sources and sinks

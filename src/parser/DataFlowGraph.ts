@@ -1,4 +1,4 @@
-import { SanitizerDetector } from "../analysis/detectors";
+import { SanitizerDetector, SinkDetector } from "../analysis/detectors";
 import { AstNode } from "../types";
 import chalk from 'chalk';
 
@@ -10,6 +10,8 @@ type DfgNode = {
   taintSources: Set<string>;
   edges: Set<DfgNode>;
   symbol?: Symbol;
+  isSanitizer?: boolean;
+  isSink?: boolean;
 };
 
 type Symbol = {
@@ -25,12 +27,13 @@ export class DataFlowGraph {
   // Instance properties
   nodes: Map<string, DfgNode> = new Map();
   varToAst: Map<string, Set<Number>> = new Map();
-  sanitizers: Set<string> = new Set();
   private sanitizerDetector: SanitizerDetector;
+  private sinkDetector: SinkDetector;
 
   // Private constructor for singleton pattern
   private constructor() {
     this.sanitizerDetector = new SanitizerDetector();
+    this.sinkDetector = new SinkDetector();
   }
 
   /**
@@ -64,8 +67,18 @@ export class DataFlowGraph {
     if (sanitizer) {
       const sanitizerNodes = this.getOrCreateNodes(astNode);
       for (const node of sanitizerNodes) {
-        this.sanitizers.add(node.id);
+        node.isSanitizer = true;
         console.log(`Detected sanitizer: Node ${node.name} with id ${node.id}`);
+      }
+    }
+
+    // Detect and handle sinks
+    const sink = this.sinkDetector.detectSink(astNode);
+    if (sink) {
+      const sinkNodes = this.getOrCreateNodes(astNode);
+      for (const node of sinkNodes) {
+        node.isSink = true;
+        console.log(`Detected sink: Node ${node.name} with id ${node.id}`);
       }
     }
 
@@ -183,71 +196,102 @@ export class DataFlowGraph {
    * @param node The AST node to process
    * @returns Array of identifier names found in the node
    */
-  private extractIdentifiers(node: AstNode): string[] {
-    const result: string[] = [];
+    private extractIdentifiers(node: AstNode): string[] {
+      const result: string[] = [];
 
-    const walk = (n: AstNode) => {
-      if (n.type === 'attribute') {
-        const base = n.children.find(child => child.type === 'identifier');
-        if (base) {
-          result.push(base.text);
+      const walk = (n: AstNode) => {
+        if (n.type === 'attribute') {
+          const base = n.children.find(child => child.type === 'identifier');
+          if (base) {
+            result.push(base.text);
 
-          if (!this.varToAst.has(base.text)) {
-            this.varToAst.set(base.text, new Set());
+            if (!this.varToAst.has(base.text)) {
+              this.varToAst.set(base.text, new Set());
+            }
+            this.varToAst.get(base.text)!.add(node.id);
           }
-          this.varToAst.get(base.text)!.add(node.id);
-        }
-      } else if (n.type === 'identifier') {
-        result.push(n.text);
+        } else if (n.type === 'identifier') {
+          result.push(n.text);
 
-        if (!this.varToAst.has(n.text)) {
-          this.varToAst.set(n.text, new Set());
+          if (!this.varToAst.has(n.text)) {
+            this.varToAst.set(n.text, new Set());
+          }
+          this.varToAst.get(n.text)!.add(node.id);
+        } else {
+          for (const child of n.children || []) {
+            walk(child);
+          }
         }
-        this.varToAst.get(n.text)!.add(node.id);
-      } else {
-        for (const child of n.children || []) {
-          walk(child);
-        }
+      };
+
+      walk(node);
+      return result;
+    }
+
+  /**
+   * Prints the data flow graph in a hierarchical format with enhanced visualization
+   * for sinks, sanitizers, and tainted nodes
+   */
+  public printGraph() {
+      const visited = new Set<string>();
+      let counter = 1;
+
+      const printNode = (node: DfgNode, path: string, depth: number = 0) => {
+          if (visited.has(node.id)) {
+              console.log(`${path} ${chalk.blue(node.name)} ${chalk.gray('(already visited)')}`);
+              return;
+          }
+          visited.add(node.id);
+
+          // Prepare node information
+          const nodeName = chalk.blue(node.name);
+          const taintInfo = node.tainted
+              ? chalk.red(` [TAINTED: ${Array.from(node.taintSources).join(', ')}]`)
+              : '';
+          const sanitizerInfo = node.isSanitizer ? chalk.green(' [SANITIZER]') : '';
+          const sinkInfo = node.isSink ? chalk.magentaBright(' [SINK]') : '';
+
+          // Create indentation based on depth
+          const indent = '  '.repeat(depth);
+          
+          // Print node with all relevant information
+          console.log(`${indent}${path} ${nodeName}${taintInfo}${sanitizerInfo}${sinkInfo}`);
+
+          // Print children with increased depth
+          let childIndex = 1;
+          for (const neighbor of node.edges) {
+              const childPath = `${path}${path.endsWith('.') ? '' : '.'}${childIndex}`;
+              printNode(neighbor, childPath, depth + 1);
+              childIndex++;
+          }
+      };
+
+      console.log(chalk.yellow('\n📊 Data Flow Graph (Hierarchical):\n'));
+      console.log(chalk.gray('Legend:'));
+      console.log(chalk.blue('Variable') + chalk.gray(' | ') +
+                  chalk.red('Tainted') + chalk.gray(' | ') +
+                  chalk.green('Sanitizer') + chalk.gray(' | ') +
+                  chalk.magentaBright('Sink'));
+      console.log(chalk.gray('-'.repeat(50)));
+
+      // Print all root nodes
+      for (const node of this.nodes.values()) {
+          const isRoot = Array.from(this.nodes.values()).every(n => !n.edges.has(node));
+          if (isRoot) {
+              printNode(node, `${counter}.`);
+              counter++;
+          }
       }
-    };
-
-    walk(node);
-    return result;
   }
 
   /**
-   * Prints the data flow graph in a hierarchical format
+   * Completely resets the data flow graph to its initial state
+   * - Clears all nodes, variables, taint information, and detected elements
+   * - Maintains the same detector instances
    */
-  public printGraph() {
-    const visited = new Set<string>();
-    let counter = 1;
-
-    const printNode = (node: DfgNode, path: string) => {
-      const taintInfo = node.tainted
-        ? chalk.red(` [TAINTED: ${Array.from(node.taintSources).join(', ')}]`)
-        : '';
-      const sanitizerInfo = this.sanitizers.has(node.id)
-        ? chalk.green(' [SANITIZER]')
-        : '';
-
-      console.log(`${path} ${chalk.blue(node.name)}${taintInfo}${sanitizerInfo}`);
-
-      let childIndex = 1;
-      for (const neighbor of node.edges) {
-        const childPath = `${path}${path.endsWith('.') ? '' : '.'}${childIndex}`;
-        printNode(neighbor, childPath);
-        childIndex++;
-      }
-    };
-
-    console.log(chalk.yellow('\n📊 Data Flow Graph (Hierarchical):\n'));
-
-    for (const node of this.nodes.values()) {
-      const isRoot = Array.from(this.nodes.values()).every(n => !n.edges.has(node));
-      if (isRoot) {
-        printNode(node, `${counter}.`);
-        counter++;
-      }
-    }
+  public reset(): void {
+      // Clear all graph data structures
+      this.nodes.clear();
+      this.varToAst.clear();
   }
 }

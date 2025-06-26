@@ -17,7 +17,7 @@ export class SinkDetector extends RuleLoader {
   }
 
   public detectSink(node: any): Sink | null {
-    if (node.type === 'call' || node.type === 'expression_statement') {
+    if (node.type === 'call') {
       const rules = this.getAllRules() as SinkRule[];
       const sinks = DetectorUtils.getAllItems(rules, 'sinks');
       const detectedItem = DetectorUtils.detectItem(node, sinks);
