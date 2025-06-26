@@ -4,39 +4,103 @@ import chalk from 'chalk';
 
 type DfgNode = {
   id: string;
-  name: string
+  name: string;
   astNode: AstNode;
   tainted: boolean;
   taintSources: Set<string>;
   edges: Set<DfgNode>;
-  symbol?: Symbol; 
+  symbol?: Symbol;
 };
 
 type Symbol = {
   name: string;
-  scope: string; 
-  uniqueId: string; 
-}
-
+  scope: string;
+  uniqueId: string;
+};
 
 export class DataFlowGraph {
-  nodes: Map<string, DfgNode> = new Map();
-  varToAst: Map<string, Set<string>> = new Map(); 
-  private sanitizerDetector: SanitizerDetector;
-  sanitizers: Set<string> = new Set();
+  // Singleton instance
+  private static instance: DataFlowGraph;
   
+  // Instance properties
+  nodes: Map<string, DfgNode> = new Map();
+  varToAst: Map<string, Set<Number>> = new Map();
+  sanitizers: Set<string> = new Set();
+  private sanitizerDetector: SanitizerDetector;
 
-  constructor() {
+  // Private constructor for singleton pattern
+  private constructor() {
     this.sanitizerDetector = new SanitizerDetector();
   }
 
+  /**
+   * Gets the singleton instance of DataFlowGraph
+   */
+  public static getInstance(): DataFlowGraph {
+    if (!DataFlowGraph.instance) {
+      DataFlowGraph.instance = new DataFlowGraph();
+    }
+    return DataFlowGraph.instance;
+  }
 
-  getOrCreateNodes(astNode: AstNode): DfgNode[] {
+  /**
+   * Static shortcut to get variable name by AST ID
+   * @param id The AST node ID to look up
+   * @returns Variable name if found, undefined otherwise
+   */
+  public static getVariableNameByAstId(id: number): string | undefined {
+    return DataFlowGraph.getInstance().getVariableNameByAstId(id);
+  }
+
+  /**
+   * Builds the data flow graph from an AST node
+   * @param astNode The root AST node to build the graph from
+   */
+  public buildFromAst(astNode: AstNode) {
+    if (!astNode) return;
+
+    // Detect and handle sanitizers
+    const sanitizer = this.sanitizerDetector.detectSanitizer(astNode);
+    if (sanitizer) {
+      const sanitizerNodes = this.getOrCreateNodes(astNode);
+      for (const node of sanitizerNodes) {
+        this.sanitizers.add(node.id);
+        console.log(`Detected sanitizer: Node ${node.name} with id ${node.id}`);
+      }
+    }
+
+    // Handle assignment nodes
+    if (astNode.type === "assignment" && astNode.children?.length === 2) {
+      const leftNodes = this.getOrCreateNodes(astNode.children[0]);
+      const rightNodes = this.getOrCreateNodes(astNode.children[1]);
+
+      // Create edges from right nodes to left nodes (data flow direction)
+      for (const right of rightNodes) {
+        for (const left of leftNodes) {
+          right.edges.add(left);
+        }
+      }
+    }
+
+    // Recursively process child nodes
+    if (astNode.children) {
+      for (const child of astNode.children) {
+        this.buildFromAst(child);
+      }
+    }
+  }
+
+  /**
+   * Gets or creates DFG nodes for an AST node
+   * @param astNode The AST node to process
+   * @returns Array of DFG nodes (existing or newly created)
+   */
+  public getOrCreateNodes(astNode: AstNode): DfgNode[] {
     const createdNodes: DfgNode[] = [];
     const varNames = this.extractIdentifiers(astNode);
 
     for (const varName of varNames) {
-      const uniqueId = `${astNode.scope}_${varName}`; 
+      const uniqueId = `${astNode.scope}_${varName}`;
 
       if (!this.nodes.has(uniqueId)) {
         const symbol: Symbol = {
@@ -64,40 +128,61 @@ export class DataFlowGraph {
     return createdNodes;
   }
 
+  /**
+   * Propagates taint from a source node through the graph
+   * @param sourceId The ID of the taint source node
+   * @param sanitizers Set of sanitizer node IDs that stop taint propagation
+   */
+  public propagateTaint(sourceId: string, sanitizers: Set<string>) {
+    const startNode = this.nodes.get(sourceId);
+    if (!startNode) return;
 
-  buildFromAst(astNode: AstNode) {
-    if (!astNode) return;
+    const queue: DfgNode[] = [startNode];
+    startNode.tainted = true;
+    startNode.taintSources.add(sourceId);
 
-    const sanitizer = this.sanitizerDetector.detectSanitizer(astNode);
-    if (sanitizer) {
-      const sanitizerNodes = this.getOrCreateNodes(astNode);
-      for (const node of sanitizerNodes) {
-        this.sanitizers.add(node.id);
-        console.log(`Sanitizer detectado: Nodo ${node.name} con id ${node.id}`);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+
+      // Don't propagate through sanitizers
+      if (sanitizers.has(current.id)) {
+        continue;
       }
-    }
 
-    if (astNode.type === "assignment" && astNode.children?.length === 2) {
-      const leftNodes = this.getOrCreateNodes(astNode.children[0]);
-      const rightNodes = this.getOrCreateNodes(astNode.children[1]);
-
-      // Data flows from each right node to each left node
-      for (const right of rightNodes) {
-        for (const left of leftNodes) {
-          right.edges.add(left);
-          console.log(`Nodo ${right.name} → ${left.name}`);
+      for (const neighbor of current.edges) {
+        if (!neighbor.tainted) {
+          neighbor.tainted = true;
+          neighbor.taintSources = new Set(current.taintSources);
+          queue.push(neighbor);
+        } else {
+          // If already tainted, add any new sources
+          for (const src of current.taintSources) {
+            neighbor.taintSources.add(src);
+          }
         }
-      }
-    }
-
-    if (astNode.children) {
-      for (const child of astNode.children) {
-        this.buildFromAst(child);
       }
     }
   }
 
+  /**
+   * Gets variable name by AST node ID
+   * @param id The AST node ID to look up
+   * @returns Variable name if found, undefined otherwise
+   */
+  public getVariableNameByAstId(id: number): string | undefined {
+    for (const [key, idSet] of this.varToAst.entries()) {
+      if (idSet.has(id)) {
+        return key;
+      }
+    }
+    return undefined;
+  }
 
+  /**
+   * Extracts all identifiers from an AST node
+   * @param node The AST node to process
+   * @returns Array of identifier names found in the node
+   */
   private extractIdentifiers(node: AstNode): string[] {
     const result: string[] = [];
 
@@ -110,7 +195,7 @@ export class DataFlowGraph {
           if (!this.varToAst.has(base.text)) {
             this.varToAst.set(base.text, new Set());
           }
-          this.varToAst.get(base.text)!.add(node.id.toString());
+          this.varToAst.get(base.text)!.add(node.id);
         }
       } else if (n.type === 'identifier') {
         result.push(n.text);
@@ -118,7 +203,7 @@ export class DataFlowGraph {
         if (!this.varToAst.has(n.text)) {
           this.varToAst.set(n.text, new Set());
         }
-        this.varToAst.get(n.text)!.add(node.id.toString());
+        this.varToAst.get(n.text)!.add(node.id);
       } else {
         for (const child of n.children || []) {
           walk(child);
@@ -130,41 +215,10 @@ export class DataFlowGraph {
     return result;
   }
 
-
-
-  // Marks a variable or node as tainted and propagates the taint forward
-  propagateTaint(sourceId: string, sanitizers: Set<string>) {
-    const startNode = this.nodes.get(sourceId);
-    if (!startNode) return;
-
-    const queue: DfgNode[] = [startNode];
-    startNode.tainted = true;
-    startNode.taintSources.add(sourceId);
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-
-      // Si el nodo actual es un sanitizer, no propagamos más desde aquí
-      if (sanitizers.has(current.id)) {
-        continue;
-      }
-
-      for (const neighbor of current.edges) {
-        if (!neighbor.tainted) {
-          neighbor.tainted = true;
-          neighbor.taintSources = new Set(current.taintSources);
-          queue.push(neighbor);
-        } else {
-          // Si ya está tainted, añadir fuentes nuevas si hay
-          for (const src of current.taintSources) {
-            neighbor.taintSources.add(src);
-          }
-        }
-      }
-    }
-  }
-
-  printGraph() {
+  /**
+   * Prints the data flow graph in a hierarchical format
+   */
+  public printGraph() {
     const visited = new Set<string>();
     let counter = 1;
 
@@ -186,7 +240,7 @@ export class DataFlowGraph {
       }
     };
 
-    console.log(chalk.yellow('\n📊 Data Flow Graph (Jerárquico):\n'));
+    console.log(chalk.yellow('\n📊 Data Flow Graph (Hierarchical):\n'));
 
     for (const node of this.nodes.values()) {
       const isRoot = Array.from(this.nodes.values()).every(n => !n.edges.has(node));

@@ -1,7 +1,7 @@
 // Types and interfaces for the SAST extension
 //AST interfaces
 export interface AstNode {
-  id: Number;
+  id: number;
   children: AstNode[];
   type: string;
   named: boolean;

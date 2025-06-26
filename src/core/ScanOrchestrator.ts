@@ -23,7 +23,7 @@ export class ScanOrchestrator {
     
     try {
       let ast : AstNode | undefined;
-      const dfg = new DataFlowGraph();
+      const dfg = DataFlowGraph.getInstance();
       try {
         ast = this.astParser.parse(content, document.languageId, document.fileName);
         if(ast)

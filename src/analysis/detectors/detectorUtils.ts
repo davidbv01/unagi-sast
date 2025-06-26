@@ -1,4 +1,5 @@
 import { Rule } from '../rules/RuleLoader';
+import { DataFlowGraph } from '../../parser/DataFlowGraph';
 
 export interface BaseDetectorItem {
   id: string;
@@ -49,5 +50,22 @@ export class DetectorUtils {
       }
     }
     return items;
+  }
+
+  /**
+   * Creates a unique key combining scope and variable name
+   * @param scope The scope where the variable is defined
+   * @param astId The AST node ID to look up
+   * @returns Formatted key "{scope}_{variableName}" or empty string if variable not found
+   */
+  public static createKey(scope: String, astId: number): string {
+      const varName = DataFlowGraph.getVariableNameByAstId(astId);
+      
+      // Return empty string if variable name is undefined or empty
+      if (!varName || varName.trim() === "") {
+          return "";
+      }
+      
+      return `${scope}_${varName}`;
   }
 } 
