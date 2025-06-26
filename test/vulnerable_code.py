@@ -5,6 +5,7 @@ def vulnerable_function():
     debug = name.lower()
     if not debug.isalnum():  # Simple validation: only alphanumeric characters
         return
-    os.system(debug)
+    test = debug
+    os.system(test)
 
 vulnerable_function()

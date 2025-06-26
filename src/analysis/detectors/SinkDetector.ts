@@ -7,6 +7,7 @@ interface SinkRule extends BaseRule {
 }
 
 export interface Sink extends BaseDetectorItem {
+  info: string;
   vulnerabilityType: VulnerabilityType;
   severity: Severity;
 }
@@ -26,7 +27,8 @@ export class SinkDetector extends RuleLoader {
         return {
           ...detectedItem,
           vulnerabilityType: this.getVulnerabilityTypeForSink(detectedItem.id, rules),
-          severity: this.getSeverityForSink(detectedItem.id, rules)
+          severity: this.getSeverityForSink(detectedItem.id, rules),
+          info: node.text
         };
       }
     }
@@ -51,15 +53,5 @@ export class SinkDetector extends RuleLoader {
       }
     }
     return Severity.MEDIUM;
-  }
-
-  public getAllSinks(): Sink[] {
-    const rules = this.getAllRules() as SinkRule[];
-    const sinks = DetectorUtils.getAllItems(rules, 'sinks');
-    return sinks.map(sink => ({
-      ...sink,
-      vulnerabilityType: this.getVulnerabilityTypeForSink(sink.id, rules),
-      severity: this.getSeverityForSink(sink.id, rules)
-    }));
   }
 } 

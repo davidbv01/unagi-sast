@@ -6,6 +6,7 @@ interface SanitizerRule extends BaseRule {
 }
 
 export interface Sanitizer extends BaseDetectorItem {
+  info: string;
   effectiveness: number;
   key?: string;
 }
@@ -26,7 +27,8 @@ export class SanitizerDetector extends RuleLoader {
         return {
           ...detectedItem,
           effectiveness: this.getEffectivenessForSanitizer(detectedItem.id, rules),
-          key: key
+          key: key,
+          info: node.text
         };
       }
     }
@@ -41,15 +43,6 @@ export class SanitizerDetector extends RuleLoader {
       }
     }
     return 0.5; // Default effectiveness
-  }
-
-  public getAllSanitizers(): Sanitizer[] {
-    const rules = this.getAllRules() as SanitizerRule[];
-    const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
-    return sanitizers.map(sanitizer => ({
-      ...sanitizer,
-      effectiveness: this.getEffectivenessForSanitizer(sanitizer.id, rules)
-    }));
   }
 
   public calculateSanitizationEffectiveness(sanitizers: Sanitizer[]): number {

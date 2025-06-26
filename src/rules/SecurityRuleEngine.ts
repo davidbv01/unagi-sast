@@ -117,7 +117,7 @@ export class SecurityRuleEngine {
       const sanitizers: Set<string> = new Set<string>(uniqueSanitizers.map(sanitizer => sanitizer.key));
 
       for (const source of Object.values(uniqueSources)) {
-        dfg.propagateTaint(source.key, sanitizers);
+        dfg.propagateTaint(source.key);
         console.log("[DEBUG] propagateTaint for source:", source.key);
 
         for (const node of dfg.nodes.values()) {
