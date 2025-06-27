@@ -47,45 +47,71 @@ server.registerTool("scan_file",
 
       const result = await scanOrchestrator.scanFile(mockDocument as any);
       
+      const allVulnerabilities = [
+        ...result.patternVulnerabilities,
+        ...result.dataFlowVulnerabilities
+      ];
+      
+      const sources = result.dataFlowVulnerabilities.map(dfv => dfv.source);
+      const sinks = result.dataFlowVulnerabilities.map(dfv => dfv.sink);
+      const sanitizers = result.dataFlowVulnerabilities.flatMap(dfv => dfv.sanitizers);
+      
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
             summary: {
               file: result.file,
-              vulnerabilitiesFound: result.vulnerabilities.length,
-              sourcesFound: result.sources.length,
-              sinksFound: result.sinks.length,
-              sanitizersFound: result.sanitizers.length,
+              vulnerabilitiesFound: allVulnerabilities.length,
+              sourcesFound: sources.length,
+              sinksFound: sinks.length,
+              sanitizersFound: sanitizers.length,
               scanTime: result.scanTime,
               linesScanned: result.linesScanned,
               language: result.language
             },
-            vulnerabilities: result.vulnerabilities.map(v => ({
-              id: v.id,
-              type: v.type,
-              severity: v.severity,
-              message: v.message,
-              line: v.line,
-              column: v.column,
-              rule: v.rule,
-              description: v.description,
-              recommendation: v.recommendation,
-              ai: v.ai
-            })),
-            sources: result.sources.map(s => ({
+            vulnerabilities: allVulnerabilities.map(v => {
+              if ('line' in v && 'column' in v) {
+                return {
+                  id: v.id,
+                  type: v.type,
+                  severity: v.severity,
+                  message: v.message,
+                  line: v.line,
+                  column: v.column,
+                  rule: v.rule,
+                  description: v.description,
+                  recommendation: v.recommendation,
+                  ai: v.ai
+                };
+              } else {
+                return {
+                  id: v.id,
+                  type: v.type,
+                  severity: v.severity,
+                  message: v.message,
+                  line: v.sink?.loc?.start?.line ?? null,
+                  column: v.sink?.loc?.start?.column ?? null,
+                  rule: v.rule,
+                  description: v.description,
+                  recommendation: v.recommendation,
+                  ai: v.ai
+                };
+              }
+            }),
+            sources: sources.map(s => ({
               id: s.id,
               type: s.type,
               description: s.description,
               location: s.loc
             })),
-            sinks: result.sinks.map(s => ({
+            sinks: sinks.map(s => ({
               id: s.id,
               type: s.type,
               description: s.description,
               location: s.loc
             })),
-            sanitizers: result.sanitizers.map(s => ({
+            sanitizers: sanitizers.map(s => ({
               id: s.id,
               type: s.type,
               description: s.description,
@@ -287,9 +313,15 @@ server.registerTool("generate_report",
         generatedAt: new Date().toISOString(),
         summary: {
           filesScanned: results.length,
-          totalVulnerabilities: results.reduce((sum, r) => sum + (r.vulnerabilities?.length || 0), 0),
-          highSeverityCount: results.reduce((sum, r) => sum + (r.vulnerabilities?.filter((v: any) => v.severity === 'high').length || 0), 0),
-          criticalSeverityCount: results.reduce((sum, r) => sum + (r.vulnerabilities?.filter((v: any) => v.severity === 'critical').length || 0), 0)
+          totalVulnerabilities: results.reduce((sum, r) => sum + (('patternVulnerabilities' in r && 'dataFlowVulnerabilities' in r)
+            ? ((r.patternVulnerabilities?.length || 0) + (r.dataFlowVulnerabilities?.length || 0))
+            : 0), 0),
+          highSeverityCount: results.reduce((sum, r) => sum + (('patternVulnerabilities' in r && 'dataFlowVulnerabilities' in r)
+            ? ([...(r.patternVulnerabilities || []), ...(r.dataFlowVulnerabilities || [])].filter((v: any) => v.severity === 'high').length)
+            : 0), 0),
+          criticalSeverityCount: results.reduce((sum, r) => sum + (('patternVulnerabilities' in r && 'dataFlowVulnerabilities' in r)
+            ? ([...(r.patternVulnerabilities || []), ...(r.dataFlowVulnerabilities || [])].filter((v: any) => v.severity === 'critical').length)
+            : 0), 0)
         },
         results
       };

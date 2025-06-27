@@ -35,7 +35,8 @@ export class CommandTrigger {
           }, async (progress) => {
             progress.report({ message: `Scanning ${document.fileName}...` });
             const result = await this.scanOrchestrator.scanFile(document);
-            progress.report({ message: `Found ${result.vulnerabilities.length} vulnerabilities` });
+            const totalVulns = result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length;
+            progress.report({ message: `Found ${totalVulns} vulnerabilities` });
           });
         } catch (error: any) {
           vscode.window.showErrorMessage(`Error scanning file: ${error.message}`);

@@ -26,10 +26,8 @@ export interface PythonFunction {
 //Output interfaces
 export interface ScanResult {
   file: string;
-  vulnerabilities: Vulnerability[];
-  sources: Source[];
-  sinks: Sink[];
-  sanitizers: Sanitizer[];
+  patternVulnerabilities: PatternVulnerability[];
+  dataFlowVulnerabilities: DataFlowVulnerability[];
   scanTime: number;
   linesScanned: number;
   language: string;
@@ -140,3 +138,5 @@ export enum Severity {
   LOW = 'low',
   INFO = 'info'
 }
+
+export interface PatternVulnerability extends Vulnerability {}

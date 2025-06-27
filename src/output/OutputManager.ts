@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { ScanResult, Vulnerability, Severity } from '../types';
+import { ScanResult, Vulnerability, Severity, DataFlowVulnerability, PatternVulnerability } from '../types';
 import { AnalysisResult } from '../rules/SecurityRuleEngine';
 import * as fs from 'fs';
+import { Source, Sink, Sanitizer } from '../analysis/detectors/index';
 
 export class OutputManager {
   private outputChannel: vscode.OutputChannel;
@@ -21,31 +22,24 @@ export class OutputManager {
   }
 
   public async displayResults(result: ScanResult): Promise<void> {
-  
     // Clear previous results
     this.diagnosticCollection.clear();
 
     // Create diagnostics for all detected items
     const allDiagnostics: vscode.Diagnostic[] = [];
-    
-    // Convert vulnerabilities to diagnostics (highest priority - errors)
-    result.vulnerabilities.forEach(vuln => {
-      allDiagnostics.push(this.createDiagnostic(vuln));
+
+    // Mostrar patternVulnerabilities directamente por línea
+    result.patternVulnerabilities.forEach(vuln => {
+      allDiagnostics.push(this.createPatternDiagnostic(vuln));
     });
 
-    // Convert sources to diagnostics (information level with specific styling)
-    result.sources.forEach((source: any) => {
-      allDiagnostics.push(this.createSourceDiagnostic(source));
-    });
-
-    // Convert sinks to diagnostics (warning level with specific styling)
-    result.sinks.forEach((sink: any) => {
-      allDiagnostics.push(this.createSinkDiagnostic(sink));
-    }); 
-
-    // Convert sanitizers to diagnostics (hint level with specific styling)
-      result.sanitizers.forEach((sanitizer: any) => {
-      allDiagnostics.push(this.createSanitizerDiagnostic(sanitizer));
+    // Mostrar dataFlowVulnerabilities como sink/source/sanitizer
+    result.dataFlowVulnerabilities.forEach(dfv => {
+      if (dfv.source) allDiagnostics.push(this.createSourceDiagnostic(dfv.source));
+      if (dfv.sink) allDiagnostics.push(this.createSinkDiagnostic(dfv.sink));
+      if (dfv.sanitizers) dfv.sanitizers.forEach(san => allDiagnostics.push(this.createSanitizerDiagnostic(san)));
+      // También mostrar la vulnerabilidad de dataflow en la línea del sink
+      allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
     });
 
     // Update diagnostics collection
@@ -59,14 +53,14 @@ export class OutputManager {
   }
 
   private displayInline(result: ScanResult): void {
-    const summary = `Scan complete: ${result.vulnerabilities.length} vulnerabilities, ${result.sources.length} sources, ${result.sinks.length} sinks, ${result.sanitizers.length} sanitizers`;
+    const summary = `Scan complete: ${result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length} vulnerabilities, ${result.dataFlowVulnerabilities.length} dataflow, ${result.patternVulnerabilities.length} pattern`;
     vscode.window.showInformationMessage(summary);
   }
 
   private updateStatusBar(result: ScanResult | ScanResult[]): void {
     const totalVulnerabilities = Array.isArray(result) 
-      ? result.reduce((sum, r) => sum + r.vulnerabilities.length, 0)
-      : result.vulnerabilities.length;
+      ? result.reduce((sum, r) => sum + r.patternVulnerabilities.length + r.dataFlowVulnerabilities.length, 0)
+      : result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length;
     
     this.statusBarItem.text = `$(shield) Unagi: ${totalVulnerabilities} issues`;
     this.statusBarItem.tooltip = `Found ${totalVulnerabilities} security vulnerabilities`;
@@ -85,22 +79,49 @@ export class OutputManager {
     this.statusBarItem.dispose();
   }
 
-  private createDiagnostic(vulnerability: Vulnerability): vscode.Diagnostic {
-    const range = new vscode.Range(
-      vulnerability.line - 1,
-      0,
-      vulnerability.line - 1,
-      100
-    );
+  private createPatternDiagnostic(vulnerability: PatternVulnerability): vscode.Diagnostic {
+    const startLine = vulnerability.line - 1; 
+    const startColumn = vulnerability.column;
+    const endLine = vulnerability.line - 1;
+    const endColumn = vulnerability.column; 
     
+    const range = new vscode.Range(
+      startLine,
+      startColumn,
+      endLine,
+      endColumn
+    );
     const diagnostic = new vscode.Diagnostic(
       range,
       vulnerability.message,
       this.getSeverity(vulnerability.severity)
     );
-    
-    diagnostic.source = 'Unagi SAST';
+    diagnostic.source = 'Unagi SAST - Pattern';
     diagnostic.code = vulnerability.type;
+    return diagnostic;
+  }
+
+  private createDataFlowDiagnostic(dfv: DataFlowVulnerability): vscode.Diagnostic {
+    // Use the line of the sink if available
+    const startLine = dfv.sink.loc.start.line - 1; 
+    const startColumn = dfv.sink.loc.start.column;
+    const endLine = dfv.sink.loc.end.line - 1;
+    const endColumn = dfv.sink.loc.end.column; 
+    
+    const range = new vscode.Range(
+      startLine,
+      startColumn,
+      endLine,
+      endColumn
+    );
+
+    const diagnostic = new vscode.Diagnostic(
+      range,
+      dfv.message,
+      this.getSeverity(dfv.severity)
+    );
+    diagnostic.source = 'Unagi SAST - DataFlow';
+    diagnostic.code = dfv.type;
     return diagnostic;
   }
 
@@ -119,8 +140,8 @@ export class OutputManager {
     }
   }
 
-  private createSourceDiagnostic(source: any): vscode.Diagnostic {
-    // Use precise positioning if available, otherwise default to line-based
+  private createSourceDiagnostic(source: Source): vscode.Diagnostic {
+    // Use precise positioning
     const startLine = source.loc.start.line - 1; 
     const startColumn = source.loc.start.column;
     const endLine = source.loc.end.line - 1;
@@ -145,8 +166,8 @@ export class OutputManager {
     return diagnostic;
   }
 
-  private createSinkDiagnostic(sink: any): vscode.Diagnostic {
-    // Use precise positioning if available, otherwise default to line-based
+  private createSinkDiagnostic(sink: Sink): vscode.Diagnostic {
+    // Use precise positioning
     const startLine = sink.loc.start.line - 1; 
     const startColumn = sink.loc.start.column;
     const endLine = sink.loc.end.line - 1;
@@ -170,8 +191,8 @@ export class OutputManager {
     return diagnostic;
   }
 
-  private createSanitizerDiagnostic(sanitizer: any): vscode.Diagnostic {
-    // Use precise positioning if available, otherwise default to line-based
+  private createSanitizerDiagnostic(sanitizer: Sanitizer): vscode.Diagnostic {
+    // Use precise positioning
     const startLine = sanitizer.loc.start.line - 1; 
     const startColumn = sanitizer.loc.start.column;
     const endLine = sanitizer.loc.end.line - 1;
@@ -243,8 +264,8 @@ export class OutputManager {
         severity: dfv.severity,
         message: dfv.message,
         file: dfv.file,
-        line: dfv.pathLines?.[0] || 0,
-        column: 0,
+        line: dfv.sink?.loc?.start?.line ?? 0,
+        column: dfv.sink?.loc?.start?.column ?? 0,
         rule: dfv.rule,
         description: dfv.description,
         recommendation: dfv.recommendation,
