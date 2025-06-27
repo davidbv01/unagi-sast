@@ -1,6 +1,6 @@
 import { Vulnerability, DataFlowVulnerability, Severity, AstNode } from '../types';
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
-import { SourceDetector, SinkDetector, SanitizerDetector, Source, Sink, Sanitizer } from '../analysis/detectors/index';
+import { SinkDetector, SanitizerDetector, Source, Sink, Sanitizer } from '../analysis/detectors/index';
 import { AiEngine, AiAnalysisRequest, AiAnalysisResult } from '../ai';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
 import * as vscode from 'vscode';
@@ -12,14 +12,12 @@ export interface AnalysisResult {
 
 export class SecurityRuleEngine {
   private patternMatcher: PatternMatcher;
-  private sourceDetector: SourceDetector;
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
   private aiEngine?: AiEngine;
 
   constructor(apiKey: string) {
     this.patternMatcher = new PatternMatcher();
-    this.sourceDetector = new SourceDetector();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
     if (apiKey){
@@ -39,37 +37,10 @@ export class SecurityRuleEngine {
 
   public async analyzeFile(ast: AstNode, dfg: DataFlowGraph, languageId: string, file: string, content: string): Promise<AnalysisResult> {
       try {
-          // Detect sources
-          const detectedSources: (Source & { line: number; column: number; endLine: number; endColumn: number })[] = [];
+          // Get detected sources from DataFlowGraph (sources are now detected during DFG building)
+          const detectedSources = dfg.getDetectedSources();
 
-          const traverse = (node: any) => {
-              if (!node) return;
-              
-              // Check for sources
-              const source = this.sourceDetector.detectSource(node);
-              if (source) {
-                  detectedSources.push({
-                      ...source,
-                      id: node.id,
-                      line: node.loc?.start?.line || 1,
-                      column: node.loc?.start?.column || 0,
-                      endLine: node.loc?.end?.line || node.loc?.start?.line || 1,
-                      endColumn: node.loc?.end?.column || (node.loc?.start?.column || 0) + 10
-                  });
-              }
-
-              // Traverse children
-              if (node.children) {
-                  for (const child of node.children) {
-                      traverse(child);
-                  }
-              }
-          };
-
-          // Start traversal
-          traverse(ast);
-
-          // Deduplicate sources, sinks, and sanitizers
+          // Deduplicate sources
           const uniqueSources = this.deduplicateDetections(detectedSources);
 
           // Pattern-based analysis
@@ -81,12 +52,8 @@ export class SecurityRuleEngine {
 
           // Store detected sources in the DataFlowGraph and perform taint analysis
           for (const source of Object.values(uniqueSources)) {
-              // Store the detected source in the corresponding DFG node
-              const sourceNode = dfg.nodes.get(source.key);
-              if (sourceNode) {
-                  sourceNode.detectedSource = source;
-              }
-              
+              // Store the detected source in the corresponding DFG node (already done during DFG building)
+              // Just propagate taint from the source
               dfg.propagateTaint(source.key);
               console.log("[DEBUG] propagateTaint for source:", source.key);
 
@@ -187,17 +154,14 @@ export class SecurityRuleEngine {
   public reloadRules(): void {
     try {
       this.patternMatcher.reloadRules();
-      this.sourceDetector.reloadRules();
       this.sinkDetector.reloadRules();
       this.sanitizerDetector.reloadRules();
+      // Reload source detector rules from DataFlowGraph
+      DataFlowGraph.getInstance().reloadSourceRules();
     } catch (error) {
       console.error('[ERROR] Failed to reload rules:', error);
       vscode.window.showErrorMessage('Failed to reload security rules');
     }
-  }
-
-  public getSourceDetector(): SourceDetector {
-    return this.sourceDetector;
   }
 
   public getSinkDetector(): SinkDetector {

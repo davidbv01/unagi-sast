@@ -1,4 +1,4 @@
-import { SanitizerDetector, SinkDetector } from "../analysis/detectors";
+import { SanitizerDetector, SinkDetector, SourceDetector } from "../analysis/detectors";
 import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity } from "../types";
 import { Source, Sink, Sanitizer } from "../analysis/detectors";
 import chalk from 'chalk';
@@ -35,12 +35,14 @@ export class DataFlowGraph {
   varToAst: Map<string, Set<Number>> = new Map();
   private sanitizerDetector: SanitizerDetector;
   private sinkDetector: SinkDetector;
+  private sourceDetector: SourceDetector;
   private importedIdentifiers: Set<string> = new Set();
 
   // Private constructor for singleton pattern
   private constructor() {
     this.sanitizerDetector = new SanitizerDetector();
     this.sinkDetector = new SinkDetector();
+    this.sourceDetector = new SourceDetector();
   }
 
   /**
@@ -107,6 +109,16 @@ export class DataFlowGraph {
       }
     }
 
+    // Detect and handle sources
+    const source = this.sourceDetector.detectSource(astNode);
+    if (source) {
+      const sourceNodes = this.getOrCreateNodes(astNode);
+      for (const node of sourceNodes) {
+        node.detectedSource = source;
+        console.log(`Detected source: Node ${node.name} with id ${node.id}`);
+      }
+    }
+
     // Handle assignment nodes
     if (astNode.type === "assignment" && astNode.children?.length === 2) {
       const leftNodes = this.getOrCreateNodes(astNode.children[0]);
@@ -118,6 +130,12 @@ export class DataFlowGraph {
           right.edges.add(left);
         }
       }
+    }
+
+    // Handle return nodes
+    if (astNode.type === "return_statement" && astNode.children?.length > 0) {
+      const rightNodes = this.getOrCreateNodes(astNode.children[0]);
+
     }
 
     // Recursively process child nodes
@@ -421,6 +439,36 @@ export class DataFlowGraph {
               counter++;
           }
       }
+  }
+
+  /**
+   * Gets all detected sources from the DataFlowGraph nodes
+   * @returns Array of sources with their associated location information
+   */
+  public getDetectedSources(): (Source & { line: number; column: number; endLine: number; endColumn: number })[] {
+    const detectedSources: (Source & { line: number; column: number; endLine: number; endColumn: number })[] = [];
+    
+    for (const node of this.nodes.values()) {
+      if (node.detectedSource) {
+        detectedSources.push({
+          ...node.detectedSource,
+          id: node.astNode.id.toString(),
+          line: node.astNode.loc?.start?.line || 1,
+          column: node.astNode.loc?.start?.column || 0,
+          endLine: node.astNode.loc?.end?.line || node.astNode.loc?.start?.line || 1,
+          endColumn: node.astNode.loc?.end?.column || (node.astNode.loc?.start?.column || 0) + 10
+        });
+      }
+    }
+    
+    return detectedSources;
+  }
+
+  /**
+   * Reloads the source detector rules
+   */
+  public reloadSourceRules(): void {
+    this.sourceDetector.reloadRules();
   }
 
   /**

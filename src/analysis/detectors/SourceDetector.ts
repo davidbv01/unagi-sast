@@ -17,7 +17,7 @@ export class SourceDetector extends RuleLoader {
   }
 
   public detectSource(node: AstNode): Source | null {
-    if (node.type === 'call' || node.type === 'expression_statement') {
+    if (node.type === 'call' || node.type === 'expression_statement' || node.type == 'return_statement') {
       const rules = this.getAllRules() as SourceRule[];
       const sources = DetectorUtils.getAllItems(rules, 'sources');
       const detectedItem = DetectorUtils.detectItem(node, sources);
