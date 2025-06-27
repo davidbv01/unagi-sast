@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { ScanResult, Vulnerability, Severity, DataFlowVulnerability, PatternVulnerability } from '../types';
+import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability } from '../types';
 import { AnalysisResult } from '../rules/SecurityRuleEngine';
 import * as fs from 'fs';
-import { Source, Sink, Sanitizer } from '../analysis/detectors/index';
 
 export class OutputManager {
   private outputChannel: vscode.OutputChannel;
@@ -33,12 +32,8 @@ export class OutputManager {
       allDiagnostics.push(this.createPatternDiagnostic(vuln));
     });
 
-    // Mostrar dataFlowVulnerabilities como sink/source/sanitizer
+    // Mostrar solo la vulnerabilidad de dataflow, incluyendo detalles de source, sink y sanitizers en el mensaje
     result.dataFlowVulnerabilities.forEach(dfv => {
-      if (dfv.source) allDiagnostics.push(this.createSourceDiagnostic(dfv.source));
-      if (dfv.sink) allDiagnostics.push(this.createSinkDiagnostic(dfv.sink));
-      if (dfv.sanitizers) dfv.sanitizers.forEach(san => allDiagnostics.push(this.createSanitizerDiagnostic(san)));
-      // También mostrar la vulnerabilidad de dataflow en la línea del sink
       allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
     });
 
@@ -115,13 +110,70 @@ export class OutputManager {
       endColumn
     );
 
+    // Main message
+    let message = dfv.message;
+
     const diagnostic = new vscode.Diagnostic(
       range,
-      dfv.message,
-      this.getSeverity(dfv.severity)
-    );
-    diagnostic.source = 'Unagi SAST - DataFlow';
-    diagnostic.code = dfv.type;
+      message,
+        this.getSeverity(dfv.severity)
+      );
+      diagnostic.source = 'Unagi SAST - DataFlow';  
+      diagnostic.code = dfv.type;
+
+    // Add related information for source, sink, and sanitizers
+    const relatedInfo: vscode.DiagnosticRelatedInformation[] = [];
+    if (dfv.source && dfv.source.loc) {
+      const srcLoc = dfv.source.loc;
+      relatedInfo.push(new vscode.DiagnosticRelatedInformation(
+        new vscode.Location(
+          vscode.Uri.file(dfv.file),
+          new vscode.Range(
+            srcLoc.start.line - 1,
+            srcLoc.start.column,
+            srcLoc.end.line - 1,
+            srcLoc.end.column
+          )
+        ),
+        `Source: ${dfv.source.description}`
+      ));
+    }
+    if (dfv.sink && dfv.sink.loc) {
+      const sinkLoc = dfv.sink.loc;
+      relatedInfo.push(new vscode.DiagnosticRelatedInformation(
+        new vscode.Location(
+          vscode.Uri.file(dfv.file),
+          new vscode.Range(
+            sinkLoc.start.line - 1,
+            sinkLoc.start.column,
+            sinkLoc.end.line - 1,
+            sinkLoc.end.column
+          )
+        ),
+        `Sink: ${dfv.sink.description}`
+      ));
+    }
+    if (dfv.sanitizers && dfv.sanitizers.length > 0) {
+      dfv.sanitizers.forEach(san => {
+        if (san.loc) {
+          relatedInfo.push(new vscode.DiagnosticRelatedInformation(
+            new vscode.Location(
+              vscode.Uri.file(dfv.file),
+              new vscode.Range(
+                san.loc.start.line - 1,
+                san.loc.start.column,
+                san.loc.end.line - 1,
+                san.loc.end.column
+              )
+            ),
+            `Sanitizer: ${san.description}`
+          ));
+        }
+      });
+    }
+    if (relatedInfo.length > 0) {
+      diagnostic.relatedInformation = relatedInfo;
+    }
     return diagnostic;
   }
 
@@ -138,82 +190,6 @@ export class OutputManager {
       default:
         return vscode.DiagnosticSeverity.Information;
     }
-  }
-
-  private createSourceDiagnostic(source: Source): vscode.Diagnostic {
-    // Use precise positioning
-    const startLine = source.loc.start.line - 1; 
-    const startColumn = source.loc.start.column;
-    const endLine = source.loc.end.line - 1;
-    const endColumn = source.loc.end.column; 
-    
-    const range = new vscode.Range(
-      startLine,
-      startColumn,
-      endLine,
-      endColumn
-    );
-    
-    const diagnostic = new vscode.Diagnostic(
-      range,
-      `📥 SOURCE: ${source.description}`,
-      vscode.DiagnosticSeverity.Information
-    );
-    
-    diagnostic.source = 'Unagi SAST - Source';
-    diagnostic.code = `source-${source.id}`;
-    diagnostic.tags = [vscode.DiagnosticTag.Unnecessary]; // This adds a faded styling
-    return diagnostic;
-  }
-
-  private createSinkDiagnostic(sink: Sink): vscode.Diagnostic {
-    // Use precise positioning
-    const startLine = sink.loc.start.line - 1; 
-    const startColumn = sink.loc.start.column;
-    const endLine = sink.loc.end.line - 1;
-    const endColumn = sink.loc.end.column; 
-    
-    const range = new vscode.Range(
-      startLine,
-      startColumn,
-      endLine,
-      endColumn
-    );
-    
-    const diagnostic = new vscode.Diagnostic(
-      range,
-      `📤 SINK: ${sink.description}`,
-      vscode.DiagnosticSeverity.Warning
-    );
-    
-    diagnostic.source = 'Unagi SAST - Sink';
-    diagnostic.code = `sink-${sink.id}`;
-    return diagnostic;
-  }
-
-  private createSanitizerDiagnostic(sanitizer: Sanitizer): vscode.Diagnostic {
-    // Use precise positioning
-    const startLine = sanitizer.loc.start.line - 1; 
-    const startColumn = sanitizer.loc.start.column;
-    const endLine = sanitizer.loc.end.line - 1;
-    const endColumn = sanitizer.loc.end.column; 
-    
-    const range = new vscode.Range(
-      startLine,
-      startColumn,
-      endLine,
-      endColumn
-    );
-    
-    const diagnostic = new vscode.Diagnostic(
-      range,
-      `🛡️ SANITIZER: ${sanitizer.description}`,
-      vscode.DiagnosticSeverity.Hint
-    );
-    
-    diagnostic.source = 'Unagi SAST - Sanitizer';
-    diagnostic.code = `sanitizer-${sanitizer.id}`;
-    return diagnostic;
   }
 
   public async saveAnalysisResultToTempFile(analysisResult: AnalysisResult): Promise<boolean> {

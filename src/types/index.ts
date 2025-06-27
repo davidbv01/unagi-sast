@@ -14,6 +14,7 @@ export interface AstNode {
   };
   scope: string;
   functions: PythonFunction[];
+  filePath?: string;
   content: string
 };
 

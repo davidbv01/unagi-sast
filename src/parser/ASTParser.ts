@@ -26,6 +26,7 @@ export class ASTParser {
       const contentWithoutComments = this.removeComments(content);
       ast.functions = functions;
       ast.content = contentWithoutComments;
+      ast.filePath = fileName;
       return ast;
 
     } catch (error) {

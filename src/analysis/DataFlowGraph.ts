@@ -320,7 +320,7 @@ export class DataFlowGraph {
    * Detects vulnerabilities by identifying tainted sinks
    * @returns Array of detected data flow vulnerabilities
    */
-  public detectVulnerabilities(): DataFlowVulnerability[] {
+  public detectVulnerabilities(filePath: string | undefined): DataFlowVulnerability[] {
     const vulnerabilities: DataFlowVulnerability[] = [];
 
     for (const node of this.nodes.values()) {
@@ -390,7 +390,7 @@ export class DataFlowGraph {
           type: VulnerabilityType.GENERIC,
           severity: Severity.HIGH,
           message: `Tainted data reaches sink: ${node.name}`,
-          file: node.name || "unknown",
+          file: filePath || "unknown",
           rule: "TAINTED_SINK",
           description: `${node.name} is a sink and receives tainted input from: ${Array.from(node.taintSources).join(", ")}`,
           recommendation: "Sanitize input before passing it to sensitive operations like this sink.",
@@ -593,6 +593,10 @@ export class DataFlowGraph {
    * @returns Array of detected data flow vulnerabilities
    */
   public performCompleteAnalysis(astNode: AstNode): DataFlowVulnerability[] {
+    
+    //Obtain the file path from the AST node
+    const filePath = astNode.filePath;
+
     // Step 1: Build the data flow graph from AST
     this.buildFromAst(astNode);
     
@@ -613,7 +617,7 @@ export class DataFlowGraph {
     this.printGraph();
     
     // Step 5: Detect and return vulnerabilities
-    return this.detectVulnerabilities();
+    return this.detectVulnerabilities(filePath);
   }
 
   /**
