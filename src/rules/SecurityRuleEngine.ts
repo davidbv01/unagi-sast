@@ -2,7 +2,7 @@ import { Vulnerability, DataFlowVulnerability, Severity, AstNode } from '../type
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SourceDetector, SinkDetector, SanitizerDetector, Source, Sink, Sanitizer } from '../analysis/detectors/index';
 import { AiEngine, AiAnalysisRequest, AiAnalysisResult } from '../ai';
-import { DataFlowGraph } from '../parser/DataFlowGraph';
+import { DataFlowGraph } from '../analysis/DataFlowGraph';
 import * as vscode from 'vscode';
 
 export interface AnalysisResult {

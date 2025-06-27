@@ -3,7 +3,7 @@ import { ScanResult, AstNode } from '../types';
 import { SecurityRuleEngine, AnalysisResult } from '../rules/SecurityRuleEngine';
 import { OutputManager } from '../output/OutputManager';
 import { ASTParser } from '../parser/ASTParser';
-import { DataFlowGraph } from '../parser/DataFlowGraph';
+import { DataFlowGraph } from '../analysis/DataFlowGraph';
 
 export class ScanOrchestrator {
   public ruleEngine: SecurityRuleEngine;

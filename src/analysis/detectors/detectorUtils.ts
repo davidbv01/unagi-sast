@@ -1,5 +1,5 @@
 import { Rule } from '../rules/RuleLoader';
-import { DataFlowGraph } from '../../parser/DataFlowGraph';
+import { DataFlowGraph } from '../../analysis/DataFlowGraph';
 
 export interface BaseDetectorItem {
   id: string;
