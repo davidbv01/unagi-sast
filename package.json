@@ -162,6 +162,7 @@
     "@babel/parser": "^7.27.5",
     "@babel/traverse": "^7.27.4",
     "@babel/types": "^7.27.6",
+    "@modelcontextprotocol/sdk": "^1.13.2",
     "chalk": "^4.1.2",
     "install": "^0.13.0",
     "npm": "^11.4.2",
