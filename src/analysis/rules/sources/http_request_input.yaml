@@ -1,0 +1,11 @@
+id: http-request-input-sources
+name: HTTP Request Input Sources
+description: Identifies points where HTTP request data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: http-request-input
+    pattern: request\.get|request\.post|req\.body|req\.query|req\.params
+    message: User input from HTTP request
+    description: Data from HTTP requests
+    severity: HIGH 

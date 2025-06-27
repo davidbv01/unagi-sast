@@ -1,0 +1,11 @@
+id: graphql-input-sources
+name: GraphQL Input Sources
+description: Identifies points where GraphQL data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: graphql-input
+    pattern: graphql|GraphQLResolveInfo|info\.variable_values
+    message: User input from GraphQL
+    description: Data from GraphQL queries
+    severity: HIGH 

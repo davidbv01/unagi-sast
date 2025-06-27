@@ -1,0 +1,11 @@
+id: cookie-input-sources
+name: Cookie Input Sources
+description: Identifies points where cookies enter the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: cookie-input
+    pattern: request\.cookies|req\.cookies|document\.cookie
+    message: User input from cookies
+    description: Data from cookies
+    severity: HIGH 

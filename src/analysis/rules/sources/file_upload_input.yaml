@@ -1,0 +1,11 @@
+id: file-upload-input-sources
+name: File Upload Input Sources
+description: Identifies points where file uploads enter the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: file-upload-input
+    pattern: request\.files|req\.files|form\.upload
+    message: User input from file upload
+    description: Data from file uploads
+    severity: HIGH 

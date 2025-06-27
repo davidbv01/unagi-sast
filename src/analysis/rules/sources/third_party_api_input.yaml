@@ -1,0 +1,11 @@
+id: third-party-api-input-sources
+name: Third-Party API Input Sources
+description: Identifies points where third-party API data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: third-party-api-input
+    pattern: requests\.get|requests\.post|fetch\(|axios\.get|axios\.post
+    message: User input from third-party API
+    description: Data from third-party API responses
+    severity: HIGH 

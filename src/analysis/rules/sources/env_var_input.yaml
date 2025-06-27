@@ -1,0 +1,11 @@
+id: env-var-input-sources
+name: Environment Variable Input Sources
+description: Identifies points where environment variables enter the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: env-var-input
+    pattern: os\.environ\[|os\.getenv\(|process\.env\.
+    message: User input from environment variable
+    description: Data from environment variables
+    severity: HIGH 

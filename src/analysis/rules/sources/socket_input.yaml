@@ -1,0 +1,11 @@
+id: socket-input-sources
+name: Socket Input Sources
+description: Identifies points where socket data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: socket-input
+    pattern: socket\.recv|sock\.recv|socket\.on\('data'\)
+    message: User input from socket
+    description: Data from socket connections
+    severity: HIGH 

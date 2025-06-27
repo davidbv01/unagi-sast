@@ -1,0 +1,11 @@
+id: email-input-sources
+name: Email Input Sources
+description: Identifies points where email data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: email-input
+    pattern: imaplib|email\.message|poplib
+    message: User input from email
+    description: Data from email messages
+    severity: HIGH 

@@ -1,0 +1,11 @@
+id: xml-rpc-input-sources
+name: XML-RPC Input Sources
+description: Identifies points where XML-RPC data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: xml-rpc-input
+    pattern: xmlrpc\.server|xmlrpc\.client|SimpleXMLRPCServer
+    message: User input from XML-RPC
+    description: Data from XML-RPC requests
+    severity: HIGH 

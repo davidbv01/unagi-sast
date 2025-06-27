@@ -1,0 +1,11 @@
+id: cli-arg-input-sources
+name: Command-Line Argument Input Sources
+description: Identifies points where command-line arguments enter the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: cli-arg-input
+    pattern: sys\.argv|process\.argv|argparse\.
+    message: User input from command-line arguments
+    description: Data from command-line arguments
+    severity: HIGH 

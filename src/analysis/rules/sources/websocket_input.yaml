@@ -1,0 +1,11 @@
+id: websocket-input-sources
+name: WebSocket Input Sources
+description: Identifies points where WebSocket data enters the application
+severity: HIGH
+type: SOURCE
+sources:
+  - id: websocket-input
+    pattern: websocket\.onmessage|ws\.on\('message'\)
+    message: User input from WebSocket
+    description: Data from WebSocket messages
+    severity: HIGH 
