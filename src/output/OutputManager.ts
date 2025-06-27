@@ -205,6 +205,75 @@ export class OutputManager {
     });
   }
 
+  public async saveWorkspaceResults(results: ScanResult[]): Promise<void> {
+    try {
+      const workspaceResultsPath = this.folderPath + '/workspace-scan-results.json';
+      
+      // Create a summary object
+      const workspaceSummary = {
+        timestamp: new Date().toISOString(),
+        totalFiles: results.length,
+        totalVulnerabilities: results.reduce((sum, result) => 
+          sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
+        ),
+        totalScanTime: results.reduce((sum, result) => sum + result.scanTime, 0),
+        summary: {
+          patternVulnerabilities: results.reduce((sum, result) => sum + result.patternVulnerabilities.length, 0),
+          dataFlowVulnerabilities: results.reduce((sum, result) => sum + result.dataFlowVulnerabilities.length, 0)
+        },
+        results
+      };
+      
+      fs.writeFileSync(workspaceResultsPath, JSON.stringify(workspaceSummary, null, 2), 'utf8');
+      
+      console.log(`📄 Workspace scan results saved to: ${workspaceResultsPath}`);
+      
+      // Create diagnostics for all scanned files
+      this.displayWorkspaceResults(results);
+      
+      // Update status bar with aggregated results
+      this.updateStatusBar(results);
+      
+      // Show summary notification
+      const totalVulns = workspaceSummary.totalVulnerabilities;
+      vscode.window.showInformationMessage(
+        `Workspace scan results saved. Found ${totalVulns} vulnerabilities across ${results.length} files.`
+      );
+      
+    } catch (error) {
+      console.error('[ERROR] Failed to save workspace results:', error);
+      vscode.window.showErrorMessage('Failed to save workspace scan results');
+    }
+  }
+
+  public displayWorkspaceResults(results: ScanResult[]): void {
+    // Clear previous diagnostics
+    this.diagnosticCollection.clear();
+    
+    // Create diagnostics for each file
+    results.forEach(result => {
+      const allDiagnostics: vscode.Diagnostic[] = [];
+      
+      // Add pattern vulnerabilities
+      result.patternVulnerabilities.forEach(vuln => {
+        allDiagnostics.push(this.createPatternDiagnostic(vuln));
+      });
+      
+      // Add data flow vulnerabilities
+      result.dataFlowVulnerabilities.forEach(dfv => {
+        allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
+      });
+      
+      // Set diagnostics for this file
+      if (allDiagnostics.length > 0) {
+        const uri = vscode.Uri.file(result.file);
+        this.diagnosticCollection.set(uri, allDiagnostics);
+      }
+    });
+    
+    console.log(`🔍 Created diagnostics for ${results.length} files`);
+  }
+
   public async createReport(): Promise<void> {
     if (!fs.existsSync(this.filePath)) {
       vscode.window.showInformationMessage('No analysis report available. Please run a scan first.');

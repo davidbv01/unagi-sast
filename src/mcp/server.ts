@@ -9,7 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
-// Define the tool that this MCP server provides
+// Define the tools that this MCP server provides
 const SCAN_ACTUAL_FILE_TOOL: Tool = {
   name: 'scan_actual_file',
   description: 'Scans the currently active file for vulnerabilities (Python only)',
@@ -27,6 +27,21 @@ const SCAN_ACTUAL_FILE_TOOL: Tool = {
       }
     },
     required: ['filePath', 'language']
+  }
+};
+
+const SCAN_WORKSPACE_TOOL: Tool = {
+  name: 'scan_workspace',
+  description: 'Scans all Python files in the current workspace for vulnerabilities',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      workspacePath: {
+        type: 'string',
+        description: 'Optional path to the workspace directory (uses current VS Code workspace if not provided)'
+      }
+    },
+    required: []
   }
 };
 
@@ -72,7 +87,7 @@ class UnagiSastMcpServer {
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: [SCAN_ACTUAL_FILE_TOOL],
+        tools: [SCAN_ACTUAL_FILE_TOOL, SCAN_WORKSPACE_TOOL],
       };
     });
 
@@ -84,6 +99,8 @@ class UnagiSastMcpServer {
         switch (name) {
           case 'scan_actual_file':
             return await this.handleScanActualFile(args);
+          case 'scan_workspace':
+            return await this.handleScanWorkspace(args);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -138,6 +155,50 @@ class UnagiSastMcpServer {
           {
             type: 'text',
             text: `Error scanning file: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleScanWorkspace(args: any) {
+    const { workspacePath } = args;
+    try {
+      // Use the ScanOrchestrator to scan the workspace
+      const results = await this.scanOrchestrator.scanWorkspace(workspacePath);
+      const totalVulns = results.reduce((sum: number, result: any) => 
+        sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
+      );
+      const totalFiles = results.length;
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Workspace scan completed. Scanned ${totalFiles} Python files and found ${totalVulns} vulnerabilities.`,
+          },
+          {
+            type: 'json',
+            json: {
+              summary: {
+                totalFiles,
+                totalVulnerabilities: totalVulns,
+                patternVulnerabilities: results.reduce((sum: number, result: any) => sum + result.patternVulnerabilities.length, 0),
+                dataFlowVulnerabilities: results.reduce((sum: number, result: any) => sum + result.dataFlowVulnerabilities.length, 0),
+                totalScanTime: results.reduce((sum: number, result: any) => sum + result.scanTime, 0)
+              },
+              results
+            },
+          },
+        ],
+      };
+    } catch (error: any) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error scanning workspace: ${error.message}`,
           },
         ],
         isError: true,

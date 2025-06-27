@@ -64,6 +64,10 @@
         "title": "Unagi: Scan Actual File"
       },
       {
+        "command": "unagi.scanWorkspace",
+        "title": "Unagi: Scan Workspace"
+      },
+      {
         "command": "unagi.clearResults",
         "title": "Unagi: Clear Results"
       },

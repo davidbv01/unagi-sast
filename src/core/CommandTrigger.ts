@@ -82,6 +82,40 @@ export class CommandTrigger {
       })
     );
 
+    // Register command to scan workspace
+    context.subscriptions.push(
+      vscode.commands.registerCommand('unagi.scanWorkspace', async () => {
+        if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+          vscode.window.showWarningMessage('No workspace folder open');
+          return;
+        }
+
+        try {
+          const results = await this.scanOrchestrator.scanWorkspace();
+          
+          // Aggregate and display results
+          const totalVulns = results.reduce((sum, result) => 
+            sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
+          );
+          
+          const totalFiles = results.length;
+          const totalTime = results.reduce((sum, result) => sum + result.scanTime, 0);
+          
+          console.log(`📊 Workspace scan summary:
+            - Files scanned: ${totalFiles}
+            - Total vulnerabilities: ${totalVulns}
+            - Total scan time: ${(totalTime / 1000).toFixed(2)}s`);
+          
+          // Save workspace results to a consolidated report
+          if (results.length > 0) {
+            await this.outputManager.saveWorkspaceResults(results);
+          }
+        } catch (error: any) {
+          vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
+        }
+      })
+    );
+
     // Register command to create a security report
     context.subscriptions.push(
       vscode.commands.registerCommand('unagi.createReport', async () => {
