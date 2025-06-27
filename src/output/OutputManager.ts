@@ -121,10 +121,10 @@ export class OutputManager {
 
   private createSourceDiagnostic(source: any): vscode.Diagnostic {
     // Use precise positioning if available, otherwise default to line-based
-    const startLine = (source.line || 1) - 1; // Convert to 0-based
-    const startColumn = source.column || 0;
-    const endLine = source.endLine ? (source.endLine - 1) : startLine;
-    const endColumn = source.endColumn || (startColumn + 10); // Default to +10 chars if no end column
+    const startLine = source.loc.start.line - 1; 
+    const startColumn = source.loc.start.column;
+    const endLine = source.loc.end.line - 1;
+    const endColumn = source.loc.end.column; 
     
     const range = new vscode.Range(
       startLine,
@@ -147,10 +147,10 @@ export class OutputManager {
 
   private createSinkDiagnostic(sink: any): vscode.Diagnostic {
     // Use precise positioning if available, otherwise default to line-based
-    const startLine = (sink.line || 1) - 1; // Convert to 0-based
-    const startColumn = sink.column || 0;
-    const endLine = sink.endLine ? (sink.endLine - 1) : startLine;
-    const endColumn = sink.endColumn || (startColumn + 10); // Default to +10 chars if no end column
+    const startLine = sink.loc.start.line - 1; 
+    const startColumn = sink.loc.start.column;
+    const endLine = sink.loc.end.line - 1;
+    const endColumn = sink.loc.end.column; 
     
     const range = new vscode.Range(
       startLine,
@@ -172,10 +172,10 @@ export class OutputManager {
 
   private createSanitizerDiagnostic(sanitizer: any): vscode.Diagnostic {
     // Use precise positioning if available, otherwise default to line-based
-    const startLine = (sanitizer.line || 1) - 1; // Convert to 0-based
-    const startColumn = sanitizer.column || 0;
-    const endLine = sanitizer.endLine ? (sanitizer.endLine - 1) : startLine;
-    const endColumn = sanitizer.endColumn || (startColumn + 10); // Default to +10 chars if no end column
+    const startLine = sanitizer.loc.start.line - 1; 
+    const startColumn = sanitizer.loc.start.column;
+    const endLine = sanitizer.loc.end.line - 1;
+    const endColumn = sanitizer.loc.end.column; 
     
     const range = new vscode.Range(
       startLine,
