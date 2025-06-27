@@ -481,4 +481,52 @@ export class DataFlowGraph {
       this.nodes.clear();
       this.varToAst.clear();
   }
+
+  /**
+   * Performs complete data flow analysis: builds graph, detects sources, propagates taint, and detects vulnerabilities
+   * @param astNode The root AST node to analyze
+   * @returns Array of detected data flow vulnerabilities
+   */
+  public performCompleteAnalysis(astNode: AstNode): DataFlowVulnerability[] {
+    // Step 1: Build the data flow graph from AST
+    this.buildFromAst(astNode);
+    
+    // Step 2: Get all detected sources and deduplicate them
+    const detectedSources = this.getDetectedSources();
+    const uniqueSources = this.deduplicateDetections(detectedSources);
+    
+    // Step 3: Propagate taint from all detected sources
+    for (const source of Object.values(uniqueSources)) {
+      this.propagateTaint(source.key);
+      console.log("[DEBUG] propagateTaint for source:", source.key);
+    }
+    
+    // Step 4: Print debug information
+    for (const node of this.nodes.values()) {
+      console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
+    }
+    this.printGraph();
+    
+    // Step 5: Detect and return vulnerabilities
+    return this.detectVulnerabilities();
+  }
+
+  /**
+   * Deduplicates detected sources based on their key
+   * @param detections Array of detected sources to deduplicate
+   * @returns Deduplicated sources indexed by key
+   */
+  private deduplicateDetections(detections: any[]): any[] {
+    const unique: any[] = [];
+    const seen = new Set<string>();
+    
+    for (const detection of detections) {
+      if (!seen.has(detection.key)) {
+        seen.add(detection.key);
+        unique.push(detection);
+      }
+    }
+    
+    return unique;
+  }
 }

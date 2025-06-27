@@ -37,12 +37,6 @@ export class SecurityRuleEngine {
 
   public async analyzeFile(ast: AstNode, dfg: DataFlowGraph, languageId: string, file: string, content: string): Promise<AnalysisResult> {
       try {
-          // Get detected sources from DataFlowGraph (sources are now detected during DFG building)
-          const detectedSources = dfg.getDetectedSources();
-
-          // Deduplicate sources
-          const uniqueSources = this.deduplicateDetections(detectedSources);
-
           // Pattern-based analysis
           const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
           // Set file path for pattern vulnerabilities
@@ -50,21 +44,10 @@ export class SecurityRuleEngine {
               vuln.file = file;
           });      
 
-          // Store detected sources in the DataFlowGraph and perform taint analysis
-          for (const source of Object.values(uniqueSources)) {
-              // Store the detected source in the corresponding DFG node (already done during DFG building)
-              // Just propagate taint from the source
-              dfg.propagateTaint(source.key);
-              console.log("[DEBUG] propagateTaint for source:", source.key);
+          // Perform complete data flow analysis (build graph, detect sources, propagate taint, detect vulnerabilities)
+          const dataFlowVulnerabilities = dfg.performCompleteAnalysis(ast);
 
-              for (const node of dfg.nodes.values()) {
-                  console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
-              }
-          }
-          dfg.printGraph();
-          const dataFlowVulnerabilities = dfg.detectVulnerabilities();
-
-          // Initialize result with pattern vulnerabilities and empty data flow vulnerabilities
+          // Initialize result with pattern vulnerabilities and data flow vulnerabilities
           let finalDataFlowVulnerabilities: DataFlowVulnerability[] = [...dataFlowVulnerabilities];
 
           // Verify that we have api keys for AI analysis
@@ -174,22 +157,5 @@ export class SecurityRuleEngine {
 
   public getPatternMatcher(): PatternMatcher {
     return this.patternMatcher;
-  }
-
-  private deduplicateDetections(detections: any[]): any[] {
-    const uniqueDetections: any[] = [];
-    const seen: Set<string> = new Set();
-
-    for (const detection of detections) {
-      // Create a key based on detection type, line number, and detection ID (ignoring column differences)
-      const key = `${detection.type}_${detection.line}`;
-      
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueDetections.push(detection);
-      }
-    }
-
-    return uniqueDetections;
   }
 }
