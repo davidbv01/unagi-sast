@@ -1,0 +1,12 @@
+id: insecure-http-headers
+name: Insecure HTTP Headers
+description: Detects insecure HTTP header configurations
+severity: MEDIUM
+type: SINK
+sinks:
+  - id: insecure-http-headers
+    pattern: setHeader\(|addHeader\(|header\(|res\.set\(|res\.header\(
+    message: Potential insecure HTTP header configuration
+    description: Untrusted input in HTTP header context
+    vulnerabilityType: INSECURE_HTTP_HEADERS
+    severity: MEDIUM 

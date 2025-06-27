@@ -1,0 +1,12 @@
+id: rce
+name: Remote Code Execution (RCE)
+description: Detects potential remote code execution vulnerabilities
+severity: CRITICAL
+type: SINK
+sinks:
+  - id: rce
+    pattern: eval\(|exec\(|Function\(|setTimeout\(|setInterval\(
+    message: Potential RCE sink
+    description: Untrusted input in code execution context
+    vulnerabilityType: RCE
+    severity: CRITICAL 

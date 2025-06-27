@@ -1,0 +1,12 @@
+id: insecure-file-upload
+name: Insecure File Upload
+description: Detects insecure file upload vulnerabilities
+severity: HIGH
+type: SINK
+sinks:
+  - id: insecure-file-upload
+    pattern: save\(|write\(|fs\.writeFile\(|fs\.writeFileSync\(|fs\.createWriteStream\(
+    message: Potential insecure file upload sink
+    description: Untrusted input in file upload context
+    vulnerabilityType: INSECURE_FILE_UPLOAD
+    severity: HIGH 

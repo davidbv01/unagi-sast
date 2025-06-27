@@ -1,0 +1,12 @@
+id: insecure-redirect
+name: Insecure Redirect
+description: Detects open redirect vulnerabilities
+severity: HIGH
+type: SINK
+sinks:
+  - id: insecure-redirect
+    pattern: redirect\(|res\.redirect\(|Response\.redirect\(
+    message: Potential open redirect sink
+    description: Untrusted input in redirect context
+    vulnerabilityType: OPEN_REDIRECT
+    severity: HIGH 

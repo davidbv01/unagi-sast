@@ -1,0 +1,12 @@
+id: insecure-deserialization
+name: Insecure Deserialization
+description: Detects insecure deserialization vulnerabilities
+severity: CRITICAL
+type: SINK
+sinks:
+  - id: insecure-deserialization
+    pattern: pickle\.load\(|pickle\.loads\(|yaml\.load\(|marshal\.load\(
+    message: Potential insecure deserialization sink
+    description: Untrusted input in deserialization context
+    vulnerabilityType: INSECURE_DESERIALIZATION
+    severity: CRITICAL 

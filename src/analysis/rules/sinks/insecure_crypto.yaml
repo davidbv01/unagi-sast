@@ -1,0 +1,12 @@
+id: insecure-crypto
+name: Insecure Cryptographic Storage
+description: Detects insecure cryptographic storage vulnerabilities
+severity: HIGH
+type: SINK
+sinks:
+  - id: insecure-crypto
+    pattern: md5\(|sha1\(|des\(|rc4\(|crypto\.createCipher\(
+    message: Potential insecure cryptographic storage sink
+    description: Use of weak or broken cryptographic algorithms
+    vulnerabilityType: INSECURE_CRYPTO
+    severity: HIGH 

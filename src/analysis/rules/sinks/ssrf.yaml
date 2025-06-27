@@ -1,0 +1,12 @@
+id: ssrf
+name: Server-Side Request Forgery (SSRF)
+description: Detects potential SSRF vulnerabilities
+severity: CRITICAL
+type: SINK
+sinks:
+  - id: ssrf
+    pattern: requests\.get\(|requests\.post\(|urllib\.request\(|http\.get\(|http\.request\(
+    message: Potential SSRF sink
+    description: Untrusted input in server-side request context
+    vulnerabilityType: SSRF
+    severity: CRITICAL 

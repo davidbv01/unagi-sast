@@ -1,0 +1,12 @@
+id: xss
+name: Cross-Site Scripting (XSS)
+description: Detects potential XSS vulnerabilities
+severity: CRITICAL
+type: SINK
+sinks:
+  - id: xss
+    pattern: innerHTML\s*=|document\.write\(|outerHTML\s*=|jQuery\(|html\(|dangerouslySetInnerHTML
+    message: Potential XSS sink
+    description: Untrusted input in HTML/JS context
+    vulnerabilityType: XSS
+    severity: CRITICAL 

@@ -1,0 +1,12 @@
+id: path-traversal
+name: Path Traversal
+description: Detects potential path traversal vulnerabilities
+severity: HIGH
+type: SINK
+sinks:
+  - id: path-traversal
+    pattern: open\(|os\.open\(|os\.remove\(|os\.unlink\(|os\.rmdir\(|shutil\.rmtree\(
+    message: Potential path traversal sink
+    description: Untrusted input in file path context
+    vulnerabilityType: PATH_TRAVERSAL
+    severity: HIGH 

@@ -1,0 +1,12 @@
+id: sql-injection
+name: SQL Injection
+description: Detects potential SQL injection vulnerabilities
+severity: CRITICAL
+type: SINK
+sinks:
+  - id: sql-injection
+    pattern: execute\(|exec\(|cursor\.execute\(|raw\(|statement\s*=\s*
+    message: Potential SQL injection sink
+    description: Untrusted input in SQL execution context
+    vulnerabilityType: SQL_INJECTION
+    severity: CRITICAL 
