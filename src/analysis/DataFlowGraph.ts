@@ -1,5 +1,5 @@
 import { SanitizerDetector, SinkDetector, SourceDetector } from "../analysis/detectors";
-import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity } from "../types";
+import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity, PythonFunction } from "../types";
 import { Source, Sink, Sanitizer } from "../analysis/detectors";
 import chalk from 'chalk';
 
@@ -37,6 +37,11 @@ export class DataFlowGraph {
   private sinkDetector: SinkDetector;
   private sourceDetector: SourceDetector;
   private importedIdentifiers: Set<string> = new Set();
+  
+  // Function handling properties
+  private currentFunction: string | null = null;
+  private functionReturnNodes: Map<string, DfgNode> = new Map(); // function_name -> return_node
+  private functions: PythonFunction[] = [];
 
   // Private constructor for singleton pattern
   private constructor() {
@@ -65,11 +70,73 @@ export class DataFlowGraph {
   }
 
   /**
+   * Gets or creates a function return node
+   * @param functionName The name of the function
+   * @returns The DFG node representing the function's return value
+   */
+  private getOrCreateFunctionReturnNode(functionName: string): DfgNode {
+    if (!this.functionReturnNodes.has(functionName)) {
+      const returnNodeId = `${functionName}_return`;
+      const returnNode: DfgNode = {
+        id: returnNodeId,
+        name: `${functionName}_return`,
+        astNode: {} as AstNode, // Placeholder AST node
+        tainted: false,
+        taintSources: new Set(),
+        edges: new Set()
+      };
+      this.nodes.set(returnNodeId, returnNode);
+      this.functionReturnNodes.set(functionName, returnNode);
+    }
+    return this.functionReturnNodes.get(functionName)!;
+  }
+
+  /**
+   * Extracts function name from a function definition AST node
+   * @param astNode The function definition AST node
+   * @returns Function name if found, null otherwise
+   */
+  private extractFunctionName(astNode: AstNode): string | null {
+    if (astNode.type !== "function_definition") return null;
+    
+    const nameNode = astNode.children?.find(child => child.type === "identifier");
+    return nameNode?.text || null;
+  }
+
+  /**
+   * Extracts function name from a function call AST node
+   * @param astNode The function call AST node
+   * @returns Function name if found, null otherwise
+   */
+  private extractCalledFunctionName(astNode: AstNode): string | null {
+    if (astNode.type !== "call") return null;
+    
+    // Look for identifier in call structure
+    const nameNode = astNode.children?.find(child => child.type === "identifier" || child.type === "attribute");
+    return nameNode?.text || null;
+  }
+
+  /**
    * Builds the data flow graph from an AST node
    * @param astNode The root AST node to build the graph from
    */
   public buildFromAst(astNode: AstNode) {
     if (!astNode) return;
+
+    // Extract functions from root AST node (only once at the beginning)
+    if (astNode.functions && astNode.functions.length > 0) {
+      this.functions = astNode.functions;
+      console.log(`[DEBUG] Found ${this.functions.length} functions:`, this.functions.map(f => f.name));
+    }
+
+    // Handle function definitions
+    if (astNode.type === "function_definition") {
+      const functionName = this.extractFunctionName(astNode);
+      if (functionName) {
+        this.currentFunction = functionName;
+        console.log(`[DEBUG] Entering function: ${functionName}`);
+      }
+    }
 
     // Detect and store imported identifiers
     if (astNode.type === "import_statement") {
@@ -134,8 +201,34 @@ export class DataFlowGraph {
 
     // Handle return nodes
     if (astNode.type === "return_statement" && astNode.children?.length > 0) {
-      const rightNodes = this.getOrCreateNodes(astNode.children[0]);
+      const returnedNodes = this.getOrCreateNodes(astNode.children[0]);
+      
+      // If we're inside a function, create edges from returned variables to function return node
+      if (this.currentFunction) {
+        const functionReturnNode = this.getOrCreateFunctionReturnNode(this.currentFunction);
+        
+        for (const returnedNode of returnedNodes) {
+          returnedNode.edges.add(functionReturnNode);
+          console.log(`[DEBUG] Created edge: ${returnedNode.name} -> ${functionReturnNode.name}`);
+        }
+      }
+    }
 
+    // Handle function calls
+    if (astNode.type === "call") {
+      const functionName = this.extractCalledFunctionName(astNode);
+      
+      if (functionName && this.functions.some(f => f.name === functionName)) {
+        // Create nodes for the function call result
+        const callResultNodes = this.getOrCreateNodes(astNode);
+        const functionReturnNode = this.getOrCreateFunctionReturnNode(functionName);
+        
+        // Create edges from function return to call result
+        for (const resultNode of callResultNodes) {
+          functionReturnNode.edges.add(resultNode);
+          console.log(`[DEBUG] Created edge: ${functionReturnNode.name} -> ${resultNode.name} (function call)`);
+        }
+      }
     }
 
     // Recursively process child nodes
@@ -143,6 +236,12 @@ export class DataFlowGraph {
       for (const child of astNode.children) {
         this.buildFromAst(child);
       }
+    }
+
+    // Reset current function when exiting function definition
+    if (astNode.type === "function_definition") {
+      console.log(`[DEBUG] Exiting function: ${this.currentFunction}`);
+      this.currentFunction = null;
     }
   }
 
@@ -480,6 +579,12 @@ export class DataFlowGraph {
       // Clear all graph data structures
       this.nodes.clear();
       this.varToAst.clear();
+      
+      // Clear function-related data
+      this.currentFunction = null;
+      this.functionReturnNodes.clear();
+      this.functions = [];
+      this.importedIdentifiers.clear();
   }
 
   /**

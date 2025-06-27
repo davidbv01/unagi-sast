@@ -1,7 +1,8 @@
 import os
 
 def get_data():
-    return input("Enter your name: ") 
+    test = input("Enter your name: ") 
+    return test
 
 def random():
     return "random"
