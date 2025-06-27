@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "unagi-sast-server": {
+      "command": "node",
+      "args": ["./out/mcp/server.js"],
+      "env": {}
+    }
+  }
+} 

@@ -48,6 +48,12 @@
     "typescript": "^5.3.2"
   },
   "contributes": {
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "unagiSastProvider",
+        "label": "Unagi SAST MCP Server Provider"
+      }
+    ],
     "commands": [
       {
         "command": "unagi.helloWorld",

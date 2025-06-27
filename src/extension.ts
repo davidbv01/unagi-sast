@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { CommandTrigger } from './core/CommandTrigger';
 import { configManager } from './config/ConfigurationManager';
+import { UnagiMcpServerProvider } from './mcp/McpServerProvider';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -29,6 +30,26 @@ export function activate(context: vscode.ExtensionContext) {
 	commandTrigger.registerCommands(context);
 	console.log('✅ Command triggers registered');
 
+	// Register MCP server provider
+	console.log('🌐 Setting up MCP server provider...');
+	try {
+		const mcpProvider = new UnagiMcpServerProvider(context);
+		
+		// Register the MCP server definition provider (when API becomes available)
+		// For now, we'll just prepare the provider
+		if ('lm' in vscode && 'registerMcpServerDefinitionProvider' in (vscode as any).lm) {
+			const mcpDisposable = (vscode as any).lm.registerMcpServerDefinitionProvider('unagiSastProvider', mcpProvider);
+			context.subscriptions.push(mcpDisposable);
+		} else {
+			console.log('📝 MCP API not yet available - provider prepared for future use');
+		}
+		
+		context.subscriptions.push(mcpProvider);
+		console.log('✅ MCP server provider setup completed');
+	} catch (error) {
+		console.warn('⚠️ MCP server provider setup failed (this is normal if MCP is not available):', error);
+	}
+
 	// Register configuration change listener
 	console.log('👂 Registering configuration change listener...');
 	const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((event) => {
@@ -52,4 +73,4 @@ export function deactivate() {
 // Helper to retrieve the API key from global state
 export function getOpenAIApiKey(context: vscode.ExtensionContext): string | undefined {
 	return context.globalState.get<string>('OPENAI_API_KEY');
-  } 
+} 
