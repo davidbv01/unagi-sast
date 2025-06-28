@@ -1,0 +1,26 @@
+id: path-sanitizers
+name: Path Traversal Sanitizers
+description: Identifies path traversal prevention and file path sanitization techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: path-normalization
+    pattern: os\.path\.normpath|Path\(.*\)\.resolve\(\)|path\.normalize|realpath|canonicalize
+    message: Path normalization function
+    description: Using path normalization to prevent directory traversal attacks
+    effectiveness: 0.8
+  - id: basename-extraction
+    pattern: os\.path\.basename|path\.basename|Path\(.*\)\.name|\.split\([/\\\\]\)\.pop\(\)
+    message: Basename extraction for path safety
+    description: Extracting basename to prevent directory traversal
+    effectiveness: 0.9
+  - id: path-validation
+    pattern: \.startswith\(.*base.*\)|\.is_relative_to\(|\.within\(|path_is_safe
+    message: Path validation against allowed directories
+    description: Validating file paths are within allowed directories
+    effectiveness: 0.9
+  - id: dot-sequence-removal
+    pattern: \.replace\(.*\.\./|\.replace\(.*\.\\\.\\\.|filter.*\.\./|strip.*\.\.
+    message: Dot sequence removal for path sanitization
+    description: Removing dot sequences from file paths to prevent traversal
+    effectiveness: 0.6 

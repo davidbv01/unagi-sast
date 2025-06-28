@@ -1,0 +1,21 @@
+id: ldap-sanitizers
+name: LDAP Injection Sanitizers
+description: Identifies LDAP injection prevention and input sanitization techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: ldap-escape-dn
+    pattern: ldap_escape|escapeDN|escape_dn|LdapEncoder\.encodeForDN
+    message: LDAP DN escaping function
+    description: Using LDAP DN escaping to prevent LDAP injection in distinguished names
+    effectiveness: 0.9
+  - id: ldap-escape-filter
+    pattern: escape_filter|escapeFilterValue|LdapEncoder\.encodeForLdap|ldap.*escape.*filter
+    message: LDAP filter escaping function
+    description: Using LDAP filter escaping to prevent LDAP injection in search filters
+    effectiveness: 0.9
+  - id: ldap-parameter-binding
+    pattern: \.search\(.*\?\)|LdapTemplate.*bind|parameterized.*ldap
+    message: LDAP parameterized queries
+    description: Using parameterized LDAP queries to prevent injection
+    effectiveness: 1.0 

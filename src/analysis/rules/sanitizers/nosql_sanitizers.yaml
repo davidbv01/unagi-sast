@@ -1,0 +1,26 @@
+id: nosql-sanitizers
+name: NoSQL Injection Sanitizers
+description: Identifies NoSQL injection prevention and input sanitization techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: mongodb-sanitization
+    pattern: mongo-sanitize|sanitize.*mongo|validator\.escape|mongoose.*sanitize
+    message: MongoDB input sanitization
+    description: Using MongoDB-specific sanitization libraries to prevent NoSQL injection
+    effectiveness: 0.9
+  - id: nosql-type-validation
+    pattern: typeof.*===.*string|instanceof.*String|\.isString\(|type.*validation
+    message: NoSQL type validation
+    description: Validating input types to prevent NoSQL injection through type confusion
+    effectiveness: 0.8
+  - id: nosql-operator-filtering
+    pattern: delete.*\$|filter.*\$|remove.*operator|strip.*\$.*operator
+    message: NoSQL operator filtering
+    description: Filtering or removing NoSQL operators from user input
+    effectiveness: 0.7
+  - id: nosql-schema-validation
+    pattern: joi\.validate|schema\.validate|ajv\.validate|mongoose\.Schema
+    message: NoSQL schema validation
+    description: Using schema validation to ensure data integrity in NoSQL operations
+    effectiveness: 0.8 

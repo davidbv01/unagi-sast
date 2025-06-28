@@ -1,0 +1,26 @@
+id: command-sanitizers
+name: Command Injection Sanitizers
+description: Identifies command injection prevention and input sanitization techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: shell-escape
+    pattern: shlex\.quote|pipes\.quote|subprocess.*shell=False|ProcessBuilder
+    message: Shell command escaping or safe execution
+    description: Using shell escaping or safe command execution methods
+    effectiveness: 0.9
+  - id: command-whitelist
+    pattern: allowed_commands|whitelist.*command|command.*in.*allowed|validate_command
+    message: Command whitelist validation
+    description: Validating commands against an allowed whitelist
+    effectiveness: 1.0
+  - id: argument-sanitization
+    pattern: \.replace\([;|&`$()\\\\]|filter.*[;|&]|sanitize.*args|clean.*command
+    message: Command argument sanitization
+    description: Sanitizing command arguments to remove shell metacharacters
+    effectiveness: 0.7
+  - id: subprocess-list-args
+    pattern: subprocess\.(run|call|check_output)\(\[.*\]|exec.*\[.*\]
+    message: Using argument lists instead of shell strings
+    description: Using argument lists to prevent shell injection
+    effectiveness: 0.8 

@@ -1,0 +1,26 @@
+id: xml-sanitizers
+name: XML Injection and XXE Sanitizers
+description: Identifies XML injection and XXE prevention techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: xml-escape
+    pattern: xml\.sax\.saxutils\.escape|htmlspecialchars.*ENT_XML|xmlspecialchars|escape_xml
+    message: XML character escaping
+    description: Using XML character escaping to prevent XML injection
+    effectiveness: 0.8
+  - id: xxe-prevention
+    pattern: XMLParser.*resolve_entities=False|setFeature.*external.*false|disable.*external.*entities
+    message: XXE prevention configuration
+    description: Disabling external entity resolution to prevent XXE attacks
+    effectiveness: 1.0
+  - id: xml-schema-validation
+    pattern: xmlschema\.validate|lxml.*schema|validate.*xsd|RelaxNG.*validate
+    message: XML schema validation
+    description: Using XML schema validation to ensure input structure safety
+    effectiveness: 0.9
+  - id: safe-xml-parser
+    pattern: defusedxml|xml\.etree\.ElementTree.*XMLParser|lxml.*XMLParser.*resolve_entities=False
+    message: Safe XML parser usage
+    description: Using secure XML parsers with safety features enabled
+    effectiveness: 0.9 

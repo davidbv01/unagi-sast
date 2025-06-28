@@ -1,0 +1,21 @@
+id: sql-sanitizers
+name: SQL Injection Sanitizers
+description: Identifies SQL injection prevention and sanitization techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: prepared-statements
+    pattern: \.prepare\(.*\)|PreparedStatement|\.query\(.*,\s*\[.*\]\)|\.execute\(.*,\s*params\)
+    message: SQL prepared statement or parameterized query
+    description: Using prepared statements or parameterized queries to prevent SQL injection
+    effectiveness: 1.0
+  - id: sql-escape-functions
+    pattern: mysql_real_escape_string|addslashes|mysqli_real_escape_string|pg_escape_string|sqlite_escape_string
+    message: SQL escape function usage
+    description: Using database-specific escape functions for SQL sanitization
+    effectiveness: 0.7
+  - id: orm-query-builder
+    pattern: \.where\(.*,\s*\?\)|\.bind\(.*\)|\.setParameter\(|QueryBuilder.*\.where\(
+    message: ORM query builder with parameter binding
+    description: Using ORM query builders with parameter binding for safe SQL operations
+    effectiveness: 0.9 

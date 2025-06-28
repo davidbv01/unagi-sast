@@ -1,0 +1,26 @@
+id: xss-sanitizers
+name: Cross-Site Scripting (XSS) Sanitizers
+description: Identifies XSS prevention and output encoding techniques
+severity: INFO
+type: SANITIZER
+sanitizers:
+  - id: html-escape
+    pattern: htmlspecialchars|htmlentities|escape_html|sanitize_html|DOMPurify\.sanitize
+    message: HTML escaping or sanitization function
+    description: Using HTML escaping or sanitization to prevent XSS attacks
+    effectiveness: 0.9
+  - id: template-engine-escaping
+    pattern: \{\{\{.*\}\}\}|\{\%.*autoescape.*\%\}|\.escape\(|render_template_string.*autoescape
+    message: Template engine auto-escaping
+    description: Using template engine auto-escaping features for XSS prevention
+    effectiveness: 0.8
+  - id: csp-headers
+    pattern: Content-Security-Policy|X-XSS-Protection|X-Content-Type-Options
+    message: Security headers for XSS protection
+    description: Setting security headers to mitigate XSS attacks
+    effectiveness: 0.7
+  - id: url-encoding
+    pattern: urlencode|encodeURIComponent|urllib\.parse\.quote
+    message: URL encoding function
+    description: Using URL encoding to sanitize data in URLs
+    effectiveness: 0.6 
