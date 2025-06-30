@@ -58,3 +58,6 @@ Thumbs.db
 unagi-sast/
 *.js
 *.js.map
+
+# VS Code configuration
+.vscode/
