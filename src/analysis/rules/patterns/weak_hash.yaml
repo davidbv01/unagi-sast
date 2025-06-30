@@ -1,16 +1,18 @@
-rules:
-  - id: "weak-md5"
-    name: "Use of MD5 hash function"
-    description: "Detects use of hashlib.md5, which is considered weak and insecure."
-    severity: "high"
-    pattern: "hashlib\.md5\s*\("
-    languages: ["python"]
-    tags: ["weak-hash", "crypto"]
-
-  - id: "weak-sha1"
-    name: "Use of SHA1 hash function"
-    description: "Detects use of hashlib.sha1, which is considered weak and insecure."
-    severity: "high"
-    pattern: "hashlib\.sha1\s*\("
-    languages: ["python"]
-    tags: ["weak-hash", "crypto"] 
+id: weak-hash
+name: Weak Hash Functions
+description: Detects use of weak hash functions like MD5 and SHA1
+severity: HIGH
+type: SINK
+patterns:
+  - id: weak-md5
+    pattern: 'hashlib\.md5\s*\('
+    message: Use of MD5 hash function is insecure
+    description: MD5 is a weak hash function and should not be used for security-sensitive operations.
+    vulnerabilityType: WEAK_HASH
+    severity: HIGH
+  - id: weak-sha1
+    pattern: 'hashlib\.sha1\s*\('
+    message: Use of SHA1 hash function is insecure
+    description: SHA1 is a weak hash function and should not be used for security-sensitive operations.
+    vulnerabilityType: WEAK_HASH
+    severity: HIGH 

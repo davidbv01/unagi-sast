@@ -1,8 +1,14 @@
-rules:
-  - id: "insecure-random"
-    name: "Insecure use of random module"
-    description: "Detects use of the random module for security-sensitive operations. Use secrets or os.urandom instead."
-    severity: "medium"
-    pattern: "\brandom\.(random|randint|choice|shuffle|seed)\s*\("
+id: insecure-random
+name: Insecure Random Number Generation
+description: Detects use of the random module for security-sensitive operations
+severity: MEDIUM
+type: SINK
+patterns:
+  - id: insecure-random
+    pattern: 'random\.(random|randint|choice|shuffle|seed)\s*\('
+    message: Use of random module for security-sensitive operations is insecure
+    description: The random module is not suitable for cryptographic or security-sensitive operations. Use secrets or os.urandom instead.
+    vulnerabilityType: INSECURE_RANDOM
+    severity: MEDIUM
     languages: ["python"]
     tags: ["insecure-random", "crypto"] 

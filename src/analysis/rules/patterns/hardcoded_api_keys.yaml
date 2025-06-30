@@ -1,16 +1,18 @@
-rules:
-  - id: "hardcoded-aws-key"
-    name: "Hardcoded AWS API Key"
-    description: "Detects hardcoded AWS API keys in source code."
-    severity: "high"
-    pattern: "AKIA[0-9A-Z]{16}"
-    languages: ["python"]
-    tags: ["hardcoded-secret", "api-key"]
-
-  - id: "hardcoded-google-key"
-    name: "Hardcoded Google API Key"
-    description: "Detects hardcoded Google API keys in source code."
-    severity: "high"
-    pattern: "AIza[0-9A-Za-z\-_]{35}"
-    languages: ["python"]
-    tags: ["hardcoded-secret", "api-key"] 
+id: hardcoded-api-keys
+name: Hardcoded API Keys
+description: Detects hardcoded API keys in source code (AWS, Google, etc.)
+severity: HIGH
+type: SINK
+patterns:
+  - id: hardcoded-aws-key
+    pattern: 'AKIA[0-9A-Z]{16}'
+    message: Hardcoded AWS API key detected
+    description: Hardcoded AWS API keys can lead to account compromise if leaked.
+    vulnerabilityType: HARDCODED_SECRET
+    severity: HIGH
+  - id: hardcoded-google-key
+    pattern: 'AIza[0-9A-Za-z\-_]{35}'
+    message: Hardcoded Google API key detected
+    description: Hardcoded Google API keys can be abused if exposed in public code.
+    vulnerabilityType: HARDCODED_SECRET
+    severity: HIGH 

@@ -1,8 +1,14 @@
-rules:
-  - id: "insecure-ssl-verify"
-    name: "Insecure SSL verification (verify=False)"
-    description: "Detects use of verify=False in requests, which disables SSL certificate verification."
-    severity: "high"
-    pattern: "verify\s*=\s*False"
+id: insecure-ssl
+name: Insecure SSL Verification
+description: Detects use of verify=False in requests, which disables SSL certificate verification
+severity: HIGH
+type: SINK
+patterns:
+  - id: insecure-ssl-verify
+    pattern: 'verify\s*=\s*False'
+    message: SSL verification is disabled (verify=False)
+    description: Disabling SSL verification exposes the application to man-in-the-middle attacks.
+    vulnerabilityType: INSECURE_SSL
+    severity: HIGH
     languages: ["python"]
     tags: ["ssl", "insecure-ssl"] 
