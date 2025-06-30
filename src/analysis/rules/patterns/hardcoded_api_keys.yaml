@@ -1,0 +1,16 @@
+rules:
+  - id: "hardcoded-aws-key"
+    name: "Hardcoded AWS API Key"
+    description: "Detects hardcoded AWS API keys in source code."
+    severity: "high"
+    pattern: "AKIA[0-9A-Z]{16}"
+    languages: ["python"]
+    tags: ["hardcoded-secret", "api-key"]
+
+  - id: "hardcoded-google-key"
+    name: "Hardcoded Google API Key"
+    description: "Detects hardcoded Google API keys in source code."
+    severity: "high"
+    pattern: "AIza[0-9A-Za-z\-_]{35}"
+    languages: ["python"]
+    tags: ["hardcoded-secret", "api-key"] 

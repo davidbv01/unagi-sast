@@ -1,0 +1,8 @@
+rules:
+  - id: "insecure-random"
+    name: "Insecure use of random module"
+    description: "Detects use of the random module for security-sensitive operations. Use secrets or os.urandom instead."
+    severity: "medium"
+    pattern: "\brandom\.(random|randint|choice|shuffle|seed)\s*\("
+    languages: ["python"]
+    tags: ["insecure-random", "crypto"] 

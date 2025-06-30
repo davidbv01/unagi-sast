@@ -1,0 +1,16 @@
+rules:
+  - id: "dangerous-eval-exec"
+    name: "Use of eval or exec"
+    description: "Detects use of Python's eval() or exec() functions, which can lead to code execution vulnerabilities."
+    severity: "high"
+    pattern: "\b(eval|exec)\s*\("
+    languages: ["python"]
+    tags: ["dangerous-function", "code-execution"]
+
+  - id: "dangerous-pickle-loads"
+    name: "Use of pickle.loads()"
+    description: "Detects use of pickle.loads(), which can lead to arbitrary code execution if used with untrusted data."
+    severity: "high"
+    pattern: "pickle\.loads\s*\("
+    languages: ["python"]
+    tags: ["dangerous-function", "deserialization"] 

@@ -1,0 +1,8 @@
+rules:
+  - id: "insecure-ssl-verify"
+    name: "Insecure SSL verification (verify=False)"
+    description: "Detects use of verify=False in requests, which disables SSL certificate verification."
+    severity: "high"
+    pattern: "verify\s*=\s*False"
+    languages: ["python"]
+    tags: ["ssl", "insecure-ssl"] 
