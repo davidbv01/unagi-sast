@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { CommandTrigger } from './core/CommandTrigger';
 import { configManager } from './config/ConfigurationManager';
 import { UnagiMcpServerProvider } from './mcp/McpServerProvider';
+import './extensionTcpServer';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -61,6 +62,15 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(configChangeDisposable);
+
+	// Start TCP server for extension
+	try {
+		require('./extensionTcpServer');
+		console.log('🚦 TCP server for extension started');
+	} catch (err) {
+		console.error('❌ Failed to start TCP server:', err);
+	}
+
 	console.log('🎉 Extension initialization complete!');
 }
 
