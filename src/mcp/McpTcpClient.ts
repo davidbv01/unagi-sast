@@ -33,8 +33,8 @@ const server = new McpServer({
   version: "1.0.0"
 });
 
-// Register scanActualFile tool
-server.registerTool("scanActualFile",
+// Register scan_actual_file tool
+server.registerTool("scan_actual_file",
   {
     title: "Scan Actual File",
     description: "Scan the specified file for security vulnerabilities",
@@ -56,8 +56,8 @@ server.registerTool("scanActualFile",
   }
 );
 
-// Register scanWorkspace tool
-server.registerTool("scanWorkspace",
+// Register scan_workspace tool
+server.registerTool("scan_workspace",
   {
     title: "Scan Workspace",
     description: "Scan the entire workspace or a specified directory for security vulnerabilities",
