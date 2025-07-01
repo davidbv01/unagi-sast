@@ -6,6 +6,7 @@ export interface Pattern {
   pattern: string;
   message: string;
   recommendation: string;
+  severity?: string;
 }
 
 export interface PatternRule extends Rule {
@@ -36,7 +37,7 @@ export class PatternMatcher extends RuleLoader {
           vulnerabilities.push({
             id: `${patternRule.id}-${pattern.id}-${lineNumber}`,
             type: patternRule.type as VulnerabilityType,
-            severity: patternRule.severity as Severity,
+            severity: (pattern.severity || patternRule.severity) as Severity,
             message: pattern.message,
             file: '', // This should be set by the caller
             line: lineNumber,
