@@ -10,6 +10,7 @@ export interface Sink extends BaseDetectorItem {
   info: string;
   vulnerabilityType: VulnerabilityType;
   severity: Severity;
+  key?: string;
 }
 
 export class SinkDetector extends RuleLoader {
@@ -22,6 +23,7 @@ export class SinkDetector extends RuleLoader {
       const rules = this.getAllRules() as SinkRule[];
       const sinks = DetectorUtils.getAllItems(rules, 'sinks');
       const detectedItem = DetectorUtils.detectItem(node, sinks);
+      const key = DetectorUtils.createKey(node.scope,node.id);
       
       if (detectedItem) {
         return {
@@ -32,7 +34,8 @@ export class SinkDetector extends RuleLoader {
           },
           vulnerabilityType: this.getVulnerabilityTypeForSink(detectedItem.id, rules),
           severity: this.getSeverityForSink(detectedItem.id, rules),
-          info: node.text
+          info: node.text,
+          key: key
         };
       }
     }

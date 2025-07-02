@@ -17,13 +17,13 @@ export class SanitizerDetector extends RuleLoader {
   }
 
   public detectSanitizer(node: any): Sanitizer | null {
-    if (node.type === 'call' || node.type === 'expression_statement') {
+    if (node.type === 'call') {
       const rules = this.getAllRules() as SanitizerRule[];
       const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
       const detectedItem = DetectorUtils.detectItem(node, sanitizers);
+      const key = DetectorUtils.createKey(node.scope,node.id)
       
       if (detectedItem) {
-        const key = `test`;
         return {
           ...detectedItem,
           loc: {
