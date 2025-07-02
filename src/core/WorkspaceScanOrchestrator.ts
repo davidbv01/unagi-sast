@@ -2,8 +2,11 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ASTParser } from '../parser/ASTParser';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
-import { AstNode, DataFlowVulnerability } from '../types';
+import { AstNode, DataFlowVulnerability, ScanResult, PatternVulnerability } from '../types';
 import { FileUtils } from '../utils';
+import { OutputManager } from '../output/OutputManager';
+import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
+import * as path from 'path';
 
 /**
  * WorkspaceScanOrchestrator - Advanced workspace-wide security analysis
@@ -55,12 +58,17 @@ export class WorkspaceScanOrchestrator {
   private symbolTable: Map<string, SymbolTableEntry>;
   private graphs: Map<string, DataFlowGraph>;
   private cachedVulnerabilities: DataFlowVulnerability[] | null = null;
+  private outputManager: OutputManager;
+  private ruleEngine: SecurityRuleEngine;
 
   constructor() {
     this.parser = new ASTParser();
     this.asts = new Map();
     this.symbolTable = new Map();
     this.graphs = new Map();
+    this.cachedVulnerabilities = null;
+    this.outputManager = new OutputManager('./unagi-output');
+    this.ruleEngine = new SecurityRuleEngine(''); // TODO: Pass API key if needed
   }
 
   /**
@@ -569,6 +577,30 @@ export class WorkspaceScanOrchestrator {
 
       // Step 5: Analyze data flow vulnerabilities across the workspace
       const workspaceVulnerabilities = this.analyzeWorkspaceDataFlow();
+
+      // Step 6: Aggregate results per file for output
+      const scanResults: ScanResult[] = [];
+      for (const [filePath, ast] of this.asts) {
+        const dfg = this.graphs.get(filePath);
+        if (!dfg) continue;
+        // Pattern vulnerabilities
+        const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
+        const content = require('fs').readFileSync(absolutePath, 'utf8');
+        const patternVulnerabilities: PatternVulnerability[] = this.ruleEngine.getPatternMatcher().matchPatterns(content) || [];
+        // Data flow vulnerabilities (filter for this file)
+        const dataFlowVulnerabilities: DataFlowVulnerability[] = workspaceVulnerabilities.filter(v => v.file === filePath);
+        scanResults.push({
+          file: filePath,
+          patternVulnerabilities,
+          dataFlowVulnerabilities,
+          scanTime: 0, // Could be measured per file if needed
+          linesScanned: content.split('\n').length,
+          language: FileUtils.getLanguageFromExtension(filePath)
+        });
+      }
+      // Save and display results
+      await this.outputManager.saveWorkspaceResults(scanResults);
+      this.outputManager.displayWorkspaceResults(scanResults);
 
       const totalTime = Date.now() - startTime;
       
