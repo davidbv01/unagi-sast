@@ -1,21 +1,25 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { ScanResult, AstNode } from '../types';
+import { ScanResult, AstNode, WorkspaceScanResult } from '../types';
 import { SecurityRuleEngine, AnalysisResult } from '../rules/SecurityRuleEngine';
 import { OutputManager } from '../output/OutputManager';
 import { ASTParser } from '../parser/ASTParser';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
+import { InterFileAnalyzer } from '../analysis/InterFileAnalyzer';
 import { FileUtils } from '../utils';
 
 export class ScanOrchestrator {
   public ruleEngine: SecurityRuleEngine;
   private outputManager: OutputManager;
   private astParser: ASTParser;
+  private interFileAnalyzer: InterFileAnalyzer;
 
   constructor(outputManager: OutputManager, apiKey: string) {
     this.ruleEngine = new SecurityRuleEngine(apiKey);
     this.outputManager = outputManager;
     this.astParser = new ASTParser();
+    // Initialize with a default workspace root - this will be updated in scanWorkspace
+    this.interFileAnalyzer = new InterFileAnalyzer(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', apiKey);
   }
 
   public async scanFile(document: vscode.TextDocument): Promise<ScanResult> {
@@ -86,9 +90,18 @@ export class ScanOrchestrator {
 
   public async scanWorkspace(workspacePath?: string): Promise<ScanResult[]> {
     const startTime = Date.now();
-    const results: ScanResult[] = [];
 
     try {
+      // Get workspace root
+      const workspaceRoot = workspacePath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return [];
+      }
+
+      // Update inter-file analyzer with correct workspace root
+      this.interFileAnalyzer = new InterFileAnalyzer(workspaceRoot, this.ruleEngine.getApiKey());
+
       // Use VS Code workspace API to find Python files
       const pattern = '**/*.py';
       const excludePatterns = [
@@ -107,64 +120,71 @@ export class ScanOrchestrator {
       
       if (fileUris.length === 0) {
         vscode.window.showInformationMessage('No Python files found in workspace');
-        return results;
+        return [];
       }
 
       console.log(`📁 Found ${fileUris.length} Python files`);
 
-      // Scan each file with progress reporting
+      // Perform inter-file analysis with progress reporting
+      let workspaceResult: WorkspaceScanResult;
+      
       await vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
-        title: "Unagi Workspace Scan",
+        title: "Unagi Advanced Workspace Scan",
         cancellable: true
       }, async (progress, token) => {
-        let completed = 0;
-        
-        for (const fileUri of fileUris) {
-          if (token.isCancellationRequested) {
-            break;
-          }
-
-          const fileName = vscode.workspace.asRelativePath(fileUri);
-          progress.report({ 
-            message: `Scanning ${fileName}...`,
-            increment: (100 / fileUris.length)
-          });
-
-          try {
-            const result = await this.scanFileByPath(fileUri.fsPath);
-            if (result) {
-              results.push(result);
-            }
-          } catch (error) {
-            console.error(`Failed to scan ${fileName}:`, error);
-            vscode.window.showWarningMessage(`Failed to scan ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
-
-          completed++;
-          console.log(`✅ Completed ${completed}/${fileUris.length} files`);
+        if (token.isCancellationRequested) {
+          return;
         }
 
-        const totalTime = Date.now() - startTime;
-        const totalVulns = results.reduce((sum, result) => 
-          sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
-        );
-
         progress.report({ 
-          message: `Scan complete: ${totalVulns} vulnerabilities found in ${results.length} files`
+          message: 'Analyzing individual files and building workspace graph...',
+          increment: 25
         });
 
+        // Perform the comprehensive inter-file analysis
+        workspaceResult = await this.interFileAnalyzer.analyzeWorkspace(fileUris);
+
+        progress.report({ 
+          message: 'Building cross-file connections...',
+          increment: 25
+        });
+
+        progress.report({ 
+          message: 'Detecting cross-file vulnerabilities...',
+          increment: 25
+        });
+
+        const totalVulns = workspaceResult.totalVulnerabilities;
+        const crossFileVulns = workspaceResult.crossFileVulnerabilities.length;
+
+        progress.report({ 
+          message: `Scan complete: ${totalVulns} total vulnerabilities (${crossFileVulns} cross-file)`,
+          increment: 25
+        });
+
+        const totalTime = Date.now() - startTime;
+        
+        // Show enhanced results message
         setTimeout(() => {
+          const stats = this.interFileAnalyzer.getAnalysisStatistics();
           vscode.window.showInformationMessage(
-            `Workspace scan completed in ${(totalTime / 1000).toFixed(2)}s. Found ${totalVulns} vulnerabilities across ${results.length} files.`
+            `Advanced workspace scan completed in ${(totalTime / 1000).toFixed(2)}s. ` +
+            `Found ${totalVulns} vulnerabilities across ${stats.totalFiles} files. ` +
+            `${crossFileVulns} cross-file vulnerabilities detected with ${stats.crossFileConnections} inter-file connections.`
           );
         }, 1000);
       });
 
-      return results;
+      // Display the enhanced results
+      await this.displayWorkspaceResults(workspaceResult!);
+
+      // Return the file results for backwards compatibility
+      return workspaceResult!.fileResults;
+      
     } catch (error) {
-      vscode.window.showErrorMessage(`Workspace scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return results;
+      vscode.window.showErrorMessage(`Advanced workspace scan failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return [];
     }
   }
 
@@ -232,5 +252,44 @@ export class ScanOrchestrator {
 
   public clearResults(): void {
     this.outputManager.clearResults();
+  }
+
+  /**
+   * Displays the enhanced workspace scan results
+   */
+  private async displayWorkspaceResults(workspaceResult: WorkspaceScanResult): Promise<void> {
+    try {
+      // Display individual file results
+      for (const fileResult of workspaceResult.fileResults) {
+        await this.outputManager.displayResults(fileResult);
+      }
+
+      // TODO: Display cross-file vulnerabilities in a special way
+      // For now, we'll display them as regular vulnerabilities but with enhanced context
+      for (const crossFileVuln of workspaceResult.crossFileVulnerabilities) {
+        // Convert cross-file vulnerability to a format the output manager can handle
+        const syntheticResult: ScanResult = {
+          file: crossFileVuln.file,
+          patternVulnerabilities: [],
+          dataFlowVulnerabilities: [crossFileVuln],
+          scanTime: 0,
+          linesScanned: 0,
+          language: 'python'
+        };
+        await this.outputManager.displayResults(syntheticResult);
+      }
+
+      // Log analysis statistics
+      const stats = this.interFileAnalyzer.getAnalysisStatistics();
+      console.log('📊 Inter-file Analysis Statistics:');
+      console.log(`  - Total files analyzed: ${stats.totalFiles}`);
+      console.log(`  - Total nodes in graphs: ${stats.totalNodes}`);
+      console.log(`  - Cross-file connections: ${stats.crossFileConnections}`);
+      console.log(`  - Files with vulnerabilities: ${stats.vulnerableFiles.length}`);
+
+    } catch (error) {
+      console.error('Failed to display workspace results:', error);
+      vscode.window.showErrorMessage('Failed to display workspace scan results');
+    }
   }
 } 

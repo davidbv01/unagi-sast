@@ -142,3 +142,57 @@ export enum Severity {
 }
 
 export interface PatternVulnerability extends Vulnerability {}
+
+// Inter-file analysis types
+export interface ImportInfo {
+  importedName: string;
+  sourcePath: string;
+  targetPath: string;
+  importType: 'function' | 'variable' | 'class' | 'module';
+  line: number;
+  column: number;
+}
+
+export interface ExportInfo {
+  exportedName: string;
+  filePath: string;
+  exportType: 'function' | 'variable' | 'class';
+  line: number;
+  column: number;
+  astNodeId: number;
+}
+
+export interface FileAnalysisResult {
+  filePath: string;
+  ast: AstNode;
+  imports: ImportInfo[];
+  exports: ExportInfo[];
+  functions: PythonFunction[];
+  sources: Source[];
+  sinks: Sink[];
+  sanitizers: Sanitizer[];
+  localVulnerabilities: DataFlowVulnerability[];
+}
+
+export interface CrossFileDataFlow {
+  sourceFile: string;
+  targetFile: string;
+  functionName: string;
+  callSite: {
+    line: number;
+    column: number;
+  };
+  parameterMappings: {
+    argumentNodeId: number;
+    parameterName: string;
+  }[];
+}
+
+export interface WorkspaceScanResult {
+  fileResults: ScanResult[];
+  crossFileVulnerabilities: DataFlowVulnerability[];
+  totalFiles: number;
+  totalVulnerabilities: number;
+  interFileConnections: CrossFileDataFlow[];
+  scanTime: number;
+}

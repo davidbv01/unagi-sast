@@ -15,8 +15,10 @@ export class SecurityRuleEngine {
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
   private aiEngine?: AiEngine;
+  private apiKey: string;
 
   constructor(apiKey: string) {
+    this.apiKey = apiKey;
     this.patternMatcher = new PatternMatcher();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
@@ -157,5 +159,9 @@ export class SecurityRuleEngine {
 
   public getPatternMatcher(): PatternMatcher {
     return this.patternMatcher;
+  }
+
+  public getApiKey(): string {
+    return this.apiKey;
   }
 }
