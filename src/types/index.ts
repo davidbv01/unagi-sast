@@ -22,6 +22,7 @@ export interface PythonFunction {
   name: string;
   startLine: number;
   endLine: number;
+  parameters: string[];
 }
 
 //Output interfaces

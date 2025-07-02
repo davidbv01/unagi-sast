@@ -217,17 +217,56 @@ export class DataFlowGraph {
     // Handle function calls
     if (astNode.type === "call") {
       const functionName = this.extractCalledFunctionName(astNode);
-      
+
       if (functionName && this.functions.some(f => f.name === functionName)) {
         // Create nodes for the function call result
         const callResultNodes = this.getOrCreateNodes(astNode);
         const functionReturnNode = this.getOrCreateFunctionReturnNode(functionName);
-        
+
         // Create edges from function return to call result
         for (const resultNode of callResultNodes) {
           functionReturnNode.edges.add(resultNode);
           console.log(`[DEBUG] Created edge: ${functionReturnNode.name} -> ${resultNode.name} (function call)`);
         }
+
+        // --- FIX: Connect call arguments to function parameters ---
+        const funcDef = this.functions.find(f => f.name === functionName);
+        if (funcDef && astNode.children) {
+          // children[0] is usually the function name, the rest are arguments
+          const argNodes = astNode.children.slice(1).map(arg => this.getOrCreateNodes(arg));
+          // funcDef.parameters is an array of parameter names
+          if (funcDef.parameters && funcDef.parameters.length === argNodes.length) {
+            for (let i = 0; i < funcDef.parameters.length; i++) {
+              const paramName = funcDef.parameters[i];
+              // The parameter node should be in the function's scope
+              const paramUniqueId = `${funcDef.name}_${paramName}`;
+              let paramNode = this.nodes.get(paramUniqueId);
+              if (!paramNode) {
+                // Create the parameter node if it doesn't exist
+                paramNode = {
+                  id: paramUniqueId,
+                  name: paramName,
+                  astNode: astNode, // You may want to use the function definition's AST node
+                  tainted: false,
+                  taintSources: new Set(),
+                  edges: new Set(),
+                  symbol: {
+                    name: paramName,
+                    scope: funcDef.name,
+                    uniqueId: paramUniqueId
+                  }
+                };
+                this.nodes.set(paramUniqueId, paramNode);
+              }
+              // Connect each argument node to the parameter node
+              for (const argNode of argNodes[i]) {
+                argNode.edges.add(paramNode);
+                console.log(`[DEBUG] Created edge: ${argNode.name} -> ${paramNode.name} (function argument to parameter)`);
+              }
+            }
+          }
+        }
+        // --- END FIX ---
       }
     }
 

@@ -173,10 +173,24 @@ export class ASTParser {
             (child: any) => child.type === 'identifier'
           );
 
+          // Find the parameters node
+          const paramsNode = node.children?.find(
+            (child: any) => child.type === 'parameters'
+          );
+
+          // Extract parameter names
+          let parameters: string[] = [];
+          if (paramsNode && paramsNode.children) {
+            parameters = paramsNode.children
+              .filter((child: any) => child.type === 'identifier')
+              .map((child: any) => child.text);
+          }
+
           functions.push({
             name: nameNode?.text || 'anonymous',
             startLine: node.loc.start.line,
-            endLine: node.loc.end.line
+            endLine: node.loc.end.line,
+            parameters
           });
         }
       }
