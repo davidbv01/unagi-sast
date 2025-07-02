@@ -40,20 +40,17 @@ export class RuleLoader {
       }
 
       const files = fs.readdirSync(this.rulesDirectory);
-      console.log(`[DEBUG] 📄 Found ${files.length} files in rules directory`);
 
       for (const file of files) {
         if (file.endsWith('.yaml') || file.endsWith('.yml')) {
           try {
             const filePath = path.join(this.rulesDirectory, file);
-            console.log(`[DEBUG] 📖 Loading rule file: ${file}`);
             
             const fileContent = fs.readFileSync(filePath, 'utf8');
             const rule = yaml.load(fileContent) as Rule;
             
             if (this.validateRule(rule)) {
               this.rules.set(rule.id, rule);
-              console.log(`[DEBUG] ✅ Successfully loaded rule: ${rule.id}`);
             } else {
               console.error(`[ERROR] Invalid rule format in file: ${file}`);
             }
