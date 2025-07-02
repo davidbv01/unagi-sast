@@ -35,8 +35,11 @@ export class SecurityRuleEngine {
     }
   }
 
-  public async analyzeFile(ast: AstNode, dfg: DataFlowGraph, languageId: string, file: string, content: string): Promise<AnalysisResult> {
+  public async analyzeFile(ast: AstNode, languageId: string, file: string, content: string): Promise<AnalysisResult> {
       try {
+          // Create a new DataFlowGraph instance for each scan
+          const dfg = new DataFlowGraph();
+          
           // Pattern-based analysis
           const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
           // Set file path for pattern vulnerabilities

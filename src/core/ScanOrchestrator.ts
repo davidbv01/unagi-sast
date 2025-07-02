@@ -23,8 +23,6 @@ export class ScanOrchestrator {
     
     try {
       let ast : AstNode | undefined;
-      // Create a new DataFlowGraph instance for each scan
-      const dfg = new DataFlowGraph();
       try {
         // Step 1: Parse file to ASTs
         ast = this.parser.parse(content, document.languageId, document.fileName);
@@ -41,7 +39,7 @@ export class ScanOrchestrator {
       // Step 2: Build data flow graphs for all files
       if (ast) {
         try {
-          analysisResult = await this.ruleEngine.analyzeFile(ast, dfg, document.languageId, document.fileName, content);
+          analysisResult = await this.ruleEngine.analyzeFile(ast, document.languageId, document.fileName, content);
           await this.outputManager.saveAnalysisResultToTempFile(analysisResult);
         } catch (error) {
           vscode.window.showErrorMessage(`Failed to analyze file: ${document.fileName}`);
