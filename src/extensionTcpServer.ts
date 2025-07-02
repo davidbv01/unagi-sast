@@ -31,7 +31,7 @@ const server = net.createServer((socket) => {
           // Open the file as a VSCode TextDocument
           const document = await vscode.workspace.openTextDocument(filePath);
           // Scan using the orchestrator, which will update VSCode UI
-          const result = await scanOrchestrator.scanFile(document);
+          const result = await scanOrchestrator.run(document);
           socket.write(JSON.stringify(result) + "\n");
         } catch (scanErr) {
           socket.write(JSON.stringify({ error: `Scan failed: ${scanErr}` }) + "\n");

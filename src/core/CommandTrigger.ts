@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ScanOrchestrator } from './ScanOrchestrator';
 import { OutputManager } from '../output/OutputManager';
+import { WorkspaceScanOrchestrator } from './WorkspaceScanOrchestrator';
 
 export class CommandTrigger {
   private scanOrchestrator: ScanOrchestrator;
@@ -34,7 +35,7 @@ export class CommandTrigger {
             cancellable: false
           }, async (progress) => {
             progress.report({ message: `Scanning ${document.fileName}...` });
-            const result = await this.scanOrchestrator.scanFile(document);
+            const result = await this.scanOrchestrator.run(document);
             const totalVulns = result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length;
             progress.report({ message: `Found ${totalVulns} vulnerabilities` });
           });
@@ -91,7 +92,9 @@ export class CommandTrigger {
         }
 
         try {
-          const results = await this.scanOrchestrator.scanWorkspace();
+          const orchestrator = new WorkspaceScanOrchestrator();
+          await orchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
+          /*const results = await this.scanOrchestrator.scanWorkspace();
           
           // Aggregate and display results
           const totalVulns = results.reduce((sum, result) => 
@@ -109,7 +112,8 @@ export class CommandTrigger {
           // Save workspace results to a consolidated report
           if (results.length > 0) {
             await this.outputManager.saveWorkspaceResults(results);
-          }
+            
+          }*/
         } catch (error: any) {
           vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
         }
