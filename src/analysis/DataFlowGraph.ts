@@ -18,6 +18,7 @@ type DfgNode = {
   detectedSource?: Source;
   detectedSink?: Sink;
   detectedSanitizer?: Sanitizer;
+  crossFileRef?: any;
 };
 
 type Symbol = {

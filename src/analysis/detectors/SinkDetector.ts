@@ -24,7 +24,7 @@ export class SinkDetector extends RuleLoader {
       const rules = this.getAllRules() as SinkRule[];
       const sinks = DetectorUtils.getAllItems(rules, 'sinks');
       const detectedItem = DetectorUtils.detectItem(node, sinks);
-      const key = DetectorUtils.createKey(node.scope,node.id, varName);
+      const key = DetectorUtils.createKey(node.scope, varName);
       
       if (detectedItem) {
         return {

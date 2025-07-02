@@ -291,7 +291,7 @@ export class WorkspaceScanOrchestrator {
           const externalSymbol = this.findExternalSymbol(functionName, currentFilePath, 'function');
           if (externalSymbol) {
             // Mark this node with cross-file metadata
-            (dfgNode as any).crossFileRef = {
+            dfgNode.crossFileRef = {
               targetFile: externalSymbol.filePath,
               targetSymbol: functionName,
               type: 'function_call'

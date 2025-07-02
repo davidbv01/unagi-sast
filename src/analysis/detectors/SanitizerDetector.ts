@@ -22,7 +22,7 @@ export class SanitizerDetector extends RuleLoader {
       const rules = this.getAllRules() as SanitizerRule[];
       const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
       const detectedItem = DetectorUtils.detectItem(node, sanitizers);
-      const key = DetectorUtils.createKey(node.scope,node.id,varName);
+      const key = DetectorUtils.createKey(node.scope,varName);
       
       if (detectedItem) {
         return {

@@ -66,11 +66,10 @@ export class DetectorUtils {
    * @param astId The AST node ID to look up
    * @returns Formatted key "{scope}_{variableName}" or empty string if variable not found
    */
-  public static createKey(scope: String, astId: number, varName: String): string {
+  public static createKey(scope: String, varName: String): string {
       
       // Return empty string if variable name is undefined or empty
       if (!varName || varName.trim() === "") {
-          console.error(`Variable name is undefined or empty for AST ID ${astId} in scope ${scope}`);
           return "";
       }
       

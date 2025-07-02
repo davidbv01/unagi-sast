@@ -21,7 +21,7 @@ export class SourceDetector extends RuleLoader {
       const rules = this.getAllRules() as SourceRule[];
       const sources = DetectorUtils.getAllItems(rules, 'sources');
       const detectedItem = DetectorUtils.detectItem(node, sources);
-      const key = DetectorUtils.createKey(node.scope,node.id,varName)
+      const key = DetectorUtils.createKey(node.scope,varName)
 
       if (detectedItem) {
         return {
