@@ -1,5 +1,6 @@
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
+import { AstNode } from '../../types';
 
 interface SanitizerRule extends BaseRule {
   sanitizers: BaseDetectorItem[];
@@ -16,12 +17,12 @@ export class SanitizerDetector extends RuleLoader {
     super('sanitizers');
   }
 
-  public detectSanitizer(node: any): Sanitizer | null {
+  public detectSanitizer(node: AstNode, varName: String = ""): Sanitizer | null {
     if (node.type === 'call') {
       const rules = this.getAllRules() as SanitizerRule[];
       const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
       const detectedItem = DetectorUtils.detectItem(node, sanitizers);
-      const key = DetectorUtils.createKey(node.scope,node.id)
+      const key = DetectorUtils.createKey(node.scope,node.id,varName);
       
       if (detectedItem) {
         return {

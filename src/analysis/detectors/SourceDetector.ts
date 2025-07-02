@@ -16,14 +16,14 @@ export class SourceDetector extends RuleLoader {
     super('sources');
   }
 
-  public detectSource(node: AstNode): Source | null {
+  public detectSource(node: AstNode, varName: String = ""): Source | null {
     if (node.type === 'call' || node.type === 'expression_statement' || node.type == 'return_statement') {
       const rules = this.getAllRules() as SourceRule[];
       const sources = DetectorUtils.getAllItems(rules, 'sources');
       const detectedItem = DetectorUtils.detectItem(node, sources);
-      const key = DetectorUtils.createKey(node.scope,node.id)
+      const key = DetectorUtils.createKey(node.scope,node.id,varName)
 
-      if (detectedItem && key) {
+      if (detectedItem) {
         return {
           ...detectedItem,
           loc: {

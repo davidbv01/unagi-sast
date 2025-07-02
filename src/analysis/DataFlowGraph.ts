@@ -27,9 +27,6 @@ type Symbol = {
 };
 
 export class DataFlowGraph {
-  // Singleton instance
-  private static instance: DataFlowGraph;
-  
   // Instance properties
   nodes: Map<string, DfgNode> = new Map();
   varToAst: Map<string, Set<Number>> = new Map();
@@ -43,30 +40,11 @@ export class DataFlowGraph {
   private functionReturnNodes: Map<string, DfgNode> = new Map(); // function_name -> return_node
   private functions: PythonFunction[] = [];
 
-  // Private constructor for singleton pattern
-  private constructor() {
+  // Public constructor - now allows multiple instances
+  constructor() {
     this.sanitizerDetector = new SanitizerDetector();
     this.sinkDetector = new SinkDetector();
     this.sourceDetector = new SourceDetector();
-  }
-
-  /**
-   * Gets the singleton instance of DataFlowGraph
-   */
-  public static getInstance(): DataFlowGraph {
-    if (!DataFlowGraph.instance) {
-      DataFlowGraph.instance = new DataFlowGraph();
-    }
-    return DataFlowGraph.instance;
-  }
-
-  /**
-   * Static shortcut to get variable name by AST ID
-   * @param id The AST node ID to look up
-   * @returns Variable name if found, undefined otherwise
-   */
-  public static getVariableNameByAstId(id: number): string | undefined {
-    return DataFlowGraph.getInstance().getVariableNameByAstId(id);
   }
 
   /**
@@ -151,9 +129,9 @@ export class DataFlowGraph {
         }
       }
     }
-    
+    const varName = this.getVariableNameByAstId(astNode.id);
     // Detect and handle sanitizers
-    const sanitizer = this.sanitizerDetector.detectSanitizer(astNode);
+    const sanitizer = this.sanitizerDetector.detectSanitizer(astNode,varName);
     if (sanitizer) {
       const sanitizerNodes = this.getOrCreateNodes(astNode);
       for (const node of sanitizerNodes) {
@@ -165,7 +143,7 @@ export class DataFlowGraph {
     }
 
     // Detect and handle sinks
-    const sink = this.sinkDetector.detectSink(astNode);
+    const sink = this.sinkDetector.detectSink(astNode, varName);
     if (sink) {
       const sinkNodes = this.getOrCreateNodes(astNode);
       for (const node of sinkNodes) {
@@ -177,7 +155,7 @@ export class DataFlowGraph {
     }
 
     // Detect and handle sources
-    const source = this.sourceDetector.detectSource(astNode);
+    const source = this.sourceDetector.detectSource(astNode, varName);
     if (source) {
       const sourceNodes = this.getOrCreateNodes(astNode);
       for (const node of sourceNodes) {
@@ -229,7 +207,7 @@ export class DataFlowGraph {
           console.log(`[DEBUG] Created edge: ${functionReturnNode.name} -> ${resultNode.name} (function call)`);
         }
 
-        // --- FIX: Connect call arguments to function parameters ---
+        //Connect call arguments to function parameters ---
         const funcDef = this.functions.find(f => f.name === functionName);
         if (funcDef && astNode.children) {
           // children[0] is usually the function name, the rest are arguments
@@ -266,7 +244,6 @@ export class DataFlowGraph {
             }
           }
         }
-        // --- END FIX ---
       }
     }
 

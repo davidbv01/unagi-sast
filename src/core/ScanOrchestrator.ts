@@ -16,13 +16,6 @@ export class ScanOrchestrator {
     this.parser = new ASTParser();
   }
 
-  /**
-   * Parse all files to ASTs
-   */
-  public async parse(filePath: string): Promise<void> {
-
-  }
-
   public async run(document: vscode.TextDocument): Promise<ScanResult> {
     const startTime = Date.now();
     const content = document.getText();
@@ -30,22 +23,12 @@ export class ScanOrchestrator {
     
     try {
       let ast : AstNode | undefined;
-      const dfg = DataFlowGraph.getInstance();
+      // Create a new DataFlowGraph instance for each scan
+      const dfg = new DataFlowGraph();
       try {
         // Step 1: Parse file to ASTs
         ast = this.parser.parse(content, document.languageId, document.fileName);
 
-        // Step 2: Build data flow graphs for all files
-        if(ast)
-        {
-          dfg.reset();
-          dfg.buildFromAst(ast);
-          dfg.printGraph();
-        }
-        else 
-        {
-          throw new Error('AST parser returned null or undefined');
-        }
       } catch (error) {
         vscode.window.showErrorMessage(
           `Failed to parse ${document.fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -55,6 +38,7 @@ export class ScanOrchestrator {
       
       let analysisResult: AnalysisResult | null = null;
       
+      // Step 2: Build data flow graphs for all files
       if (ast) {
         try {
           analysisResult = await this.ruleEngine.analyzeFile(ast, dfg, document.languageId, document.fileName, content);

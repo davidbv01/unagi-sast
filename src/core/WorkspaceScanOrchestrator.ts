@@ -54,7 +54,7 @@ export class WorkspaceScanOrchestrator {
   private asts: Map<string, AstNode>;
   private symbolTable: Map<string, SymbolTableEntry>;
   private graphs: Map<string, DataFlowGraph>;
-  
+
   constructor() {
     this.parser = new ASTParser();
     this.asts = new Map();
@@ -247,23 +247,26 @@ export class WorkspaceScanOrchestrator {
    * Build DataFlowGraphs for all files (second pass)
    */
   public buildDataFlowGraphs(): void {
+    console.log('🔄 Building data flow graphs for all files...');
+    
     for (const [filePath, ast] of this.asts) {
       try {
-        const dfg = DataFlowGraph.getInstance();
-        dfg.reset();
+        // Create a new DataFlowGraph instance for each file
+        const dfg = new DataFlowGraph();
         dfg.buildFromAst(ast);
         
         // Enhance DFG with cross-file symbol information
         this.enhanceDfgWithSymbolTable(dfg, filePath);
         
-        // Store a reference to the DFG for this file
-        // Note: Since DataFlowGraph is a singleton, we're storing the same instance
-        // In a real implementation, you might want to clone or serialize the state
+        // Store the unique DFG instance for this file
         this.graphs.set(filePath, dfg);
+        console.log(`✅ Built DFG for: ${filePath}`);
       } catch (error) {
         console.error(`❌ Error building DFG for ${filePath}:`, error);
       }
     }
+    
+    console.log(`📊 Built ${this.graphs.size} data flow graphs`);
   }
 
   /**

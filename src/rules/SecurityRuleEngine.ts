@@ -139,8 +139,6 @@ export class SecurityRuleEngine {
       this.patternMatcher.reloadRules();
       this.sinkDetector.reloadRules();
       this.sanitizerDetector.reloadRules();
-      // Reload source detector rules from DataFlowGraph
-      DataFlowGraph.getInstance().reloadSourceRules();
     } catch (error) {
       console.error('[ERROR] Failed to reload rules:', error);
       vscode.window.showErrorMessage('Failed to reload security rules');

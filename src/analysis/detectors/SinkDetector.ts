@@ -1,6 +1,7 @@
 import { VulnerabilityType, Severity } from '../../types';
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
+import { AstNode } from '../../types';
 
 interface SinkRule extends BaseRule {
   sinks: BaseDetectorItem[];
@@ -18,12 +19,12 @@ export class SinkDetector extends RuleLoader {
     super('sinks');
   }
 
-  public detectSink(node: any): Sink | null {
+  public detectSink(node: AstNode, varName: String = ""): Sink | null {
     if (node.type === 'call') {
       const rules = this.getAllRules() as SinkRule[];
       const sinks = DetectorUtils.getAllItems(rules, 'sinks');
       const detectedItem = DetectorUtils.detectItem(node, sinks);
-      const key = DetectorUtils.createKey(node.scope,node.id);
+      const key = DetectorUtils.createKey(node.scope,node.id, varName);
       
       if (detectedItem) {
         return {
