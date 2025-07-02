@@ -273,13 +273,86 @@ export class WorkspaceScanOrchestrator {
    * Enhance data flow graph with cross-file symbol information
    */
   private enhanceDfgWithSymbolTable(dfg: DataFlowGraph, currentFilePath: string): void {
-    // Add cross-file references to the data flow graph
-    // This would involve identifying function calls and variable references
-    // that point to symbols in other files and adding those relationships
+    console.log(`🔗 Enhancing DFG for ${currentFilePath} with cross-file symbol information...`);
     
-    // For now, this is a placeholder for future cross-file analysis enhancement
-    // The actual implementation would depend on the specific DFG structure
-    console.log(`🔗 Enhanced DFG for ${currentFilePath} with symbol table information`);
+    const currentAst = this.asts.get(currentFilePath);
+    if (!currentAst) return;
+    
+    let crossFileReferences = 0;
+    
+    // Walk through existing DFG nodes to find cross-file references
+    for (const [nodeId, dfgNode] of dfg.nodes) {
+      const astNode = dfgNode.astNode;
+      
+      // Check for function calls that might reference external functions
+      if (astNode.type === 'call') {
+        const functionName = this.extractCallName(astNode);
+        if (functionName) {
+          const externalSymbol = this.findExternalSymbol(functionName, currentFilePath, 'function');
+          if (externalSymbol) {
+            // Mark this node with cross-file metadata
+            (dfgNode as any).crossFileRef = {
+              targetFile: externalSymbol.filePath,
+              targetSymbol: functionName,
+              type: 'function_call'
+            };
+            crossFileReferences++;
+            console.log(`🔗 Found call to ${functionName} from ${externalSymbol.filePath}`);
+          }
+        }
+      }
+      
+      // Check for identifier references that might be external variables
+      else if (astNode.type === 'identifier') {
+        const varName = astNode.text;
+        if (varName) {
+          const externalSymbol = this.findExternalSymbol(varName, currentFilePath, 'variable');
+          if (externalSymbol) {
+            // Mark this node with cross-file metadata
+            (dfgNode as any).crossFileRef = {
+              targetFile: externalSymbol.filePath,
+              targetSymbol: varName,
+              type: 'variable_ref'
+            };
+            crossFileReferences++;
+            console.log(`🔗 Found reference to ${varName} from ${externalSymbol.filePath}`);
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Enhanced DFG for ${currentFilePath} with ${crossFileReferences} cross-file references`);
+  }
+
+  /**
+   * Extract function/method name from a call AST node (reuses existing pattern)
+   */
+  private extractCallName(node: AstNode): string | null {
+    // Reuse the same pattern as extractFunctionName but for calls
+    for (const child of node.children) {
+      if (child.type === 'identifier') {
+        return child.text;
+      }
+      // Handle attribute access like "module.function"
+      if (child.type === 'attribute') {
+        return child.text;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find external symbol (reuses existing findSymbol logic but excludes current file)
+   */
+  private findExternalSymbol(symbolName: string, currentFilePath: string, symbolType: 'function' | 'class' | 'variable'): SymbolTableEntry | null {
+    for (const symbol of this.symbolTable.values()) {
+      if (symbol.filePath !== currentFilePath && 
+          symbol.name === symbolName && 
+          symbol.type === symbolType) {
+        return symbol;
+      }
+    }
+    return null;
   }
 
   /**
