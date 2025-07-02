@@ -137,7 +137,6 @@ export class DataFlowGraph {
         node.isSanitizer = true;
         node.infoSanitizer = sanitizer.info;
         node.detectedSanitizer = sanitizer;
-        console.log(`Detected sanitizer: Node ${node.name} with id ${node.id}`);
       }
     }
 
@@ -149,7 +148,6 @@ export class DataFlowGraph {
         node.isSink = true;
         node.infoSink = sink.info;
         node.detectedSink = sink;
-        console.log(`Detected sink: Node ${node.name} with id ${node.id}`);
       }
     }
 
@@ -159,7 +157,6 @@ export class DataFlowGraph {
       const sourceNodes = this.getOrCreateNodes(astNode);
       for (const node of sourceNodes) {
         node.detectedSource = source;
-        console.log(`Detected source: Node ${node.name} with id ${node.id}`);
       }
     }
 
@@ -620,10 +617,6 @@ export class DataFlowGraph {
       this.propagateTaint(source.key);
     }
     
-    // Step 4: Print debug information
-    for (const node of this.nodes.values()) {
-      console.log(`Node ${node.id} tainted? ${node.tainted} - Sources: ${[...node.taintSources].join(", ")}`);
-    }
     this.printGraph();
     
     // Step 5: Detect and return vulnerabilities
