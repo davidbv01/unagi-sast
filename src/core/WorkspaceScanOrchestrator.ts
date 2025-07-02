@@ -445,7 +445,30 @@ export class WorkspaceScanOrchestrator {
         // Check if the target symbol is involved in any vulnerabilities
         const targetAst = this.asts.get(targetFile);
         if (targetAst) {
-          const targetVulns = targetDfg.performCompleteAnalysis(targetAst);
+          // --- NUEVO: Propagación de taint cross-file para function_call ---
+          let initialTaintedVars: string[] | undefined = undefined;
+          if (refType === 'function_call') {
+            // Buscar el nombre del parámetro en la función destino
+            const targetSymbolEntry = this.findSymbol(targetSymbol).find(s => s.filePath === targetFile && s.type === 'function');
+            if (targetSymbolEntry) {
+              // Buscar el nodo de la llamada en el AST de origen para obtener el argumento
+              // (Simplificación: asumimos que el nombre del argumento es igual al nombre del parámetro)
+              // Buscar el argumento en el DFG de origen
+              const argTainted = dfgNode.tainted;
+              if (argTainted) {
+                // Obtener el nombre del primer parámetro de la función destino
+                const paramNode = (targetSymbolEntry.node.children || []).find(child => child.type === 'parameters');
+                if (paramNode && paramNode.children && paramNode.children.length > 0) {
+                  const paramNameNode = paramNode.children[0];
+                  if (paramNameNode && paramNameNode.type === 'identifier') {
+                    initialTaintedVars = [paramNameNode.text];
+                  }
+                }
+              }
+            }
+          }
+          // --- FIN NUEVO ---
+          const targetVulns = targetDfg.performCompleteAnalysis(targetAst, initialTaintedVars);
           
           // Look for vulnerabilities that might be related to the cross-file reference
           for (const targetVuln of targetVulns) {

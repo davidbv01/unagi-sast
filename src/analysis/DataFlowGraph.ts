@@ -598,10 +598,10 @@ export class DataFlowGraph {
   /**
    * Performs complete data flow analysis: builds graph, detects sources, propagates taint, and detects vulnerabilities
    * @param astNode The root AST node to analyze
+   * @param initialTaintedVars Optional array of variable names to mark as tainted at the start
    * @returns Array of detected data flow vulnerabilities
    */
-  public performCompleteAnalysis(astNode: AstNode): DataFlowVulnerability[] {
-    
+  public performCompleteAnalysis(astNode: AstNode, initialTaintedVars?: string[]): DataFlowVulnerability[] {
     //Obtain the file path from the AST node
     const filePath = astNode.filePath;
 
@@ -616,9 +616,22 @@ export class DataFlowGraph {
     for (const source of Object.values(uniqueSources)) {
       this.propagateTaint(source.key);
     }
-    
+    // Step 3b: Propagate taint from initial tainted variables (cross-file)
+    if (initialTaintedVars) {
+      for (const varName of initialTaintedVars) {
+        // Find all nodes with this variable name and mark as tainted
+        for (const node of this.nodes.values()) {
+          if (node.name === varName) {
+            node.tainted = true;
+            node.taintSources = node.taintSources || new Set();
+            node.taintSources.add('cross-file');
+            // Optionally propagate taint from this node
+            this.propagateTaint(node.id);
+          }
+        }
+      }
+    }
     this.printGraph();
-    
     // Step 5: Detect and return vulnerabilities
     return this.detectVulnerabilities(filePath);
   }
