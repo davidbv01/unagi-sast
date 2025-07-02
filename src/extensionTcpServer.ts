@@ -2,6 +2,7 @@ import net from "net";
 import { OutputManager } from "./output/OutputManager";
 import { ScanOrchestrator } from "./core/ScanOrchestrator";
 import { FileUtils } from "./utils";
+import { DataFlowVulnerability, Severity } from "./types";
 import * as fs from "fs";
 import * as vscode from "vscode";
 
@@ -38,7 +39,44 @@ const server = net.createServer((socket) => {
         }
       } else if (message === "scanWorkspace") {
         console.log("Received scanWorkspace request");
-        // TODO: Implement scanWorkspace logic
+        try {
+          const { WorkspaceScanOrchestrator } = await import("./core/WorkspaceScanOrchestrator.js");
+          const workspaceOrchestrator = new WorkspaceScanOrchestrator();
+          
+          // Get the workspace root
+          const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (!workspaceRoot) {
+            socket.write(JSON.stringify({ error: "No workspace folder found" }) + "\n");
+            return;
+          }
+          
+          // Run the workspace analysis
+          await workspaceOrchestrator.run(workspaceRoot);
+          
+          // Get the vulnerabilities
+          const vulnerabilities = workspaceOrchestrator.getWorkspaceVulnerabilities();
+          
+          // Prepare the result
+          const result = {
+            workspaceRoot,
+            filesAnalyzed: workspaceOrchestrator.getSymbolTable().size,
+            vulnerabilities: vulnerabilities,
+                         summary: {
+               totalVulnerabilities: vulnerabilities.length,
+               crossFileVulnerabilities: vulnerabilities.filter((v: DataFlowVulnerability) => (v as any).crossFileContext).length,
+               severityBreakdown: {
+                 critical: vulnerabilities.filter((v: DataFlowVulnerability) => v.severity === Severity.CRITICAL).length,
+                 high: vulnerabilities.filter((v: DataFlowVulnerability) => v.severity === Severity.HIGH).length,
+                 medium: vulnerabilities.filter((v: DataFlowVulnerability) => v.severity === Severity.MEDIUM).length,
+                 low: vulnerabilities.filter((v: DataFlowVulnerability) => v.severity === Severity.LOW).length
+               }
+             }
+          };
+          
+          socket.write(JSON.stringify(result) + "\n");
+        } catch (workspaceErr) {
+          socket.write(JSON.stringify({ error: `Workspace scan failed: ${workspaceErr}` }) + "\n");
+        }
       } else {
         console.log("Unknown message:", message);
       }

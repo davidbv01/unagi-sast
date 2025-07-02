@@ -30,7 +30,6 @@ export class DetectorUtils {
     for (const item of items) {
       const regex = new RegExp(item.pattern);
       if (regex.test(node.text)) {
-        console.log(`[DEBUG] Sanitizer pattern matched: '${item.pattern}' on node type: ${node.type}, text: '${node.text}'`);
         return item;
       }
     }

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ASTParser } from '../parser/ASTParser';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
-import { AstNode } from '../types';
+import { AstNode, DataFlowVulnerability } from '../types';
 import { FileUtils } from '../utils';
 
 /**
@@ -54,6 +54,7 @@ export class WorkspaceScanOrchestrator {
   private asts: Map<string, AstNode>;
   private symbolTable: Map<string, SymbolTableEntry>;
   private graphs: Map<string, DataFlowGraph>;
+  private cachedVulnerabilities: DataFlowVulnerability[] | null = null;
 
   constructor() {
     this.parser = new ASTParser();
@@ -356,6 +357,163 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
+   * Analyze data flow vulnerabilities across the entire workspace
+   */
+  public analyzeWorkspaceDataFlow(): DataFlowVulnerability[] {
+    // Return cached results if available
+    if (this.cachedVulnerabilities) {
+      console.log('📋 Returning cached workspace vulnerabilities');
+      return this.cachedVulnerabilities;
+    }
+    
+    console.log('🔍 Analyzing workspace data flow vulnerabilities...');
+    
+    const allVulnerabilities: DataFlowVulnerability[] = [];
+    let crossFileVulnerabilities = 0;
+    
+    for (const [filePath, dfg] of this.graphs) {
+      try {
+        console.log(`🔍 Analyzing data flow for: ${filePath}`);
+        
+        // Get the AST for this file to pass to performCompleteAnalysis
+        const ast = this.asts.get(filePath);
+        if (!ast) {
+          console.warn(`⚠️ No AST found for ${filePath}, skipping data flow analysis`);
+          continue;
+        }
+        
+        // Perform data flow analysis on this file's DFG
+        const fileVulnerabilities = dfg.performCompleteAnalysis(ast);
+        
+        // Mark vulnerabilities with their source file
+        fileVulnerabilities.forEach(vuln => {
+          vuln.file = filePath;
+        });
+        
+        // Check for cross-file vulnerabilities by examining cross-file references
+        const crossFileVulns = this.detectCrossFileVulnerabilities(filePath, dfg, fileVulnerabilities);
+        crossFileVulnerabilities += crossFileVulns.length;
+        
+        // Add all vulnerabilities (both local and cross-file) to the results
+        allVulnerabilities.push(...fileVulnerabilities, ...crossFileVulns);
+        
+        console.log(`✅ Found ${fileVulnerabilities.length} vulnerabilities in ${filePath} (${crossFileVulns.length} cross-file)`);
+        
+      } catch (error) {
+        console.error(`❌ Error analyzing data flow for ${filePath}:`, error);
+      }
+    }
+    
+    console.log(`📊 Workspace data flow analysis complete: ${allVulnerabilities.length} total vulnerabilities found`);
+    console.log(`🔗 Cross-file vulnerabilities detected: ${crossFileVulnerabilities}`);
+    
+    // Cache the results
+    this.cachedVulnerabilities = allVulnerabilities;
+    
+    return allVulnerabilities;
+  }
+
+  /**
+   * Detect vulnerabilities that span across files using cross-file references
+   */
+  private detectCrossFileVulnerabilities(
+    currentFilePath: string, 
+    currentDfg: DataFlowGraph, 
+    localVulnerabilities: DataFlowVulnerability[]
+  ): DataFlowVulnerability[] {
+    const crossFileVulns: DataFlowVulnerability[] = [];
+    
+    // Check each DFG node for cross-file references
+    for (const [nodeId, dfgNode] of currentDfg.nodes) {
+      const crossFileRef = (dfgNode as any).crossFileRef;
+      
+      if (crossFileRef) {
+        // This node references something in another file
+        const targetFile = crossFileRef.targetFile;
+        const targetSymbol = crossFileRef.targetSymbol;
+        const refType = crossFileRef.type;
+        
+        console.log(`🔗 Following cross-file reference: ${currentFilePath} -> ${targetFile}:${targetSymbol} (${refType})`);
+        
+        // Get the target file's DFG
+        const targetDfg = this.graphs.get(targetFile);
+        if (!targetDfg) {
+          console.warn(`⚠️ Target DFG not found for ${targetFile}`);
+          continue;
+        }
+        
+        // Check if the target symbol is involved in any vulnerabilities
+        const targetAst = this.asts.get(targetFile);
+        if (targetAst) {
+          const targetVulns = targetDfg.performCompleteAnalysis(targetAst);
+          
+          // Look for vulnerabilities that might be related to the cross-file reference
+          for (const targetVuln of targetVulns) {
+            if (this.isVulnerabilityRelatedToCrossFileRef(targetVuln, targetSymbol, refType)) {
+              // Create a new cross-file vulnerability
+              const crossFileVuln: DataFlowVulnerability & { crossFileContext?: any } = {
+                ...targetVuln,
+                id: `cross-file-${currentFilePath}-${targetFile}-${targetVuln.id}`,
+                message: `Cross-file data flow vulnerability: ${currentFilePath} -> ${targetFile}. ${targetVuln.message}`,
+                description: `${targetVuln.description} This vulnerability spans across files from ${currentFilePath} to ${targetFile}.`,
+                file: currentFilePath, // Mark as originating from current file
+                crossFileContext: {
+                  sourceFile: currentFilePath,
+                  targetFile: targetFile,
+                  targetSymbol: targetSymbol,
+                  referenceType: refType,
+                  originalVulnerability: targetVuln
+                }
+              };
+              
+              crossFileVulns.push(crossFileVuln);
+              console.log(`🚨 Cross-file vulnerability detected: ${crossFileVuln.id}`);
+            }
+          }
+        }
+      }
+    }
+    
+    return crossFileVulns;
+  }
+
+  /**
+   * Determine if a vulnerability is related to a cross-file reference
+   */
+  private isVulnerabilityRelatedToCrossFileRef(
+    vulnerability: DataFlowVulnerability, 
+    targetSymbol: string, 
+    refType: string
+  ): boolean {
+    // Check if the vulnerability involves the target symbol
+    const sourceId = vulnerability.source?.id || '';
+    const sinkId = vulnerability.sink?.id || '';
+    
+    // Simple heuristic: if the target symbol appears in source or sink identifiers
+    if (sourceId.includes(targetSymbol) || sinkId.includes(targetSymbol)) {
+      return true;
+    }
+    
+    // For function calls, check if the vulnerability is related to the called function
+    if (refType === 'function_call' && (
+      vulnerability.message.includes(targetSymbol) ||
+      vulnerability.description.includes(targetSymbol)
+    )) {
+      return true;
+    }
+    
+    // For variable references, check if the vulnerability involves the variable
+    if (refType === 'variable_ref' && (
+      sourceId.includes(targetSymbol) || 
+      sinkId.includes(targetSymbol)
+    )) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
    * Run the complete workspace analysis
    */
   public async run(workspaceRoot: string): Promise<void> {
@@ -386,11 +544,15 @@ export class WorkspaceScanOrchestrator {
       // Step 4: Build data flow graphs for all files (second pass)
       this.buildDataFlowGraphs();
 
+      // Step 5: Analyze data flow vulnerabilities across the workspace
+      const workspaceVulnerabilities = this.analyzeWorkspaceDataFlow();
+
       const totalTime = Date.now() - startTime;
       
       vscode.window.showInformationMessage(
         `Workspace analysis completed in ${(totalTime / 1000).toFixed(2)}s. ` +
-        `Processed ${this.asts.size} files, found ${this.symbolTable.size} symbols.`
+        `Processed ${this.asts.size} files, found ${this.symbolTable.size} symbols, ` +
+        `detected ${workspaceVulnerabilities.length} data flow vulnerabilities.`
       );
 
     } catch (error) {
@@ -453,11 +615,24 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
+   * Get workspace vulnerabilities after analysis
+   */
+  public getWorkspaceVulnerabilities(): DataFlowVulnerability[] {
+    if (this.graphs.size === 0) {
+      console.warn('⚠️ No data flow graphs available. Run workspace analysis first.');
+      return [];
+    }
+    
+    return this.analyzeWorkspaceDataFlow();
+  }
+
+  /**
    * Clear all analysis data
    */
   public clear(): void {
     this.asts.clear();
     this.symbolTable.clear();
     this.graphs.clear();
+    this.cachedVulnerabilities = null;
   }
 }

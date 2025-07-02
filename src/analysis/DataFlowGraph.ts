@@ -105,7 +105,6 @@ export class DataFlowGraph {
     // Extract functions from root AST node (only once at the beginning)
     if (astNode.functions && astNode.functions.length > 0) {
       this.functions = astNode.functions;
-      console.log(`[DEBUG] Found ${this.functions.length} functions:`, this.functions.map(f => f.name));
     }
 
     // Handle function definitions
@@ -113,7 +112,6 @@ export class DataFlowGraph {
       const functionName = this.extractFunctionName(astNode);
       if (functionName) {
         this.currentFunction = functionName;
-        console.log(`[DEBUG] Entering function: ${functionName}`);
       }
     }
 
@@ -188,7 +186,6 @@ export class DataFlowGraph {
         
         for (const returnedNode of returnedNodes) {
           returnedNode.edges.add(functionReturnNode);
-          console.log(`[DEBUG] Created edge: ${returnedNode.name} -> ${functionReturnNode.name}`);
         }
       }
     }
@@ -205,7 +202,6 @@ export class DataFlowGraph {
         // Create edges from function return to call result
         for (const resultNode of callResultNodes) {
           functionReturnNode.edges.add(resultNode);
-          console.log(`[DEBUG] Created edge: ${functionReturnNode.name} -> ${resultNode.name} (function call)`);
         }
 
         //Connect call arguments to function parameters ---
@@ -240,7 +236,6 @@ export class DataFlowGraph {
               // Connect each argument node to the parameter node
               for (const argNode of argNodes[i]) {
                 argNode.edges.add(paramNode);
-                console.log(`[DEBUG] Created edge: ${argNode.name} -> ${paramNode.name} (function argument to parameter)`);
               }
             }
           }
@@ -257,7 +252,6 @@ export class DataFlowGraph {
 
     // Reset current function when exiting function definition
     if (astNode.type === "function_definition") {
-      console.log(`[DEBUG] Exiting function: ${this.currentFunction}`);
       this.currentFunction = null;
     }
   }
@@ -624,7 +618,6 @@ export class DataFlowGraph {
     // Step 3: Propagate taint from all detected sources
     for (const source of Object.values(uniqueSources)) {
       this.propagateTaint(source.key);
-      console.log("[DEBUG] propagateTaint for source:", source.key);
     }
     
     // Step 4: Print debug information
