@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ASTParser } from '../parser/ASTParser';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
-import { AstNode, DataFlowVulnerability, ScanResult, PatternVulnerability } from '../types';
+import { AstNode, DataFlowVulnerability, ScanResult, PatternVulnerability, SymbolTableEntry } from '../types';
 import { FileUtils } from '../utils';
 import { OutputManager } from '../output/OutputManager';
 import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
@@ -43,13 +43,7 @@ import * as path from 'path';
  */
 
 // Symbol table entry for cross-file analysis
-export interface SymbolTableEntry {
-    name: string; // Symbol name (function, class, variable)
-    filePath: string; // Relative file path
-    node: AstNode; // AST node for the symbol
-    scope?: string; // Optional: class or function scope
-    type: 'function' | 'class' | 'variable';
-  }
+
 
   
 export class WorkspaceScanOrchestrator {
@@ -147,109 +141,18 @@ export class WorkspaceScanOrchestrator {
    */
   public buildSymbolTable(): void {
     console.log('🔍 Building global symbol table...');
-    
+    this.symbolTable.clear();
+    // Combine symbols from all ASTs
     for (const [filePath, ast] of this.asts) {
-      this.extractSymbolsFromAst(ast, filePath);
+      if ((ast as any).symbols && Array.isArray((ast as any).symbols)) {
+        for (const symbol of (ast as any).symbols) {
+          // Use a key like filePath:symbolName for uniqueness
+          const symbolKey = `${filePath}:${symbol.name}`;
+          this.symbolTable.set(symbolKey, symbol);
+        }
+      }
     }
-    
     console.log(`📊 Built symbol table with ${this.symbolTable.size} symbols`);
-  }
-
-  /**
-   * Extract symbols from an AST node recursively
-   */
-  private extractSymbolsFromAst(node: AstNode, filePath: string, scope?: string): void {
-    // Extract function definitions
-    if (node.type === 'function_definition') {
-      const functionName = this.extractFunctionName(node);
-      if (functionName) {
-        const symbolKey = `${filePath}:${functionName}`;
-        this.symbolTable.set(symbolKey, {
-          name: functionName,
-          filePath,
-          node,
-          scope,
-          type: 'function'
-        });
-      }
-    }
-    
-    // Extract class definitions
-    else if (node.type === 'class_definition') {
-      const className = this.extractClassName(node);
-      if (className) {
-        const symbolKey = `${filePath}:${className}`;
-        this.symbolTable.set(symbolKey, {
-          name: className,
-          filePath,
-          node,
-          scope,
-          type: 'class'
-        });
-        
-        // Extract methods within the class
-        this.extractSymbolsFromAst(node, filePath, className);
-      }
-    }
-    
-    // Extract variable assignments (global level)
-    else if (node.type === 'assignment' && !scope) {
-      const variableName = this.extractVariableName(node);
-      if (variableName) {
-        const symbolKey = `${filePath}:${variableName}`;
-        this.symbolTable.set(symbolKey, {
-          name: variableName,
-          filePath,
-          node,
-          scope,
-          type: 'variable'
-        });
-      }
-    }
-    
-    // Recursively process children
-    for (const child of node.children) {
-      this.extractSymbolsFromAst(child, filePath, scope);
-    }
-  }
-
-  /**
-   * Extract function name from function definition node
-   */
-  private extractFunctionName(node: AstNode): string | null {
-    // Look for identifier child that represents the function name
-    for (const child of node.children) {
-      if (child.type === 'identifier') {
-        return child.text;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Extract class name from class definition node
-   */
-  private extractClassName(node: AstNode): string | null {
-    // Look for identifier child that represents the class name  
-    for (const child of node.children) {
-      if (child.type === 'identifier') {
-        return child.text;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Extract variable name from assignment node
-   */
-  private extractVariableName(node: AstNode): string | null {
-    // Look for identifier on the left side of assignment
-    for (const child of node.children) {
-      if (child.type === 'identifier') {
-        return child.text;
-      }
-    }
-    return null;
   }
 
   /**

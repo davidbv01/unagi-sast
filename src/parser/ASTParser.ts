@@ -1,6 +1,6 @@
 import Parser from 'tree-sitter';
 import Python from 'tree-sitter-python';
-import { Position, PythonFunction, AstNode } from '../types';
+import { Position, AstNode, SymbolTableEntry } from '../types';
 
 export class ASTParser {
   private parser: Parser;
@@ -22,9 +22,9 @@ export class ASTParser {
       
       // Return the AST structure with functions and content included
       const ast = this.nodeToDict(rootNode, content);
-      const functions = this.extractPythonFunctionsFromAST(ast);
+      const symbols = this.extractSymbols(ast);
       const contentWithoutComments = this.removeComments(content);
-      ast.functions = functions;
+      ast.symbols = symbols; 
       ast.content = contentWithoutComments;
       ast.filePath = fileName;
       return ast;
@@ -117,7 +117,7 @@ export class ASTParser {
         start: { line: finalStartLine, column: finalStartCol },
         end: { line: finalEndLine, column: finalEndCol }
       },
-      functions: [],
+      symbols: [],
       content: ''
     };
 
@@ -158,47 +158,6 @@ export class ASTParser {
     walk(ast);
   }
 
-  
-
-
-  public extractPythonFunctionsFromAST(ast: AstNode): PythonFunction[] {
-    const functions: PythonFunction[] = [];
-
-    this.traverse(ast, {
-      enter: (path) => {
-        const node = path.node;
-
-        if (node.type === 'function_definition') {
-          const nameNode = node.children?.find(
-            (child: any) => child.type === 'identifier'
-          );
-
-          // Find the parameters node
-          const paramsNode = node.children?.find(
-            (child: any) => child.type === 'parameters'
-          );
-
-          // Extract parameter names
-          let parameters: string[] = [];
-          if (paramsNode && paramsNode.children) {
-            parameters = paramsNode.children
-              .filter((child: any) => child.type === 'identifier')
-              .map((child: any) => child.text);
-          }
-
-          functions.push({
-            name: nameNode?.text || 'anonymous',
-            startLine: node.loc.start.line,
-            endLine: node.loc.end.line,
-            parameters
-          });
-        }
-      }
-    });
-
-    return functions;
-  }
-  
   public removeComments(content: string): string {
     if (!this.tree) return content;
 
@@ -249,6 +208,62 @@ export class ASTParser {
 
     // Unir líneas limpiadas y retornar
     return lines.join('\n');
+  }
+
+  public extractSymbols(ast: AstNode): SymbolTableEntry[] {
+    const symbols: SymbolTableEntry[] = [];
+    const filePath = ast.filePath || '';
+
+    this.traverse(ast, {
+      enter: (path) => {
+        const node = path.node;
+        // Function definitions
+        if (node.type === 'function_definition') {
+          const nameNode = node.children?.find((child: any) => child.type === 'identifier');
+          const paramsNode = node.children?.find((child: any) => child.type === 'parameters');
+          let parameters: string[] = [];
+          if (paramsNode && paramsNode.children) {
+            parameters = paramsNode.children
+              .filter((child: any) => child.type === 'identifier')
+              .map((child: any) => child.text);
+          }
+          symbols.push({
+            name: nameNode?.text || 'anonymous',
+            filePath,
+            node,
+            type: 'function',
+            parameters,
+            loc: node.loc,
+          });
+        }
+        // Class definitions
+        else if (node.type === 'class_definition') {
+          const nameNode = node.children?.find((child: any) => child.type === 'identifier');
+          symbols.push({
+            name: nameNode?.text || 'anonymous',
+            filePath,
+            node,
+            type: 'class',
+            loc: node.loc,
+          });
+        }
+        // Global variable assignments (not inside a function/class)
+        else if (node.type === 'assignment' && node.scope === 'global') {
+          const leftNode = node.children?.find((child: any) => child.type === 'identifier');
+          if (leftNode) {
+            symbols.push({
+              name: leftNode.text,
+              filePath,
+              node,
+              type: 'variable',
+              loc: node.loc,
+            });
+          }
+        }
+      }
+    });
+
+    return symbols;
   }
 
 }

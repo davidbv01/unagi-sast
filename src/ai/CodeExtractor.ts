@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import { PythonFunction } from '../types';
 
 export interface FunctionExtraction {
   functionName: string;
@@ -25,7 +24,7 @@ export class CodeExtractor {
    */
   private static extractFunctionSource(
     fileContent: string[],
-    func: PythonFunction,
+    func: any,
     filePath: string
   ): FunctionExtraction {
     const lines = fileContent.slice(func.startLine - 1, func.endLine); // 1-based to 0-based
@@ -47,7 +46,7 @@ export class CodeExtractor {
   public static extractDataFlowCode(
     filePath: string,
     lines: number[],
-    functions: PythonFunction[],
+    functions: any[],
     fileContent: string,
   ): DataFlowCodeExtraction {
     try {

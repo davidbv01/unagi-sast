@@ -1,7 +1,8 @@
 import { SanitizerDetector, SinkDetector, SourceDetector } from "../analysis/detectors";
-import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity, PythonFunction } from "../types";
+import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity } from "../types";
 import { Source, Sink, Sanitizer } from "../analysis/detectors";
 import chalk from 'chalk';
+import type { SymbolTableEntry } from '../types';
 
 type DfgNode = {
   id: string;
@@ -39,7 +40,8 @@ export class DataFlowGraph {
   // Function handling properties
   private currentFunction: string | null = null;
   private functionReturnNodes: Map<string, DfgNode> = new Map(); // function_name -> return_node
-  private functions: PythonFunction[] = [];
+  private symbols: SymbolTableEntry[] = [];
+  private symbolTable?: Map<string, SymbolTableEntry>;
 
   // Public constructor - now allows multiple instances
   constructor() {
@@ -102,9 +104,9 @@ export class DataFlowGraph {
   public buildFromAst(astNode: AstNode) {
     if (!astNode) return;
 
-    // Extract functions from root AST node (only once at the beginning)
-    if (astNode.functions && astNode.functions.length > 0) {
-      this.functions = astNode.functions;
+    // Set symbols from astNode if available
+    if (astNode.symbols && Array.isArray(astNode.symbols) && astNode.symbols.length > 0) {
+      this.symbols = astNode.symbols;
     }
 
     // Handle function definitions
@@ -190,7 +192,22 @@ export class DataFlowGraph {
     // Handle function calls
     if (astNode.type === "call") {
       const functionName = this.extractCalledFunctionName(astNode);
-      if (functionName && this.functions.some(f => f.name === functionName)) {
+      // Use global symbol table if available
+      let isKnownFunction = false;
+      if (functionName && this.symbolTable) {
+        // Look for any symbol with this name and type 'function'
+        isKnownFunction = Array.from(this.symbolTable.values()).some((s: unknown) => {
+          if (typeof s === 'object' && s !== null && 'name' in s && 'type' in s) {
+            const entry = s as SymbolTableEntry;
+            return entry.name === functionName && entry.type === 'function';
+          }
+          return false;
+        });
+      } else if (functionName && this.symbols.some(f => f.type === 'function' && f.name === functionName)) {
+        // fallback for per-file mode using symbols
+        isKnownFunction = true;
+      }
+      if (functionName && isKnownFunction) {
         // Create nodes for the function call result
         const callResultNodes = this.getOrCreateNodes(astNode);
         const functionReturnNode = this.getOrCreateFunctionReturnNode(functionName);
@@ -201,7 +218,7 @@ export class DataFlowGraph {
         }
 
         //Connect call arguments to function parameters ---
-        const funcDef = this.functions.find(f => f.name === functionName);
+        const funcDef = this.symbols.find(f => f.name === functionName);
         if (funcDef && astNode.children) {
           // children[0] is usually the function name, the rest are arguments
           const argNodes = astNode.children.slice(1).map(arg => this.getOrCreateNodes(arg));
@@ -585,7 +602,7 @@ export class DataFlowGraph {
       // Clear function-related data
       this.currentFunction = null;
       this.functionReturnNodes.clear();
-      this.functions = [];
+      this.symbols = [];
       this.importedIdentifiers.clear();
   }
 

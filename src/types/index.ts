@@ -13,17 +13,11 @@ export interface AstNode {
     end: { line: number, column: number }
   };
   scope: string;
-  functions: PythonFunction[];
+  symbols: SymbolTableEntry[];
   filePath?: string;
   content: string
 };
 
-export interface PythonFunction {
-  name: string;
-  startLine: number;
-  endLine: number;
-  parameters: string[];
-}
 
 //Output interfaces
 export interface ScanResult {
@@ -142,3 +136,17 @@ export enum Severity {
 }
 
 export interface PatternVulnerability extends Vulnerability {}
+
+//Symbol table interfaces
+export interface SymbolTableEntry {
+  name: string; // Symbol name (function, class, variable)
+  filePath: string; // Relative file path
+  node: AstNode; // AST node for the symbol
+  scope?: string; // Optional: class or function scope
+  parameters?: string[];
+  type: 'function' | 'class' | 'variable';
+  loc: {
+    start: { line: number, column: number },
+    end: { line: number, column: number }
+  };
+}
