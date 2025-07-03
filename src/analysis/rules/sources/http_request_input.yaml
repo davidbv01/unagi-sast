@@ -5,7 +5,7 @@ severity: HIGH
 type: SOURCE
 sources:
   - id: http-request-input
-    pattern: request\.get|request\.post|req\.body|req\.query|req\.params
+    pattern: request\.get|request\.post|req\.body|req\.query|req\.params|request\.json
     message: User input from HTTP request
     description: Data from HTTP requests
     severity: HIGH 
