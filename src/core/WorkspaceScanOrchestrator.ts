@@ -146,6 +146,8 @@ export class WorkspaceScanOrchestrator {
     for (const [filePath, ast] of this.asts) {
       if ((ast as any).symbols && Array.isArray((ast as any).symbols)) {
         for (const symbol of (ast as any).symbols) {
+          // Log para verificar el filePath de cada símbolo
+          console.log('[SYMBOL TABLE] Añadiendo símbolo:', symbol.name, 'en', symbol.filePath);
           // Use a key like filePath:symbolName for uniqueness
           const symbolKey = `${filePath}:${symbol.name}`;
           this.symbolTable.set(symbolKey, symbol);
@@ -165,7 +167,7 @@ export class WorkspaceScanOrchestrator {
       try {
         // Create a new DataFlowGraph instance for each file
         const dfg = new DataFlowGraph();
-        dfg.buildFromAst(ast);
+        dfg.buildFromAst(ast, this.symbolTable);
         
         // Enhance DFG with cross-file symbol information
         this.enhanceDfgWithSymbolTable(dfg, filePath);

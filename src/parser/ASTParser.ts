@@ -22,7 +22,7 @@ export class ASTParser {
       
       // Return the AST structure with functions and content included
       const ast = this.nodeToDict(rootNode, content);
-      const symbols = this.extractSymbols(ast);
+      const symbols = this.extractSymbols(ast, fileName);
       const contentWithoutComments = this.removeComments(content);
       ast.symbols = symbols; 
       ast.content = contentWithoutComments;
@@ -118,7 +118,8 @@ export class ASTParser {
         end: { line: finalEndLine, column: finalEndCol }
       },
       symbols: [],
-      content: ''
+      content: '',
+      filePath: ''
     };
 
     // Add empty children array for leaf nodes
@@ -210,9 +211,11 @@ export class ASTParser {
     return lines.join('\n');
   }
 
-  public extractSymbols(ast: AstNode): SymbolTableEntry[] {
+  public extractSymbols(ast: AstNode, filePathArg?: string): SymbolTableEntry[] {
+    // Usa el filePath del AST si existe, si no, usa el argumento
+    const filePath = ast.filePath || filePathArg || '';
+
     const symbols: SymbolTableEntry[] = [];
-    const filePath = ast.filePath || '';
 
     this.traverse(ast, {
       enter: (path) => {

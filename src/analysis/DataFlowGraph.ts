@@ -101,12 +101,17 @@ export class DataFlowGraph {
    * Builds the data flow graph from an AST node
    * @param astNode The root AST node to build the graph from
    */
-  public buildFromAst(astNode: AstNode) {
+  public buildFromAst(astNode: AstNode, symbolTable?: Map<string, SymbolTableEntry>) {
     if (!astNode) return;
 
     // Set symbols from astNode if available
     if (astNode.symbols && Array.isArray(astNode.symbols) && astNode.symbols.length > 0) {
       this.symbols = astNode.symbols;
+    }
+
+    // Set the symbol table if provided
+    if (symbolTable) {
+      this.symbolTable = symbolTable;
     }
 
     // Handle function definitions
@@ -192,22 +197,30 @@ export class DataFlowGraph {
     // Handle function calls
     if (astNode.type === "call") {
       const functionName = this.extractCalledFunctionName(astNode);
-      // Use global symbol table if available
-      let isKnownFunction = false;
+      let matchedFunctionEntry: { key: string, entry: SymbolTableEntry } | undefined = undefined;
       if (functionName && this.symbolTable) {
-        // Look for any symbol with this name and type 'function'
-        isKnownFunction = Array.from(this.symbolTable.values()).some((s: unknown) => {
-          if (typeof s === 'object' && s !== null && 'name' in s && 'type' in s) {
-            const entry = s as SymbolTableEntry;
-            return entry.name === functionName && entry.type === 'function';
-          }
-          return false;
+        // Busca la función y obtén también el archivo
+        const found = Array.from(this.symbolTable.entries()).find(([key, entry]) => {
+          return entry.name === functionName && entry.type === 'function';
         });
+        if (found) {
+          matchedFunctionEntry = { key: found[0], entry: found[1] };
+        }
+      }
+      let isKnownFunction = false;
+      if (matchedFunctionEntry) {
+        isKnownFunction = true;
       } else if (functionName && this.symbols.some(f => f.type === 'function' && f.name === functionName)) {
         // fallback for per-file mode using symbols
         isKnownFunction = true;
       }
       if (functionName && isKnownFunction) {
+        if (matchedFunctionEntry) {
+          console.log(`[DFG] La función conocida '${functionName}' está definida en: ${matchedFunctionEntry.entry.filePath}`);
+        } else {
+          console.log(`[DFG] La función conocida '${functionName}' está definida localmente en este archivo.`);
+        }
+        // matchedFunctionEntry.entry.filePath te da el archivo donde está la función
         // Create nodes for the function call result
         const callResultNodes = this.getOrCreateNodes(astNode);
         const functionReturnNode = this.getOrCreateFunctionReturnNode(functionName);

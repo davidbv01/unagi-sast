@@ -14,7 +14,7 @@ export interface AstNode {
   };
   scope: string;
   symbols: SymbolTableEntry[];
-  filePath?: string;
+  filePath: string;
   content: string
 };
 
