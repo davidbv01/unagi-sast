@@ -9,8 +9,3 @@ sources:
     message: User input from console
     description: Data from console input
     severity: HIGH
-  - id: process-user-data
-    pattern: process_user_data\(
-    message: User input processed by process_user_data
-    description: Data processed by process_user_data (potential user input)
-    severity: HIGH
