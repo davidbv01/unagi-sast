@@ -14,14 +14,15 @@ export interface Sink extends BaseDetectorItem {
   key?: string;
 }
 
-export class SinkDetector extends RuleLoader {
+export class SinkDetector {
+  private ruleLoader: RuleLoader;
   constructor() {
-    super('sinks');
+    this.ruleLoader = RuleLoader.getInstance('sinks');
   }
 
   public detectSink(node: AstNode, varName: String = ""): Sink | null {
     if (node.type === 'call') {
-      const rules = this.getAllRules() as SinkRule[];
+      const rules = this.ruleLoader.getAllRules() as SinkRule[];
       const sinks = DetectorUtils.getAllItems(rules, 'sinks');
       const detectedItem = DetectorUtils.detectItem(node, sinks);
       const key = DetectorUtils.createKey(node.scope, varName);
@@ -61,5 +62,9 @@ export class SinkDetector extends RuleLoader {
       }
     }
     return Severity.MEDIUM;
+  }
+
+  public reloadRules(): void {
+    this.ruleLoader.reloadRules();
   }
 } 

@@ -16,10 +16,12 @@ export interface Rule {
 }
 
 export class RuleLoader {
+  private static instances: Map<string, RuleLoader> = new Map();
   protected rules: Map<string, Rule> = new Map();
   protected rulesDirectory: string;
 
-  constructor(rulesDirectory: string) {
+  // Make constructor private to enforce singleton usage
+  private constructor(rulesDirectory: string) {
     // Get the extension's root directory
     const extensionRoot = vscode.extensions.getExtension('your-publisher-name.unagi')?.extensionPath || path.resolve(__dirname, '..', '..', '..');
     
@@ -28,6 +30,14 @@ export class RuleLoader {
     
     console.log(`[DEBUG] 📂 Using rules directory: ${this.rulesDirectory}`);
     this.loadRules();
+  }
+
+  // Singleton accessor for each rulesDirectory
+  public static getInstance(rulesDirectory: string): RuleLoader {
+    if (!this.instances.has(rulesDirectory)) {
+      this.instances.set(rulesDirectory, new RuleLoader(rulesDirectory));
+    }
+    return this.instances.get(rulesDirectory)!;
   }
 
   protected loadRules(): void {

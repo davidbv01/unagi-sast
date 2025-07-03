@@ -190,7 +190,6 @@ export class DataFlowGraph {
     // Handle function calls
     if (astNode.type === "call") {
       const functionName = this.extractCalledFunctionName(astNode);
-
       if (functionName && this.functions.some(f => f.name === functionName)) {
         // Create nodes for the function call result
         const callResultNodes = this.getOrCreateNodes(astNode);
@@ -266,6 +265,7 @@ export class DataFlowGraph {
       const uniqueId = `${astNode.scope}_${varName}`;
 
       if (!this.nodes.has(uniqueId)) {
+
         const symbol: Symbol = {
           name: varName,
           scope: astNode.scope,
@@ -571,12 +571,6 @@ export class DataFlowGraph {
     return detectedSources;
   }
 
-  /**
-   * Reloads the source detector rules
-   */
-  public reloadSourceRules(): void {
-    this.sourceDetector.reloadRules();
-  }
 
   /**
    * Completely resets the data flow graph to its initial state

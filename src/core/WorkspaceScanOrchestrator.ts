@@ -294,7 +294,7 @@ export class WorkspaceScanOrchestrator {
       const astNode = dfgNode.astNode;
       
       // Check for function calls that might reference external functions
-      if (astNode.type === 'call') {
+      if (astNode.type === 'identifier') {
         const functionName = this.extractCallName(astNode);
         if (functionName) {
           const externalSymbol = this.findExternalSymbol(functionName, currentFilePath, 'function');
@@ -433,7 +433,7 @@ export class WorkspaceScanOrchestrator {
     
     // Check each DFG node for cross-file references
     for (const [nodeId, dfgNode] of currentDfg.nodes) {
-      const crossFileRef = (dfgNode as any).crossFileRef;
+      const crossFileRef = dfgNode.crossFileRef;
       
       if (crossFileRef) {
         // This node references something in another file

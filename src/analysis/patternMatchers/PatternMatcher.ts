@@ -13,14 +13,15 @@ export interface PatternRule extends Rule {
   patterns: Pattern[];
 }
 
-export class PatternMatcher extends RuleLoader {
+export class PatternMatcher {
+  private ruleLoader: RuleLoader;
   constructor() {
-    super('patterns');
+    this.ruleLoader = RuleLoader.getInstance('patterns');
   }
 
   public matchPatterns(content: string): Vulnerability[] {
     const vulnerabilities: Vulnerability[] = [];
-    const rules = this.getAllRules();
+    const rules = this.ruleLoader.getAllRules();
 
     for (const rule of rules) {
       const patternRule = rule as PatternRule;
@@ -63,22 +64,26 @@ export class PatternMatcher extends RuleLoader {
   }
 
   public getAllPatternRules(): PatternRule[] {
-    return this.getAllRules() as PatternRule[];
+    return this.ruleLoader.getAllRules() as PatternRule[];
   }
 
   public addPatternRule(pattern: PatternRule): void {
-    this.addRule(pattern);
+    this.ruleLoader.addRule(pattern);
   }
 
   public getAllPatterns(): PatternRule[] {
-    return this.getAllRules() as PatternRule[];
+    return this.ruleLoader.getAllRules() as PatternRule[];
   }
 
   public addPattern(pattern: PatternRule): void {
-    this.addRule(pattern);
+    this.ruleLoader.addRule(pattern);
   }
 
   public removePattern(patternId: string): void {
-    this.removeRule(patternId);
+    this.ruleLoader.removeRule(patternId);
+  }
+
+  public reloadRules(): void {
+    this.ruleLoader.reloadRules();
   }
 } 

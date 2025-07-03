@@ -12,14 +12,15 @@ export interface Sanitizer extends BaseDetectorItem {
   key?: string;
 }
 
-export class SanitizerDetector extends RuleLoader {
+export class SanitizerDetector {
+  private ruleLoader: RuleLoader;
   constructor() {
-    super('sanitizers');
+    this.ruleLoader = RuleLoader.getInstance('sanitizers');
   }
 
   public detectSanitizer(node: AstNode, varName: String = ""): Sanitizer | null {
     if (node.type === 'call') {
-      const rules = this.getAllRules() as SanitizerRule[];
+      const rules = this.ruleLoader.getAllRules() as SanitizerRule[];
       const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
       const detectedItem = DetectorUtils.detectItem(node, sanitizers);
       const key = DetectorUtils.createKey(node.scope,varName);
@@ -60,5 +61,9 @@ export class SanitizerDetector extends RuleLoader {
       (acc, sanitizer) => acc * (1 - sanitizer.effectiveness),
       1
     );
+  }
+
+  public reloadRules(): void {
+    this.ruleLoader.reloadRules();
   }
 } 
