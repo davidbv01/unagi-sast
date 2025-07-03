@@ -20,6 +20,11 @@ type DfgNode = {
   detectedSink?: Sink;
   detectedSanitizer?: Sanitizer;
   crossFileRef?: any;
+  crossFileEdge?: {
+    from: string;
+    to: string;
+    function: string;
+  };
 };
 
 type Symbol = {
@@ -42,6 +47,7 @@ export class DataFlowGraph {
   private functionReturnNodes: Map<string, DfgNode> = new Map(); // function_name -> return_node
   private symbols: SymbolTableEntry[] = [];
   private symbolTable?: Map<string, SymbolTableEntry>;
+  private currentFilePath?: string;
 
   // Public constructor - now allows multiple instances
   constructor() {
@@ -220,7 +226,9 @@ export class DataFlowGraph {
         } else {
           console.log(`[DFG] La función conocida '${functionName}' está definida localmente en este archivo.`);
         }
-        // matchedFunctionEntry.entry.filePath te da el archivo donde está la función
+        // Check if this is a cross-file call
+        const isCrossFile = matchedFunctionEntry && matchedFunctionEntry.entry.filePath !== (this.currentFilePath || '');
+        
         // Create nodes for the function call result
         const callResultNodes = this.getOrCreateNodes(astNode);
         const functionReturnNode = this.getOrCreateFunctionReturnNode(functionName);
@@ -228,6 +236,14 @@ export class DataFlowGraph {
         // Create edges from function return to call result
         for (const resultNode of callResultNodes) {
           functionReturnNode.edges.add(resultNode);
+          if (isCrossFile && matchedFunctionEntry) {
+            // Mark this node as having a cross-file edge
+            resultNode.crossFileEdge = {
+              from: this.currentFilePath || '',
+              to: matchedFunctionEntry.entry.filePath,
+              function: functionName
+            };
+          }
         }
 
         //Connect call arguments to function parameters ---
@@ -677,5 +693,10 @@ export class DataFlowGraph {
     }
     
     return unique;
+  }
+
+  // Add a setter for current file path
+  public setCurrentFilePath(filePath: string) {
+    this.currentFilePath = filePath;
   }
 }

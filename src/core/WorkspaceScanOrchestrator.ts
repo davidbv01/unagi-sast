@@ -167,10 +167,9 @@ export class WorkspaceScanOrchestrator {
       try {
         // Create a new DataFlowGraph instance for each file
         const dfg = new DataFlowGraph();
-        dfg.buildFromAst(ast, this.symbolTable);
-        
-        // Enhance DFG with cross-file symbol information
-        this.enhanceDfgWithSymbolTable(dfg, filePath);
+        dfg.setSymbolTable(this.symbolTable);
+        dfg.setCurrentFilePath(filePath);
+        dfg.buildFromAst(ast);
         
         // Store the unique DFG instance for this file
         this.graphs.set(filePath, dfg);
@@ -184,269 +183,98 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
-   * Enhance data flow graph with cross-file symbol information
+   * Analyze data flow vulnerabilities with cross-file propagation
    */
-  private enhanceDfgWithSymbolTable(dfg: DataFlowGraph, currentFilePath: string): void {
-    console.log(`🔗 Enhancing DFG for ${currentFilePath} with cross-file symbol information...`);
-    
-    const currentAst = this.asts.get(currentFilePath);
-    if (!currentAst) return;
-    
-    let crossFileReferences = 0;
-    
-    // Walk through existing DFG nodes to find cross-file references
-    for (const [nodeId, dfgNode] of dfg.nodes) {
-      const astNode = dfgNode.astNode;
-      
-      // Check for function calls that might reference external functions
-      if (astNode.type === 'identifier') {
-        const functionName = this.extractCallName(astNode);
-        if (functionName) {
-          const externalSymbol = this.findExternalSymbol(functionName, currentFilePath, 'function');
-          if (externalSymbol) {
-            // Mark this node with cross-file metadata
-            dfgNode.crossFileRef = {
-              targetFile: externalSymbol.filePath,
-              targetSymbol: functionName,
-              type: 'function_call'
-            };
-            crossFileReferences++;
-            console.log(`🔗 Found call to ${functionName} from ${externalSymbol.filePath}`);
-          }
-        }
-      }
-      
-      // Check for identifier references that might be external variables
-      else if (astNode.type === 'identifier') {
-        const varName = astNode.text;
-        if (varName) {
-          const externalSymbol = this.findExternalSymbol(varName, currentFilePath, 'variable');
-          if (externalSymbol) {
-            // Mark this node with cross-file metadata
-            (dfgNode as any).crossFileRef = {
-              targetFile: externalSymbol.filePath,
-              targetSymbol: varName,
-              type: 'variable_ref'
-            };
-            crossFileReferences++;
-            console.log(`🔗 Found reference to ${varName} from ${externalSymbol.filePath}`);
-          }
-        }
-      }
-    }
-    
-    console.log(`✅ Enhanced DFG for ${currentFilePath} with ${crossFileReferences} cross-file references`);
-  }
-
-  /**
-   * Extract function/method name from a call AST node (reuses existing pattern)
-   */
-  private extractCallName(node: AstNode): string | null {
-    // Reuse the same pattern as extractFunctionName but for calls
-    for (const child of node.children) {
-      if (child.type === 'identifier') {
-        return child.text;
-      }
-      // Handle attribute access like "module.function"
-      if (child.type === 'attribute') {
-        return child.text;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Find external symbol (reuses existing findSymbol logic but excludes current file)
-   */
-  private findExternalSymbol(symbolName: string, currentFilePath: string, symbolType: 'function' | 'class' | 'variable'): SymbolTableEntry | null {
-    for (const symbol of this.symbolTable.values()) {
-      if (symbol.filePath !== currentFilePath && 
-          symbol.name === symbolName && 
-          symbol.type === symbolType) {
-        return symbol;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Analyze data flow vulnerabilities across the entire workspace
-   */
-  public analyzeWorkspaceDataFlow(): DataFlowVulnerability[] {
-    // Return cached results if available
-    if (this.cachedVulnerabilities) {
-      console.log('📋 Returning cached workspace vulnerabilities');
-      return this.cachedVulnerabilities;
-    }
-    
-    console.log('🔍 Analyzing workspace data flow vulnerabilities...');
+  public analyzeWorkspaceDataFlowWithCrossFile(): DataFlowVulnerability[] {
+    console.log('🔍 Analyzing workspace data flow with cross-file propagation...');
     
     const allVulnerabilities: DataFlowVulnerability[] = [];
-    let crossFileVulnerabilities = 0;
     
+    // Step 1: Analyze each file individually to find in-file vulnerabilities and identify tainted nodes
+    console.log('📋 Step 1: Individual file analysis...');
     for (const [filePath, dfg] of this.graphs) {
       try {
-        console.log(`🔍 Analyzing data flow for: ${filePath}`);
-        
-        // Get the AST for this file to pass to performCompleteAnalysis
         const ast = this.asts.get(filePath);
-        if (!ast) {
-          console.warn(`⚠️ No AST found for ${filePath}, skipping data flow analysis`);
-          continue;
-        }
+        if (!ast) continue;
         
-        // Perform data flow analysis on this file's DFG
+        console.log(`🔍 Analyzing individual file: ${filePath}`);
         const fileVulnerabilities = dfg.performCompleteAnalysis(ast);
         
-        // Mark vulnerabilities with their source file
         fileVulnerabilities.forEach(vuln => {
           vuln.file = filePath;
         });
         
-        // Check for cross-file vulnerabilities by examining cross-file references
-        const crossFileVulns = this.detectCrossFileVulnerabilities(filePath, dfg, fileVulnerabilities);
-        crossFileVulnerabilities += crossFileVulns.length;
-        
-        // Add all vulnerabilities (both local and cross-file) to the results
-        allVulnerabilities.push(...fileVulnerabilities, ...crossFileVulns);
-        
-        console.log(`✅ Found ${fileVulnerabilities.length} vulnerabilities in ${filePath} (${crossFileVulns.length} cross-file)`);
+        allVulnerabilities.push(...fileVulnerabilities);
+        console.log(`✅ Found ${fileVulnerabilities.length} in-file vulnerabilities in ${filePath}`);
         
       } catch (error) {
-        console.error(`❌ Error analyzing data flow for ${filePath}:`, error);
+        console.error(`❌ Error analyzing file ${filePath}:`, error);
       }
     }
     
-    console.log(`📊 Workspace data flow analysis complete: ${allVulnerabilities.length} total vulnerabilities found`);
-    console.log(`🔗 Cross-file vulnerabilities detected: ${crossFileVulnerabilities}`);
+    // Step 2: Cross-file taint propagation
+    console.log('🔗 Step 2: Cross-file taint propagation...');
+    let crossFileConnections = 0;
+    
+    for (const [sourceFilePath, sourceDfg] of this.graphs) {
+      // Find nodes with cross-file edges that are tainted
+      for (const [nodeId, node] of sourceDfg.nodes) {
+        if (node.tainted && node.crossFileEdge) {
+          const targetFilePath = node.crossFileEdge.to;
+          const functionName = node.crossFileEdge.function;
+          
+          console.log(`🔗 Cross-file taint: ${sourceFilePath} -> ${targetFilePath} via ${functionName}`);
+          
+          // Get the target DFG
+          const targetDfg = this.graphs.get(targetFilePath);
+          const targetAst = this.asts.get(targetFilePath);
+          
+          if (targetDfg && targetAst) {
+            // Find the parameter nodes in the target function and mark them as tainted
+            const parameterNodes = Array.from(targetDfg.nodes.values()).filter(n => 
+              n.name.startsWith(`${functionName}_`) && n.symbol?.scope === functionName
+            );
+            
+            for (const paramNode of parameterNodes) {
+              if (!paramNode.tainted) {
+                paramNode.tainted = true;
+                paramNode.taintSources.add(`cross-file-from-${sourceFilePath}`);
+                console.log(`🔗 Marked parameter ${paramNode.name} as tainted from cross-file call`);
+                
+                // Propagate taint from this parameter
+                targetDfg.propagateTaint(paramNode.id);
+                crossFileConnections++;
+              }
+            }
+            
+            // Re-analyze the target file for new vulnerabilities
+            const crossFileVulns = targetDfg.detectVulnerabilities(targetFilePath);
+            const newVulns = crossFileVulns.filter(v => 
+              v.source && Array.from(node.taintSources || []).some(src => src.startsWith('cross-file'))
+            );
+            
+            newVulns.forEach(vuln => {
+              vuln.id = `cross-file-${vuln.id}`;
+              vuln.message = `Cross-file vulnerability: ${vuln.message} (originated from ${sourceFilePath})`;
+            });
+            
+            allVulnerabilities.push(...newVulns);
+            
+            if (newVulns.length > 0) {
+              console.log(`🚨 Found ${newVulns.length} cross-file vulnerabilities in ${targetFilePath}`);
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`🔗 Total cross-file connections made: ${crossFileConnections}`);
+    console.log(`📊 Total vulnerabilities found: ${allVulnerabilities.length}`);
     
     // Cache the results
     this.cachedVulnerabilities = allVulnerabilities;
     
     return allVulnerabilities;
-  }
-
-  /**
-   * Detect vulnerabilities that span across files using cross-file references
-   */
-  private detectCrossFileVulnerabilities(
-    currentFilePath: string, 
-    currentDfg: DataFlowGraph, 
-    localVulnerabilities: DataFlowVulnerability[]
-  ): DataFlowVulnerability[] {
-    const crossFileVulns: DataFlowVulnerability[] = [];
-    
-    // Check each DFG node for cross-file references
-    for (const [nodeId, dfgNode] of currentDfg.nodes) {
-      const crossFileRef = dfgNode.crossFileRef;
-      
-      if (crossFileRef) {
-        // This node references something in another file
-        const targetFile = crossFileRef.targetFile;
-        const targetSymbol = crossFileRef.targetSymbol;
-        const refType = crossFileRef.type;
-        
-        console.log(`🔗 Following cross-file reference: ${currentFilePath} -> ${targetFile}:${targetSymbol} (${refType})`);
-        
-        // Get the target file's DFG
-        const targetDfg = this.graphs.get(targetFile);
-        if (!targetDfg) {
-          console.warn(`⚠️ Target DFG not found for ${targetFile}`);
-          continue;
-        }
-        
-        // Check if the target symbol is involved in any vulnerabilities
-        const targetAst = this.asts.get(targetFile);
-        if (targetAst) {
-          // --- NUEVO: Propagación de taint cross-file para function_call ---
-          let initialTaintedVars: string[] | undefined = undefined;
-          if (refType === 'function_call') {
-            // Buscar el nombre del parámetro en la función destino
-            const targetSymbolEntry = this.findSymbol(targetSymbol).find(s => s.filePath === targetFile && s.type === 'function');
-            if (targetSymbolEntry) {
-              // Buscar el nodo de la llamada en el AST de origen para obtener el argumento
-              // (Simplificación: asumimos que el nombre del argumento es igual al nombre del parámetro)
-              // Buscar el argumento en el DFG de origen
-              const argTainted = dfgNode.tainted;
-              if (argTainted) {
-                // Obtener el nombre del primer parámetro de la función destino
-                const paramNode = (targetSymbolEntry.node.children || []).find(child => child.type === 'parameters');
-                if (paramNode && paramNode.children && paramNode.children.length > 0) {
-                  const paramNameNode = paramNode.children[0];
-                  if (paramNameNode && paramNameNode.type === 'identifier') {
-                    initialTaintedVars = [paramNameNode.text];
-                  }
-                }
-              }
-            }
-          }
-          // --- FIN NUEVO ---
-          const targetVulns = targetDfg.performCompleteAnalysis(targetAst, initialTaintedVars);
-          
-          // Look for vulnerabilities that might be related to the cross-file reference
-          for (const targetVuln of targetVulns) {
-            if (this.isVulnerabilityRelatedToCrossFileRef(targetVuln, targetSymbol, refType)) {
-              // Create a new cross-file vulnerability
-              const crossFileVuln: DataFlowVulnerability & { crossFileContext?: any } = {
-                ...targetVuln,
-                id: `cross-file-${currentFilePath}-${targetFile}-${targetVuln.id}`,
-                message: `Cross-file data flow vulnerability: ${currentFilePath} -> ${targetFile}. ${targetVuln.message}`,
-                description: `${targetVuln.description} This vulnerability spans across files from ${currentFilePath} to ${targetFile}.`,
-                file: currentFilePath, // Mark as originating from current file
-                crossFileContext: {
-                  sourceFile: currentFilePath,
-                  targetFile: targetFile,
-                  targetSymbol: targetSymbol,
-                  referenceType: refType,
-                  originalVulnerability: targetVuln
-                }
-              };
-              
-              crossFileVulns.push(crossFileVuln);
-              console.log(`🚨 Cross-file vulnerability detected: ${crossFileVuln.id}`);
-            }
-          }
-        }
-      }
-    }
-    
-    return crossFileVulns;
-  }
-
-  /**
-   * Determine if a vulnerability is related to a cross-file reference
-   */
-  private isVulnerabilityRelatedToCrossFileRef(
-    vulnerability: DataFlowVulnerability, 
-    targetSymbol: string, 
-    refType: string
-  ): boolean {
-    // Check if the vulnerability involves the target symbol
-    const sourceId = vulnerability.source?.id || '';
-    const sinkId = vulnerability.sink?.id || '';
-    
-    // Simple heuristic: if the target symbol appears in source or sink identifiers
-    if (sourceId.includes(targetSymbol) || sinkId.includes(targetSymbol)) {
-      return true;
-    }
-    
-    // For function calls, check if the vulnerability is related to the called function
-    if (refType === 'function_call' && (
-      vulnerability.message.includes(targetSymbol) ||
-      vulnerability.description.includes(targetSymbol)
-    )) {
-      return true;
-    }
-    
-    // For variable references, check if the vulnerability involves the variable
-    if (refType === 'variable_ref' && (
-      sourceId.includes(targetSymbol) || 
-      sinkId.includes(targetSymbol)
-    )) {
-      return true;
-    }
-    
-    return false;
   }
 
   /**
@@ -481,7 +309,7 @@ export class WorkspaceScanOrchestrator {
       this.buildDataFlowGraphs();
 
       // Step 5: Analyze data flow vulnerabilities across the workspace
-      const workspaceVulnerabilities = this.analyzeWorkspaceDataFlow();
+      const workspaceVulnerabilities = this.analyzeWorkspaceDataFlowWithCrossFile();
 
       // Step 6: Aggregate results per file for output
       const scanResults: ScanResult[] = [];
@@ -583,7 +411,7 @@ export class WorkspaceScanOrchestrator {
       return [];
     }
     
-    return this.analyzeWorkspaceDataFlow();
+    return this.analyzeWorkspaceDataFlowWithCrossFile();
   }
 
   /**
