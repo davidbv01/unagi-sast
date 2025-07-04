@@ -20,6 +20,11 @@ type DfgNode = {
   detectedSink?: Sink;
   detectedSanitizer?: Sanitizer;
   crossFileRef?: any;
+  crossFileEdge?: {
+    from: string;
+    to: string;
+    function: string;
+  };
 };
 
 type Symbol = {
@@ -42,6 +47,7 @@ export class DataFlowGraph {
   private functionReturnNodes: Map<string, DfgNode> = new Map(); // function_name -> return_node
   private symbols: SymbolTableEntry[] = [];
   private symbolTable?: Map<string, SymbolTableEntry>;
+  private currentFilePath?: string;
 
   // Public constructor - now allows multiple instances
   constructor() {
@@ -119,6 +125,36 @@ export class DataFlowGraph {
       const functionName = this.extractFunctionName(astNode);
       if (functionName) {
         this.currentFunction = functionName;
+        
+        // Create parameter nodes for the function definition
+        // Look for parameters in the function's children
+        const parametersNode = astNode.children?.find(child => child.type === "parameters");
+        if (parametersNode && parametersNode.children) {
+          for (const paramChild of parametersNode.children) {
+            if (paramChild.type === "identifier") {
+              const paramName = paramChild.text;
+              const paramUniqueId = `${functionName}_${paramName}`;
+              
+              if (!this.nodes.has(paramUniqueId)) {
+                const paramNode: DfgNode = {
+                  id: paramUniqueId,
+                  name: paramName,
+                  astNode: paramChild,
+                  tainted: false,
+                  taintSources: new Set(),
+                  edges: new Set(),
+                  symbol: {
+                    name: paramName,
+                    scope: functionName,
+                    uniqueId: paramUniqueId
+                  }
+                };
+                this.nodes.set(paramUniqueId, paramNode);
+                console.log(`[DFG] Created parameter node: ${paramName} in function ${functionName}`);
+              }
+            }
+          }
+        }
       }
     }
 
@@ -220,7 +256,9 @@ export class DataFlowGraph {
         } else {
           console.log(`[DFG] La función conocida '${functionName}' está definida localmente en este archivo.`);
         }
-        // matchedFunctionEntry.entry.filePath te da el archivo donde está la función
+        // Check if this is a cross-file call
+        const isCrossFile = matchedFunctionEntry && matchedFunctionEntry.entry.filePath !== (this.currentFilePath || '');
+        
         // Create nodes for the function call result
         const callResultNodes = this.getOrCreateNodes(astNode);
         const functionReturnNode = this.getOrCreateFunctionReturnNode(functionName);
@@ -228,6 +266,14 @@ export class DataFlowGraph {
         // Create edges from function return to call result
         for (const resultNode of callResultNodes) {
           functionReturnNode.edges.add(resultNode);
+          if (isCrossFile && matchedFunctionEntry) {
+            // Mark this node as having a cross-file edge
+            resultNode.crossFileEdge = {
+              from: this.currentFilePath || '',
+              to: matchedFunctionEntry.entry.filePath,
+              function: functionName
+            };
+          }
         }
 
         //Connect call arguments to function parameters ---
@@ -235,6 +281,27 @@ export class DataFlowGraph {
         if (funcDef && astNode.children) {
           // children[0] is usually the function name, the rest are arguments
           const argNodes = astNode.children.slice(1).map(arg => this.getOrCreateNodes(arg));
+          
+          // For cross-file calls, if any argument is tainted, mark the result nodes as potentially tainted
+          if (isCrossFile) {
+            const hasTaintedArg = argNodes.some(argNodeList => 
+              argNodeList.some(argNode => argNode.tainted)
+            );
+            if (hasTaintedArg) {
+              console.log(`[DFG] Cross-file call to ${functionName} has tainted arguments, marking result nodes`);
+              for (const resultNode of callResultNodes) {
+                // Create edges from tainted arguments to result node to enable taint flow
+                for (const argNodeList of argNodes) {
+                  for (const argNode of argNodeList) {
+                    if (argNode.tainted) {
+                      argNode.edges.add(resultNode);
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
           // funcDef.parameters is an array of parameter names
           if (funcDef.parameters && funcDef.parameters.length === argNodes.length) {
             for (let i = 0; i < funcDef.parameters.length; i++) {
@@ -292,6 +359,16 @@ export class DataFlowGraph {
     const varNames = this.extractIdentifiers(astNode);
 
     for (const varName of varNames) {
+      // Check if we're inside a function and this variable name matches a parameter
+      if (this.currentFunction) {
+        const paramUniqueId = `${this.currentFunction}_${varName}`;
+        if (this.nodes.has(paramUniqueId)) {
+          // This variable refers to a function parameter
+          createdNodes.push(this.nodes.get(paramUniqueId)!);
+          continue;
+        }
+      }
+
       const uniqueId = `${astNode.scope}_${varName}`;
 
       if (!this.nodes.has(uniqueId)) {
@@ -677,5 +754,14 @@ export class DataFlowGraph {
     }
     
     return unique;
+  }
+
+  // Add a setter for current file path
+  public setCurrentFilePath(filePath: string) {
+    this.currentFilePath = filePath;
+  }
+
+  public setSymbolTable(symbolTable: Map<string, SymbolTableEntry>) {
+    this.symbolTable = symbolTable;
   }
 }
