@@ -9,7 +9,7 @@ type DfgNode = {
   name: string;
   astNode: AstNode;
   tainted: boolean;
-  taintSources: Set<string>;
+  taintSources: Set<Source>;
   edges: Set<DfgNode>;
   symbol?: Symbol;
   isSanitizer?: boolean;
@@ -401,22 +401,17 @@ export class DataFlowGraph {
   /**
    * Propagates taint from a source node through the graph,
    * stopping propagation at sanitizer nodes
-   * @param sourceId The ID of the taint source node
+   * @param source The taint source node
    */
-  public propagateTaint(sourceId: string) {
-    const startNode = this.nodes.get(sourceId);
-
+  public propagateTaint(source: Source) {
+    const startNode = this.nodes.get(source.key || source.id);
     if (!startNode || startNode.isSanitizer) return;
-
     const queue: DfgNode[] = [startNode];
     startNode.tainted = true;
-    startNode.taintSources.add(sourceId);
-
+    startNode.taintSources.add(source);
     while (queue.length > 0) {
       const current = queue.shift()!;
-
       if (current.isSanitizer) continue;
-
       for (const neighbor of current.edges) {
         if (!neighbor.tainted) {
           neighbor.tainted = true;
@@ -440,14 +435,15 @@ export class DataFlowGraph {
 
     for (const node of this.nodes.values()) {
       if (node.isSink && node.tainted) {
-        // Find the source node(s)
-        const sourceNodes = Array.from(node.taintSources).map(id => this.nodes.get(id)).filter(Boolean);
-        const primarySource = sourceNodes[0];
+        // Find all unique original sources
+        const sourceObjs = Array.from(node.taintSources);
+        const primarySource = sourceObjs[0];
+        const sourcesDescription = sourceObjs.map(s => s.description || s.id).join(', ');
         
         // Find sanitizers in the path (nodes that are sanitizers but were bypassed)
         const sanitizersInPath: Sanitizer[] = [];
         for (const [nodeId, nodeData] of this.nodes.entries()) {
-          if (nodeData.isSanitizer && node.taintSources.has(nodeId)) {
+          if (nodeData.isSanitizer && Array.from(node.taintSources).some(s => s.id === nodeId)) {
             // Use the actual detected sanitizer if available, otherwise create a default one
             if (nodeData.detectedSanitizer) {
               sanitizersInPath.push(nodeData.detectedSanitizer);
@@ -463,25 +459,26 @@ export class DataFlowGraph {
                 },
                 info: nodeData.infoSanitizer || 'Unknown sanitizer',
                 effectiveness: 0.8,
-                key: nodeId
+                key: nodeId,
+                filePath: nodeData.astNode.filePath || filePath || ''
               });
             }
           }
         }
 
         // Use the actual detected source if available
-        const actualSource = primarySource?.detectedSource;
-        const sourceObj: Source = actualSource || {
-          id: `source-${primarySource?.id || 'unknown'}`,
+        const sourceObj: Source = primarySource || {
+          id: `source-unknown`,
           type: 'source',
           pattern: '.*',
           description: 'User input source',
           loc: {
-            start: { line: primarySource?.astNode?.loc?.start?.line || 1, column: primarySource?.astNode?.loc?.start?.column || 0 },
-            end: { line: primarySource?.astNode?.loc?.end?.line || primarySource?.astNode?.loc?.start?.line || 1, column: primarySource?.astNode?.loc?.end?.column || (primarySource?.astNode?.loc?.start?.column || 0) + 10 }
+            start: { line: 1, column: 0 },
+            end: { line: 1, column: 10 }
           },
           severity: 'high',
-          key: primarySource?.id || 'unknown'
+          key: 'unknown',
+          filePath: filePath || ''
         };
 
         // Use the actual detected sink if available
@@ -497,7 +494,8 @@ export class DataFlowGraph {
           },
           info: node.infoSink || 'Dangerous operation',
           vulnerabilityType: VulnerabilityType.GENERIC,
-          severity: Severity.HIGH
+          severity: Severity.HIGH,
+          filePath: node.astNode.filePath || filePath || ''
         };
 
         const vuln: DataFlowVulnerability = {
@@ -507,11 +505,11 @@ export class DataFlowGraph {
           message: `Tainted data reaches sink: ${node.name}`,
           file: filePath || "unknown",
           rule: "TAINTED_SINK",
-          description: `${node.name} is a sink and receives tainted input from: ${Array.from(node.taintSources).join(", ")}`,
+          description: `${node.name} is a sink and receives tainted input from: ${sourcesDescription}`,
           recommendation: "Sanitize input before passing it to sensitive operations like this sink.",
           
           // Flow information with location data
-          source: sourceObj,
+          sources: sourceObjs,
           sink: sinkObj,
           sanitizers: sanitizersInPath,
           
@@ -519,11 +517,11 @@ export class DataFlowGraph {
           isVulnerable: node.tainted && sanitizersInPath.length === 0,
           
           // Path lines using actual location information
-          pathLines: [sourceObj.loc.start.line, sinkObj.loc.start.line],
+          pathLines: [sourceObjs[0]?.loc?.start?.line || 1, sinkObj.loc.start.line],
           
           ai: {
             confidenceScore: 0.95,
-            shortExplanation: `The variable '${node.name}' is influenced by user input and reaches a critical operation.`,
+            shortExplanation: `The variable '${node.name}' is influenced by user input and reaches a critical operation. Source(s): ${sourcesDescription}`,
             exploitExample: `os.system(user_input)`,
             remediation: `Use whitelist or strict validation before passing input to '${node.name}'`,
           }
@@ -614,7 +612,7 @@ export class DataFlowGraph {
 
           // Print taint info if applicable
           if (node.tainted) {
-              console.log(`${indent}  ${chalk.red(`[TAINTED: ${Array.from(node.taintSources).join(', ')}]`)}`);
+              console.log(`${indent}  ${chalk.red(`[TAINTED: ${Array.from(node.taintSources).map(s => s.id).join(', ')}]`)}`);
           }
 
           // Print sanitizer info if applicable
@@ -715,7 +713,7 @@ export class DataFlowGraph {
     
     // Step 3: Propagate taint from all detected sources
     for (const source of Object.values(uniqueSources)) {
-      this.propagateTaint(source.key);
+      this.propagateTaint(source);
     }
     // Step 3b: Propagate taint from initial tainted variables (cross-file)
     if (initialTaintedVars) {
@@ -724,10 +722,11 @@ export class DataFlowGraph {
         for (const node of this.nodes.values()) {
           if (node.name === varName) {
             node.tainted = true;
-            node.taintSources = node.taintSources || new Set();
-            node.taintSources.add('cross-file');
-            // Optionally propagate taint from this node
-            this.propagateTaint(node.id);
+            // Only add detectedSource if available
+            if (node.detectedSource) {
+              node.taintSources = new Set([node.detectedSource]);
+              this.propagateTaint(node.detectedSource);
+            }
           }
         }
       }

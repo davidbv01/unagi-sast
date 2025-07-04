@@ -21,7 +21,7 @@ export class SanitizerDetector {
   public detectSanitizer(node: AstNode, varName: String = ""): Sanitizer | null {
     if (node.type === 'call') {
       const rules = this.ruleLoader.getAllRules() as SanitizerRule[];
-      const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers');
+      const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers', node.filePath || '');
       const detectedItem = DetectorUtils.detectItem(node, sanitizers);
       const key = DetectorUtils.createKey(node.scope,varName);
       
@@ -65,5 +65,15 @@ export class SanitizerDetector {
 
   public reloadRules(): void {
     this.ruleLoader.reloadRules();
+  }
+
+  public getAllSanitizers(): Sanitizer[] {
+    const rules = this.ruleLoader.getAllRules() as SanitizerRule[];
+    const sanitizers = DetectorUtils.getAllItems(rules, 'sanitizers', '');
+    return sanitizers.map(sanitizer => ({
+      ...sanitizer,
+      effectiveness: this.getEffectivenessForSanitizer(sanitizer.id, rules),
+      info: '',
+    }));
   }
 } 

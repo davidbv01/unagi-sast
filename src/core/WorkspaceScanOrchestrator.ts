@@ -7,44 +7,6 @@ import { FileUtils } from '../utils';
 import { OutputManager } from '../output/OutputManager';
 import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
 import * as path from 'path';
-
-/**
- * WorkspaceScanOrchestrator - Advanced workspace-wide security analysis
- * 
- * This class provides comprehensive static analysis capabilities across an entire workspace,
- * building cross-file symbol tables and data flow graphs for enhanced security scanning.
- * 
- * Key Features:
- * - Multi-file AST parsing and analysis
- * - Global symbol table construction for cross-file reference resolution
- * - Data flow graph generation with cross-file context
- * - Support for multiple programming languages
- * 
- * Usage Example:
- * ```typescript
- * const orchestrator = new WorkspaceScanOrchestrator();
- * await orchestrator.run('/path/to/workspace');
- * 
- * // Access analysis results
- * const symbolTable = orchestrator.getSymbolTable();
- * const astForFile = orchestrator.getAstForFile('src/main.py');
- * const dfgForFile = orchestrator.getDataFlowGraphForFile('src/main.py');
- * 
- * // Search for specific symbols
- * const mainFunctions = orchestrator.findSymbol('main');
- * const fileSymbols = orchestrator.findSymbolsInFile('src/utils.py');
- * ```
- * 
- * Analysis Pipeline:
- * 1. Discover all supported source files in the workspace
- * 2. Parse each file into an Abstract Syntax Tree (AST)
- * 3. Build a global symbol table from all ASTs (first pass)
- * 4. Generate data flow graphs for each file with cross-file context (second pass)
- */
-
-// Symbol table entry for cross-file analysis
-
-
   
 export class WorkspaceScanOrchestrator {
   private parser: ASTParser;
@@ -184,147 +146,88 @@ export class WorkspaceScanOrchestrator {
 
   /**
    * Analyze data flow vulnerabilities with cross-file propagation
+   * @returns All detected data flow vulnerabilities in the workspace
    */
   public analyzeWorkspaceDataFlowWithCrossFile(workspaceRoot: string): DataFlowVulnerability[] {
-    console.log('🔍 Analyzing workspace data flow with cross-file propagation...');
-    
     const allVulnerabilities: DataFlowVulnerability[] = [];
-    
-    // Step 1: Analyze each file individually to find in-file vulnerabilities and identify tainted nodes
-    console.log('📋 Step 1: Individual file analysis...');
+
+    // Step 1: Analyze each file individually for in-file vulnerabilities
     for (const [filePath, dfg] of this.graphs) {
       try {
         const ast = this.asts.get(filePath);
         if (!ast) continue;
-        
-        console.log(`🔍 Analyzing individual file: ${filePath}`);
         const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
         const content = require('fs').readFileSync(absolutePath, 'utf8');
         const patternVulnerabilities: PatternVulnerability[] = this.ruleEngine.getPatternMatcher().matchPatterns(content) || [];
         const fileVulnerabilities = dfg.performCompleteAnalysis(ast);
-        fileVulnerabilities.forEach(vuln => {
-          vuln.file = absolutePath;
-        });
         allVulnerabilities.push(...fileVulnerabilities);
-        console.log(`✅ Found ${fileVulnerabilities.length} in-file vulnerabilities in ${filePath}`);
-        
       } catch (error) {
-        console.error(`❌ Error analyzing file ${filePath}:`, error);
+        // Optionally log or handle errors in production
       }
     }
-    
-    // Step 2: Cross-file taint propagation
-    console.log('🔗 Step 2: Cross-file taint propagation...');
+
+    // Step 2: Propagate taint across files and analyze resulting vulnerabilities
     let crossFileConnections = 0;
-    
     for (const [sourceFilePath, sourceDfg] of this.graphs) {
-      console.log(`[DEBUG] Checking file: ${sourceFilePath}, nodes: ${sourceDfg.nodes.size}`);
-      // Find nodes with cross-file edges that are tainted
       for (const [nodeId, node] of sourceDfg.nodes) {
-        console.log(`[DEBUG] Node ${nodeId}: tainted=${node.tainted}, hasEdge=${!!node.crossFileEdge}`);
         if (node.tainted && node.crossFileEdge) {
           const targetFilePath = node.crossFileEdge.to;
           const functionName = node.crossFileEdge.function;
-        
-          console.log(`🔗 Cross-file taint: ${sourceFilePath} -> ${targetFilePath} via ${functionName}`);
-        
-          // Convert absolute path to relative path for lookup
           const targetRelativePath = vscode.workspace.asRelativePath(targetFilePath);
-          console.log(`[DEBUG] Converting absolute path ${targetFilePath} to relative path ${targetRelativePath}`);
-        
-          // Get the target DFG using relative path
           const targetDfg = this.graphs.get(targetRelativePath);
           const targetAst = this.asts.get(targetRelativePath);
-          
+
           if (targetDfg && targetAst) {
-            console.log('[DEBUG] targetDfg.nodes.size:', targetDfg.nodes.size);
-            console.log('[DEBUG] Nodos en DFG destino:', Array.from(targetDfg.nodes.entries()).map(([id, n]) => ({
-              id: id, name: n.name, scope: n.symbol?.scope, tainted: n.tainted, isSink: n.isSink
-            })));
-            console.log('[DEBUG] Buscando parámetros para función:', functionName);
-            
-            // Find the function definition in the symbol table to get actual parameters
-            console.log('[DEBUG] Buscando función en symbol table:', functionName, 'en archivo:', targetRelativePath);
-            console.log('[DEBUG] Symbol table entries:', Array.from(this.symbolTable.entries()).map(([key, sym]) => ({
-              key, name: sym.name, type: sym.type, filePath: sym.filePath, parameters: sym.parameters
-            })));
-            
+            // Find the function symbol in the target file
             const functionSymbol = Array.from(this.symbolTable.values()).find(sym => 
               sym.name === functionName && sym.type === 'function' && sym.filePath === targetRelativePath
             );
-            
-            console.log('[DEBUG] Función encontrada:', !!functionSymbol, functionSymbol);
-            
+
+            // Identify parameter nodes for the function
             let parameterNodes: any[] = [];
             if (functionSymbol && functionSymbol.parameters) {
-              // Only look for actual function parameters, not all variables in scope
               parameterNodes = functionSymbol.parameters.map(paramName => {
                 const paramNodeId = `${functionName}_${paramName}`;
-                console.log('[DEBUG] Buscando nodo parámetro:', paramNodeId);
                 return targetDfg.nodes.get(paramNodeId);
               }).filter(Boolean);
-              console.log('[DEBUG] Función encontrada con parámetros:', functionSymbol.parameters);
             } else {
-              // Fallback: look for nodes with the function_parameter pattern
-              // Pattern should be: functionName_parameterName
               parameterNodes = Array.from(targetDfg.nodes.values()).filter(n => 
                 n.id.startsWith(`${functionName}_`) && 
-                !n.id.includes('_return') && // Exclude function return nodes
-                n.symbol?.scope === functionName // Must be in function scope
+                !n.id.includes('_return') &&
+                n.symbol?.scope === functionName
               );
             }
-            console.log('[DEBUG] Parámetros reales encontrados:', parameterNodes.length, parameterNodes.map(n => n?.name));
-            
+
+            // Mark parameters as tainted and propagate taint
             for (const paramNode of parameterNodes) {
-              console.log('[DEBUG] Procesando parámetro:', paramNode.name, 'tainted:', paramNode.tainted);
               if (!paramNode.tainted) {
                 paramNode.tainted = true;
-                paramNode.taintSources.add(`cross-file-from-${sourceFilePath}`);
-                console.log(`🔗 Marked parameter ${paramNode.name} as tainted from cross-file call`);
-                
-                // Propagate taint from this parameter
-                targetDfg.propagateTaint(paramNode.id);
+                // Propaga todos los sources originales del nodo de origen:
+                if (node.taintSources && node.taintSources.size > 0) {
+                  paramNode.taintSources = new Set(node.taintSources);
+                  for (const src of node.taintSources) {
+                    targetDfg.propagateTaint(src);
+                  }
+                }
                 crossFileConnections++;
               }
             }
-            
-            // Debug: Print node states after taint propagation
-            console.log(`[DEBUG] Node states after cross-file taint propagation:`);
-            for (const [nodeId, nodeData] of targetDfg.nodes) {
-              console.log(`[DEBUG]   ${nodeId}: tainted=${nodeData.tainted}, isSink=${nodeData.isSink}, taintSources=[${Array.from(nodeData.taintSources).join(', ')}]`);
-            }
-            
-            // Re-analyze the target file for new vulnerabilities
+
+            // Analyze the target file for new vulnerabilities after taint propagation
             const crossFileVulns = targetDfg.detectVulnerabilities(targetRelativePath);
-            console.log(`[DEBUG] Found ${crossFileVulns.length} total vulnerabilities in target file after cross-file taint`);
-            
-            // For now, include all vulnerabilities found after cross-file taint propagation
-            // since any vulnerability at this point should involve the tainted data
             const newVulns = crossFileVulns;
-            
             newVulns.forEach(vuln => {
               vuln.id = `cross-file-${vuln.id}`;
               vuln.message = `Cross-file vulnerability: ${vuln.message} (originated from ${sourceFilePath})`;
-              // Ensure absolute path for cross-file vulnerabilities
-              vuln.file = path.isAbsolute(targetFilePath) ? targetFilePath : path.join(workspaceRoot, targetFilePath);
             });
-            
             allVulnerabilities.push(...newVulns);
-            
-            if (newVulns.length > 0) {
-              console.log(`🚨 Found ${newVulns.length} cross-file vulnerabilities in ${targetRelativePath}`);
-            }
           }
         }
       }
     }
-    
-    console.log(`🔗 Total cross-file connections made: ${crossFileConnections}`);
-    console.log(`📊 Total vulnerabilities found: ${allVulnerabilities.length}`);
-    
-    // Cache the results
+
+    // Cache and return all vulnerabilities
     this.cachedVulnerabilities = allVulnerabilities;
-    
     return allVulnerabilities;
   }
 

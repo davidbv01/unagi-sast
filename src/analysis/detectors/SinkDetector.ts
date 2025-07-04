@@ -23,7 +23,7 @@ export class SinkDetector {
   public detectSink(node: AstNode, varName: String = ""): Sink | null {
     if (node.type === 'call') {
       const rules = this.ruleLoader.getAllRules() as SinkRule[];
-      const sinks = DetectorUtils.getAllItems(rules, 'sinks');
+      const sinks = DetectorUtils.getAllItems(rules, 'sinks', node.filePath || '');
       const detectedItem = DetectorUtils.detectItem(node, sinks);
       const key = DetectorUtils.createKey(node.scope, varName);
       
@@ -66,5 +66,16 @@ export class SinkDetector {
 
   public reloadRules(): void {
     this.ruleLoader.reloadRules();
+  }
+
+  public getAllSinks(): Sink[] {
+    const rules = this.ruleLoader.getAllRules() as SinkRule[];
+    const sinks = DetectorUtils.getAllItems(rules, 'sinks', '');
+    return sinks.map(sink => ({
+      ...sink,
+      severity: this.getSeverityForSink(sink.id, rules),
+      vulnerabilityType: this.getVulnerabilityTypeForSink(sink.id, rules),
+      info: '',
+    }));
   }
 } 

@@ -71,7 +71,7 @@ export class SecurityRuleEngine {
                           severity: dfv.severity,
                           message: dfv.message,
                           file: dfv.file,
-                          line: dfv.source.id === 'unknown' ? 0 : 1, // Default line
+                          line: dfv.sources[0].id === 'unknown' ? 0 : 1, // Default line
                           column: 0, // Default column
                           rule: dfv.rule,
                           description: dfv.description,

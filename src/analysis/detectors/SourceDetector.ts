@@ -20,7 +20,7 @@ export class SourceDetector {
   public detectSource(node: AstNode, varName: String = ""): Source | null {
     if (node.type === 'call' || node.type === 'expression_statement' || node.type == 'return_statement') {
       const rules = this.ruleLoader.getAllRules() as SourceRule[];
-      const sources = DetectorUtils.getAllItems(rules, 'sources');
+      const sources = DetectorUtils.getAllItems(rules, 'sources', node.filePath || '');
       const detectedItem = DetectorUtils.detectItem(node, sources);
       const key = DetectorUtils.createKey(node.scope,varName)
 
@@ -51,7 +51,7 @@ export class SourceDetector {
 
   public getAllSources(): Source[] {
     const rules = this.ruleLoader.getAllRules() as SourceRule[];
-    const sources = DetectorUtils.getAllItems(rules, 'sources');
+    const sources = DetectorUtils.getAllItems(rules, 'sources', '');
     return sources.map(source => ({
       ...source,
       severity: this.getSeverityForSource(source.id, rules)

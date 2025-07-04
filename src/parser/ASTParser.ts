@@ -20,8 +20,8 @@ export class ASTParser {
       this.tree = this.parser.parse(content);
       const rootNode = this.tree.rootNode;
       
-      // Return the AST structure with functions and content included
-      const ast = this.nodeToDict(rootNode, content);
+      // Pass fileName to nodeToDict so every node gets filePath
+      const ast = this.nodeToDict(rootNode, content, [], fileName);
       const symbols = this.extractSymbols(ast, fileName);
       const contentWithoutComments = this.removeComments(content);
       ast.symbols = symbols; 
@@ -35,7 +35,7 @@ export class ASTParser {
     }
   }
 
-  private nodeToDict(node: Parser.SyntaxNode, content?: string, scopeStack: string[] = []): any {
+  private nodeToDict(node: Parser.SyntaxNode, content?: string, scopeStack: string[] = [], filePath?: string): any {
     const nodeId = this.nodeCounter++; // Generate a unique incremental ID
 
     // Detect different scope types
@@ -48,7 +48,8 @@ export class ASTParser {
     }
     const currentScope = newScopeStack.join("::") || "global";
 
-    const children = node.namedChildren.map(child => this.nodeToDict(child, content, newScopeStack));
+    // Pass filePath down to children
+    const children = node.namedChildren.map(child => this.nodeToDict(child, content, newScopeStack, filePath));
 
     // Get raw positions from tree-sitter
     const startRow = node.startPosition.row;
@@ -119,7 +120,7 @@ export class ASTParser {
       },
       symbols: [],
       content: '',
-      filePath: ''
+      filePath: filePath || ''
     };
 
     // Add empty children array for leaf nodes

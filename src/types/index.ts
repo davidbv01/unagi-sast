@@ -68,7 +68,7 @@ export interface DataFlowVulnerability {
   recommendation: string;
 
   // Información del flujo
-  source: Source;
+  sources: Source[];
   sink: Sink;
   sanitizers: Sanitizer[];
 

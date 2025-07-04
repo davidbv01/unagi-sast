@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability } from '../types';
 import { AnalysisResult } from '../rules/SecurityRuleEngine';
 import * as fs from 'fs';
+import type { Source } from '../analysis/detectors';
 
 export class OutputManager {
   private outputChannel: vscode.OutputChannel;
@@ -121,22 +122,23 @@ export class OutputManager {
       diagnostic.source = 'Unagi SAST - DataFlow';  
       diagnostic.code = dfv.type;
 
-    // Add related information for source, sink, and sanitizers
+    // Add related information for all sources, sink, and sanitizers
     const relatedInfo: vscode.DiagnosticRelatedInformation[] = [];
-    if (dfv.source && dfv.source.loc) {
-      const srcLoc = dfv.source.loc;
-      relatedInfo.push(new vscode.DiagnosticRelatedInformation(
-        new vscode.Location(
-          vscode.Uri.file(dfv.file),
-          new vscode.Range(
-            srcLoc.start.line - 1,
-            srcLoc.start.column,
-            srcLoc.end.line - 1,
-            srcLoc.end.column
-          )
-        ),
-        `Source: ${dfv.source.description}`
-      ));
+    if (dfv.sources && dfv.sources.length > 0) {
+      for (const src of dfv.sources) {
+        if (src.loc) {
+          relatedInfo.push(new vscode.DiagnosticRelatedInformation(
+            new vscode.Location(
+              vscode.Uri.file(src.filePath),
+              new vscode.Range(
+                new vscode.Position(src.loc.start.line - 1, src.loc.start.column),
+                new vscode.Position(src.loc.end.line - 1, src.loc.end.column)
+              )
+            ),
+            `Source: ${src.description || src.id}`
+          ));
+        }
+      }
     }
     if (dfv.sink && dfv.sink.loc) {
       const sinkLoc = dfv.sink.loc;
@@ -319,7 +321,7 @@ export class OutputManager {
     ];
     
     // Extract sources, sinks, and sanitizers from data flow vulnerabilities
-    const sources = dataFlowVulnerabilities.map(dfv => dfv.source);
+    const sources = dataFlowVulnerabilities.map(dfv => dfv.sources[0]);
     const sinks = dataFlowVulnerabilities.map(dfv => dfv.sink);
     const sanitizers = dataFlowVulnerabilities.flatMap(dfv => dfv.sanitizers);
     return `
@@ -354,19 +356,22 @@ export class OutputManager {
             ${allVulnerabilities.length === 0 ? '<p>No vulnerabilities found.</p>' : `
               <table>
                 <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
-                ${allVulnerabilities.map((vuln: any) => `
-                  <tr>
-                    <td>${vuln.type}</td>
-                    <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>
-                    <td>${vuln.message}</td>
-                    <td>${vuln.line ?? ''}</td>
-                    <td>${vuln.description ?? ''}</td>
-                    <td>${vuln.ai && vuln.ai.confidenceScore !== undefined ? (vuln.ai.confidenceScore * 100).toFixed(0) + '%' : '-'}</td>
-                    <td>${vuln.ai && vuln.ai.shortExplanation ? vuln.ai.shortExplanation : '-'}</td>
-                    <td>${vuln.ai && vuln.ai.exploitExample ? vuln.ai.exploitExample : '-'}</td>
-                    <td>${vuln.ai && vuln.ai.remediation ? vuln.ai.remediation : '-'}</td>
-                  </tr>
-                `).join('')}
+                ${allVulnerabilities.map((vuln: any) => {
+                  const sourcesText = vuln.sources ? vuln.sources.map((s: Source) => s.description || s.id).join(', ') : '';
+                  return `
+                    <tr>
+                      <td>${vuln.type}</td>
+                      <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>
+                      <td>${vuln.message}</td>
+                      <td>${vuln.line ?? ''}</td>
+                      <td>${vuln.description ?? ''}</td>
+                      <td>${vuln.ai && vuln.ai.confidenceScore !== undefined ? (vuln.ai.confidenceScore * 100).toFixed(0) + '%' : '-'}</td>
+                      <td>${vuln.ai && vuln.ai.shortExplanation ? vuln.ai.shortExplanation : '-'}</td>
+                      <td>${vuln.ai && vuln.ai.exploitExample ? vuln.ai.exploitExample : '-'}</td>
+                      <td>${vuln.ai && vuln.ai.remediation ? vuln.ai.remediation : '-'}</td>
+                    </tr>
+                  `;
+                }).join('')}
               </table>
             `}
           </div>

@@ -10,6 +10,7 @@ export interface BaseDetectorItem {
     start: { line: number, column: number },
     end: { line: number, column: number }
   }
+  filePath: string;
 }
 
 export interface BaseRule extends Rule {
@@ -38,8 +39,15 @@ export class DetectorUtils {
 
   /**
    * Gets all items of a specific type from rules
+   * @param rules The rules array
+   * @param itemType The type of items to extract (sources, sinks, sanitizers)
+   * @param filePath The file path to assign to each item
    */
-  public static getAllItems(rules: BaseRule[], itemType: 'sources' | 'sinks' | 'sanitizers'): BaseDetectorItem[] {
+  public static getAllItems(
+    rules: BaseRule[],
+    itemType: 'sources' | 'sinks' | 'sanitizers',
+    filePath: string = ''
+  ): BaseDetectorItem[] {
     const items: BaseDetectorItem[] = [];
     for (const rule of rules) {
       const ruleItems = rule[itemType] || [];
@@ -52,7 +60,8 @@ export class DetectorUtils {
           loc: {
             start: { line: 0, column: 0 },
             end: { line: 0, column: 0 }
-          }
+          },
+          filePath: item.filePath || filePath || ''
         });
       }
     }
