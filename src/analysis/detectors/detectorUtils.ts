@@ -1,14 +1,16 @@
 import { BaseDetectorItem, BaseRule } from '../../types';
 
 /**
- * Common utility functions for source, sink, and sanitizer detection
+ * Common utility functions for source, sink, and sanitizer detection.
  */
 export class DetectorUtils {
-
   /**
-   * Detects if a node matches any of the given patterns
+   * Detects if a node matches any of the given patterns.
+   * @param node The AST node or object with a 'text' property.
+   * @param items The list of detector items to match against.
+   * @returns The matching item, or null if none match.
    */
-  public static detectItem(node: any, items: BaseDetectorItem[]): BaseDetectorItem | null {
+  public static detectItem(node: { text: string }, items: BaseDetectorItem[]): BaseDetectorItem | null {
     for (const item of items) {
       const regex = new RegExp(item.pattern);
       if (regex.test(node.text)) {
@@ -19,10 +21,11 @@ export class DetectorUtils {
   }
 
   /**
-   * Gets all items of a specific type from rules
-   * @param rules The rules array
-   * @param itemType The type of items to extract (sources, sinks, sanitizers)
-   * @param filePath The file path to assign to each item
+   * Gets all items of a specific type from rules.
+   * @param rules The rules array.
+   * @param itemType The type of items to extract ('sources', 'sinks', 'sanitizers').
+   * @param filePath The file path to assign to each item.
+   * @returns Array of detector items with file path and info.
    */
   public static getAllItems(
     rules: BaseRule[],
@@ -51,18 +54,15 @@ export class DetectorUtils {
   }
 
   /**
-   * Creates a unique key combining scope and variable name
-   * @param scope The scope where the variable is defined
-   * @param astId The AST node ID to look up
-   * @returns Formatted key "{scope}_{variableName}" or empty string if variable not found
+   * Creates a unique key combining scope and variable name.
+   * @param scope The scope where the variable is defined.
+   * @param varName The variable name.
+   * @returns Formatted key "{scope}_{variableName}" or empty string if variable not found.
    */
-  public static createKey(scope: String, varName: String): string {
-      
-      // Return empty string if variable name is undefined or empty
-      if (!varName || varName.trim() === "") {
-          return "";
-      }
-      
-      return `${scope}_${varName}`;
+  public static createKey(scope: string, varName: string): string {
+    if (!varName || varName.trim() === "") {
+      return "";
+    }
+    return `${scope}_${varName}`;
   }
 } 

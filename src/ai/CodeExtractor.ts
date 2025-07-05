@@ -1,8 +1,15 @@
 import { FunctionExtraction, DataFlowCodeExtraction } from '../types';
 
+/**
+ * Utility class for extracting code snippets and function contexts for AI analysis.
+ */
 export class CodeExtractor {
   /**
    * Extracts the full source code of a function from the file given its line range.
+   * @param fileContent The file content as an array of lines.
+   * @param func The function object with name, startLine, and endLine.
+   * @param filePath The file path.
+   * @returns The extracted function information.
    */
   private static extractFunctionSource(
     fileContent: string[],
@@ -20,10 +27,14 @@ export class CodeExtractor {
     };
   }
 
-  
   /**
    * Extracts the source code of all Python functions that contain any of the involved lines.
    * The full context will include the source code of these functions.
+   * @param filePath The file path.
+   * @param lines The involved line numbers.
+   * @param functions The list of function objects.
+   * @param fileContent The file content as a string.
+   * @returns The extracted data flow code context.
    */
   public static extractDataFlowCode(
     filePath: string,
@@ -33,24 +44,17 @@ export class CodeExtractor {
   ): DataFlowCodeExtraction {
     try {
       const fileLines = fileContent.split('\n');
-
-      // Get unique line numbers
       const uniqueLines = Array.from(new Set(lines));
-
-      // Find all functions that contain any of the involved lines
       const involvedFunctions = functions.filter(fn =>
         uniqueLines.some(line => line >= fn.startLine && line <= fn.endLine)
       );
-
-      // Extract the full source code of those functions
       const fullContext = involvedFunctions
         .map(fn => this.extractFunctionSource(fileLines, fn, filePath).sourceCode)
         .join('\n\n');
-
       return {
         sourceFunction: undefined,
         sinkFunction: undefined,
-        sanitizerFunctions: [], // not used in this version
+        sanitizerFunctions: [],
         involvedLines: uniqueLines,
         fullContext,
         filePath

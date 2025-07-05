@@ -4,25 +4,31 @@ import * as yaml from 'js-yaml';
 import * as vscode from 'vscode';
 import { Rule } from '../../types';
 
-
+/**
+ * Loads and manages security rules from YAML files for Unagi SAST.
+ * Implements a singleton pattern per rules directory.
+ */
 export class RuleLoader {
-  private static instances: Map<string, RuleLoader> = new Map();
-  protected rules: Map<string, Rule> = new Map();
-  protected rulesDirectory: string;
+  private static readonly instances: Map<string, RuleLoader> = new Map();
+  protected readonly rules: Map<string, Rule> = new Map();
+  protected readonly rulesDirectory: string;
 
-  // Make constructor private to enforce singleton usage
+  /**
+   * Private constructor to enforce singleton usage.
+   * @param rulesDirectory The directory containing rule YAML files.
+   */
   private constructor(rulesDirectory: string) {
-    // Get the extension's root directory
     const extensionRoot = vscode.extensions.getExtension('your-publisher-name.unagi')?.extensionPath || path.resolve(__dirname, '..', '..', '..');
-    
-    // Use only the out directory path
     this.rulesDirectory = path.join(extensionRoot, 'out', 'analysis', 'rules', rulesDirectory);
-    
     console.log(`[DEBUG] 📂 Using rules directory: ${this.rulesDirectory}`);
     this.loadRules();
   }
 
-  // Singleton accessor for each rulesDirectory
+  /**
+   * Singleton accessor for each rulesDirectory.
+   * @param rulesDirectory The directory containing rule YAML files.
+   * @returns The RuleLoader instance for the directory.
+   */
   public static getInstance(rulesDirectory: string): RuleLoader {
     if (!this.instances.has(rulesDirectory)) {
       this.instances.set(rulesDirectory, new RuleLoader(rulesDirectory));
@@ -30,25 +36,23 @@ export class RuleLoader {
     return this.instances.get(rulesDirectory)!;
   }
 
+  /**
+   * Loads all rules from the rules directory.
+   */
   protected loadRules(): void {
     try {
       console.log(`[DEBUG] 📂 Loading rules from directory: ${this.rulesDirectory}`);
-      
       if (!fs.existsSync(this.rulesDirectory)) {
         console.error(`[ERROR] Rules directory does not exist: ${this.rulesDirectory}`);
         return;
       }
-
       const files = fs.readdirSync(this.rulesDirectory);
-
       for (const file of files) {
         if (file.endsWith('.yaml') || file.endsWith('.yml')) {
           try {
             const filePath = path.join(this.rulesDirectory, file);
-            
             const fileContent = fs.readFileSync(filePath, 'utf8');
             const rule = yaml.load(fileContent) as Rule;
-            
             if (this.validateRule(rule)) {
               this.rules.set(rule.id, rule);
             } else {
@@ -59,7 +63,6 @@ export class RuleLoader {
           }
         }
       }
-
       console.log(`[DEBUG] 📊 Loaded ${this.rules.size} rules successfully`);
     } catch (error) {
       console.error('[ERROR] Failed to load rules:', error);
@@ -67,25 +70,31 @@ export class RuleLoader {
     }
   }
 
+  /**
+   * Validates a rule object to ensure it meets the required structure.
+   * @param rule The rule object to validate.
+   * @returns True if valid, false otherwise.
+   */
   protected validateRule(rule: any): rule is Rule {
     const requiredFields = ['id', 'name', 'description', 'severity', 'type'];
     const missingFields = requiredFields.filter(field => !(field in rule));
-    
     if (missingFields.length > 0) {
       console.error(`[ERROR] Rule validation failed. Missing fields: ${missingFields.join(', ')}`);
       return false;
     }
-
-    // Check for at least one of the rule type fields
     const hasRuleContent = rule.patterns || rule.sources || rule.sinks || rule.sanitizers;
     if (!hasRuleContent) {
       console.error('[ERROR] Rule validation failed. Rule must have at least one of: patterns, sources, sinks, or sanitizers');
       return false;
     }
-
     return true;
   }
 
+  /**
+   * Retrieves a rule by its ID.
+   * @param id The rule ID.
+   * @returns The Rule object, or undefined if not found.
+   */
   public getRule(id: string): Rule | undefined {
     const rule = this.rules.get(id);
     if (!rule) {
@@ -94,10 +103,18 @@ export class RuleLoader {
     return rule;
   }
 
+  /**
+   * Retrieves all loaded rules.
+   * @returns Array of all Rule objects.
+   */
   public getAllRules(): Rule[] {
     return Array.from(this.rules.values());
   }
 
+  /**
+   * Adds a new rule to the loader.
+   * @param rule The Rule object to add.
+   */
   public addRule(rule: Rule): void {
     try {
       if (this.validateRule(rule)) {
@@ -109,6 +126,10 @@ export class RuleLoader {
     }
   }
 
+  /**
+   * Removes a rule by its ID.
+   * @param id The rule ID to remove.
+   */
   public removeRule(id: string): void {
     try {
       if (this.rules.delete(id)) {
@@ -121,6 +142,9 @@ export class RuleLoader {
     }
   }
 
+  /**
+   * Reloads all rules from the rules directory.
+   */
   public reloadRules(): void {
     try {
       console.log('[DEBUG] 🔄 Reloading rules');

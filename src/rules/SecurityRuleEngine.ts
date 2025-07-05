@@ -132,17 +132,6 @@ export class SecurityRuleEngine {
       }
   }
 
-  public reloadRules(): void {
-    try {
-      this.patternMatcher.reloadRules();
-      this.sinkDetector.reloadRules();
-      this.sanitizerDetector.reloadRules();
-    } catch (error) {
-      console.error('[ERROR] Failed to reload rules:', error);
-      vscode.window.showErrorMessage('Failed to reload security rules');
-    }
-  }
-
   public getSinkDetector(): SinkDetector {
     return this.sinkDetector;
   }

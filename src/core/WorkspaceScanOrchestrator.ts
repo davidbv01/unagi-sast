@@ -7,16 +7,22 @@ import { FileUtils } from '../utils';
 import { OutputManager } from '../output/OutputManager';
 import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
 import * as path from 'path';
-  
-export class WorkspaceScanOrchestrator {
-  private parser: ASTParser;
-  private asts: Map<string, AstNode>;
-  private symbolTable: Map<string, SymbolTableEntry>;
-  private graphs: Map<string, DataFlowGraph>;
-  private cachedVulnerabilities: DataFlowVulnerability[] | null = null;
-  private outputManager: OutputManager;
-  private ruleEngine: SecurityRuleEngine;
 
+/**
+ * Orchestrates workspace-wide scanning and analysis for security vulnerabilities.
+ */
+export class WorkspaceScanOrchestrator {
+  private readonly parser: ASTParser;
+  private readonly asts: Map<string, AstNode>;
+  private readonly symbolTable: Map<string, SymbolTableEntry>;
+  private readonly graphs: Map<string, DataFlowGraph>;
+  private cachedVulnerabilities: DataFlowVulnerability[] | null = null;
+  private readonly outputManager: OutputManager;
+  private readonly ruleEngine: SecurityRuleEngine;
+
+  /**
+   * Creates a new WorkspaceScanOrchestrator instance.
+   */
   constructor() {
     this.parser = new ASTParser();
     this.asts = new Map();
@@ -28,7 +34,9 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
-   * Discover all relevant source files in the workspace
+   * Discover all relevant source files in the workspace.
+   * @param workspaceRoot The root directory of the workspace.
+   * @returns Array of file paths.
    */
   public async discoverSourceFiles(workspaceRoot: string): Promise<string[]> {
     const supportedExtensions = FileUtils.getSupportedExtensions();
@@ -45,14 +53,11 @@ export class WorkspaceScanOrchestrator {
       '**/target/**',
       '**/.idea/**'
     ];
-
     const foundFiles: string[] = [];
-
     try {
       for (const pattern of patterns) {
         console.log(`🔍 Discovering files with pattern: ${pattern}`);
         const fileUris = await vscode.workspace.findFiles(pattern, `{${excludePatterns.join(',')}}`);
-        
         for (const uri of fileUris) {
           const filePath = uri.fsPath;
           if (FileUtils.isSupportedFile(filePath) && !FileUtils.shouldExcludeFile(filePath, excludePatterns)) {
@@ -60,7 +65,6 @@ export class WorkspaceScanOrchestrator {
           }
         }
       }
-
       console.log(`📁 Found ${foundFiles.length} source files`);
       return foundFiles;
     } catch (error) {
@@ -70,19 +74,17 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
-   * Parse all files to ASTs
+   * Parse all files to ASTs.
+   * @param filePaths Array of file paths to parse.
    */
   public async parseFilesToASTs(filePaths: string[]): Promise<void> {
     console.log(`🔄 Parsing ${filePaths.length} files to ASTs...`);
-    
     for (const filePath of filePaths) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
         const languageId = FileUtils.getLanguageFromExtension(filePath);
-        
         const ast = this.parser.parse(content, languageId, filePath);
         if (ast) {
-          // Store the relative path for cross-file references
           const relativePath = vscode.workspace.asRelativePath(filePath);
           ast.filePath = relativePath;
           this.asts.set(relativePath, ast);
@@ -94,23 +96,19 @@ export class WorkspaceScanOrchestrator {
         console.error(`❌ Error parsing ${filePath}:`, error);
       }
     }
-    
     console.log(`📊 Successfully parsed ${this.asts.size} ASTs`);
   }
 
   /**
-   * Build the global symbol table from all ASTs (first pass)
+   * Build the global symbol table from all ASTs (first pass).
    */
   public buildSymbolTable(): void {
     console.log('🔍 Building global symbol table...');
     this.symbolTable.clear();
-    // Combine symbols from all ASTs
     for (const [filePath, ast] of this.asts) {
       if ((ast as any).symbols && Array.isArray((ast as any).symbols)) {
         for (const symbol of (ast as any).symbols) {
-          // Log para verificar el filePath de cada símbolo
           console.log('[SYMBOL TABLE] Añadiendo símbolo:', symbol.name, 'en', symbol.filePath);
-          // Use a key like filePath:symbolName for uniqueness
           const symbolKey = `${filePath}:${symbol.name}`;
           this.symbolTable.set(symbolKey, symbol);
         }
@@ -120,37 +118,32 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
-   * Build DataFlowGraphs for all files (second pass)
+   * Build DataFlowGraphs for all files (second pass).
    */
   public buildDataFlowGraphs(): void {
     console.log('🔄 Building data flow graphs for all files...');
-    
     for (const [filePath, ast] of this.asts) {
       try {
-        // Create a new DataFlowGraph instance for each file
         const dfg = new DataFlowGraph();
         dfg.setSymbolTable(this.symbolTable);
         dfg.setCurrentFilePath(filePath);
         dfg.buildFromAst(ast);
-        
-        // Store the unique DFG instance for this file
         this.graphs.set(filePath, dfg);
         console.log(`✅ Built DFG for: ${filePath}`);
       } catch (error) {
         console.error(`❌ Error building DFG for ${filePath}:`, error);
       }
     }
-    
     console.log(`📊 Built ${this.graphs.size} data flow graphs`);
   }
 
   /**
-   * Analyze data flow vulnerabilities with cross-file propagation
-   * @returns All detected data flow vulnerabilities in the workspace
+   * Analyze data flow vulnerabilities with cross-file propagation.
+   * @param workspaceRoot The root directory of the workspace.
+   * @returns All detected data flow vulnerabilities in the workspace.
    */
   public analyzeWorkspaceDataFlowWithCrossFile(workspaceRoot: string): DataFlowVulnerability[] {
     const allVulnerabilities: DataFlowVulnerability[] = [];
-
     // Step 1: Analyze each file individually for in-file vulnerabilities
     for (const [filePath, dfg] of this.graphs) {
       try {
@@ -165,7 +158,6 @@ export class WorkspaceScanOrchestrator {
         // Optionally log or handle errors in production
       }
     }
-
     // Step 2: Propagate taint across files and analyze resulting vulnerabilities
     let crossFileConnections = 0;
     for (const [sourceFilePath, sourceDfg] of this.graphs) {
@@ -176,14 +168,10 @@ export class WorkspaceScanOrchestrator {
           const targetRelativePath = vscode.workspace.asRelativePath(targetFilePath);
           const targetDfg = this.graphs.get(targetRelativePath);
           const targetAst = this.asts.get(targetRelativePath);
-
           if (targetDfg && targetAst) {
-            // Find the function symbol in the target file
-            const functionSymbol = Array.from(this.symbolTable.values()).find(sym => 
+            const functionSymbol = Array.from(this.symbolTable.values()).find(sym =>
               sym.name === functionName && sym.type === 'function' && sym.filePath === targetRelativePath
             );
-
-            // Identify parameter nodes for the function
             let parameterNodes: any[] = [];
             if (functionSymbol && functionSymbol.parameters) {
               parameterNodes = functionSymbol.parameters.map(paramName => {
@@ -191,18 +179,15 @@ export class WorkspaceScanOrchestrator {
                 return targetDfg.nodes.get(paramNodeId);
               }).filter(Boolean);
             } else {
-              parameterNodes = Array.from(targetDfg.nodes.values()).filter(n => 
-                n.id.startsWith(`${functionName}_`) && 
+              parameterNodes = Array.from(targetDfg.nodes.values()).filter(n =>
+                n.id.startsWith(`${functionName}_`) &&
                 !n.id.includes('_return') &&
                 n.symbol?.scope === functionName
               );
             }
-
-            // Mark parameters as tainted and propagate taint
             for (const paramNode of parameterNodes) {
               if (!paramNode.tainted) {
                 paramNode.tainted = true;
-                // Propaga todos los sources originales del nodo de origen:
                 if (node.taintSources && node.taintSources.size > 0) {
                   paramNode.taintSources = new Set(node.taintSources);
                   for (const src of node.taintSources) {
@@ -212,8 +197,6 @@ export class WorkspaceScanOrchestrator {
                 crossFileConnections++;
               }
             }
-
-            // Analyze the target file for new vulnerabilities after taint propagation
             const crossFileVulns = targetDfg.detectVulnerabilities(targetRelativePath);
             const newVulns = crossFileVulns;
             newVulns.forEach(vuln => {
@@ -225,14 +208,14 @@ export class WorkspaceScanOrchestrator {
         }
       }
     }
-
-    // Cache and return all vulnerabilities
     this.cachedVulnerabilities = this.deduplicateVulnerabilities(allVulnerabilities);
     return this.cachedVulnerabilities;
   }
 
   /**
-   * Deduplicate DataFlowVulnerability objects by file, sink location, type, and sources
+   * Deduplicate DataFlowVulnerability objects by file, sink location, type, and sources.
+   * @param vulns Array of vulnerabilities to deduplicate.
+   * @returns Deduplicated array of vulnerabilities.
    */
   private deduplicateVulnerabilities(vulns: DataFlowVulnerability[]): DataFlowVulnerability[] {
     const seen = new Map<string, DataFlowVulnerability>();
@@ -246,7 +229,6 @@ export class WorkspaceScanOrchestrator {
       if (!seen.has(key)) {
         seen.set(key, vuln);
       } else {
-        // Optionally, merge sources or keep the one with more sources
         const existing = seen.get(key)!;
         if (vuln.sources.length > existing.sources.length) {
           seen.set(key, vuln);
@@ -257,73 +239,53 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
-   * Run the complete workspace analysis
+   * Run the complete workspace analysis.
+   * @param workspaceRoot The root directory of the workspace.
    */
   public async run(workspaceRoot: string): Promise<void> {
     const startTime = Date.now();
     console.log('🚀 Starting workspace-wide security analysis...');
     console.log(`📂 Workspace root: ${workspaceRoot}`);
-
     try {
-      // Step 1: Discover all source files
       const filePaths = await this.discoverSourceFiles(workspaceRoot);
-      
       if (filePaths.length === 0) {
         vscode.window.showInformationMessage('No supported source files found in workspace');
         return;
       }
-
-      // Step 2: Parse all files to ASTs
       await this.parseFilesToASTs(filePaths);
-
       if (this.asts.size === 0) {
         vscode.window.showWarningMessage('No files could be parsed successfully');
         return;
       }
-
-      // Step 3: Build global symbol table (first pass)
       this.buildSymbolTable();
-
-      // Step 4: Build data flow graphs for all files (second pass)
       this.buildDataFlowGraphs();
-
-      // Step 5: Analyze data flow vulnerabilities across the workspace
       const workspaceVulnerabilities = this.analyzeWorkspaceDataFlowWithCrossFile(workspaceRoot);
-
-      // Step 6: Aggregate results per file for output
       const scanResults: ScanResult[] = [];
       for (const [filePath, dfg] of this.graphs) {
         const dfgInstance = this.graphs.get(filePath);
         if (!dfgInstance) continue;
-        // Pattern vulnerabilities
         const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
         const content = require('fs').readFileSync(absolutePath, 'utf8');
         const patternVulnerabilities: PatternVulnerability[] = this.ruleEngine.getPatternMatcher().matchPatterns(content) || [];
-        // Data flow vulnerabilities (filter for this file)
         const dataFlowVulnerabilities: DataFlowVulnerability[] = workspaceVulnerabilities.filter(v => v.file === filePath || v.file === absolutePath);
-        // Ensure all vulnerabilities have absolute file paths
         dataFlowVulnerabilities.forEach(vuln => { vuln.file = absolutePath; });
         scanResults.push({
           file: absolutePath,
           patternVulnerabilities,
           dataFlowVulnerabilities,
-          scanTime: 0, // Could be measured per file if needed
+          scanTime: 0,
           linesScanned: content.split('\n').length,
           language: FileUtils.getLanguageFromExtension(filePath)
         });
       }
-      // Save and display results
       await this.outputManager.saveWorkspaceResults(scanResults);
       this.outputManager.displayWorkspaceResults(scanResults);
-
       const totalTime = Date.now() - startTime;
-      
       vscode.window.showInformationMessage(
         `Workspace analysis completed in ${(totalTime / 1000).toFixed(2)}s. ` +
         `Processed ${this.asts.size} files, found ${this.symbolTable.size} symbols, ` +
         `detected ${workspaceVulnerabilities.length} data flow vulnerabilities.`
       );
-
     } catch (error) {
       console.error('❌ Workspace analysis failed:', error);
       vscode.window.showErrorMessage(
@@ -333,70 +295,75 @@ export class WorkspaceScanOrchestrator {
   }
 
   /**
-   * Get the global symbol table
+   * Get the global symbol table.
+   * @returns The symbol table map.
    */
   public getSymbolTable(): Map<string, SymbolTableEntry> {
     return this.symbolTable;
   }
 
   /**
-   * Get AST for a specific file
+   * Get AST for a specific file.
+   * @param filePath The file path.
+   * @returns The AST node or undefined.
    */
   public getAstForFile(filePath: string): AstNode | undefined {
     return this.asts.get(filePath);
   }
 
   /**
-   * Get data flow graph for a specific file
+   * Get data flow graph for a specific file.
+   * @param filePath The file path.
+   * @returns The data flow graph or undefined.
    */
   public getDataFlowGraphForFile(filePath: string): DataFlowGraph | undefined {
     return this.graphs.get(filePath);
   }
 
   /**
-   * Find symbol by name across all files
+   * Find symbol by name across all files.
+   * @param symbolName The symbol name to search for.
+   * @returns Array of matching symbol table entries.
    */
   public findSymbol(symbolName: string): SymbolTableEntry[] {
     const results: SymbolTableEntry[] = [];
-    
-    for (const [key, symbol] of this.symbolTable) {
+    for (const [, symbol] of this.symbolTable) {
       if (symbol.name === symbolName) {
         results.push(symbol);
       }
     }
-    
     return results;
   }
 
   /**
-   * Find symbols in a specific file
+   * Find symbols in a specific file.
+   * @param filePath The file path.
+   * @returns Array of symbol table entries in the file.
    */
   public findSymbolsInFile(filePath: string): SymbolTableEntry[] {
     const results: SymbolTableEntry[] = [];
-    
     for (const symbol of this.symbolTable.values()) {
       if (symbol.filePath === filePath) {
         results.push(symbol);
       }
     }
-    
     return results;
   }
 
   /**
-   * Get workspace vulnerabilities after analysis
+   * Get workspace vulnerabilities after analysis.
+   * @returns Array of data flow vulnerabilities.
    */
   public getWorkspaceVulnerabilities(): DataFlowVulnerability[] {
     if (this.graphs.size === 0) {
       console.warn('⚠️ No data flow graphs available. Run workspace analysis first.');
       return [];
     }
-    
-    return this.analyzeWorkspaceDataFlowWithCrossFile(''); // You may want to pass the actual workspace root here if available
+    return this.analyzeWorkspaceDataFlowWithCrossFile('');
   }
 
   /**
-   * Clear all analysis data
+   * Clear all analysis data.
    */
   public clear(): void {
     this.asts.clear();

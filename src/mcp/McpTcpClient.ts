@@ -39,7 +39,8 @@ server.registerTool("scan_actual_file",
     title: "Scan Actual File",
     description: "Scan the specified file for security vulnerabilities",
     inputSchema: {
-      path: z.string().describe("Absolute path to the file to scan")
+      path: z.string().describe("Absolute path to the file to scan. Use the native format for your OS: " +
+      "e.g., 'C:/Users/yourname/file.py' on Windows, '/home/yourname/file.py' on Linux, or '/Users/yourname/file.py' on macOS.")
     }
   },
   async ({ path }) => {

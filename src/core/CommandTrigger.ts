@@ -3,35 +3,51 @@ import { ScanOrchestrator } from './ScanOrchestrator';
 import { OutputManager } from '../output/OutputManager';
 import { WorkspaceScanOrchestrator } from './WorkspaceScanOrchestrator';
 
+/**
+ * Handles registration and execution of Unagi SAST extension commands.
+ */
 export class CommandTrigger {
-  private scanOrchestrator: ScanOrchestrator;
-  private outputManager: OutputManager;
+  private readonly scanOrchestrator: ScanOrchestrator;
+  private readonly outputManager: OutputManager;
 
+  /**
+   * Creates a new CommandTrigger instance.
+   * @param apiKey The OpenAI API key for AI-powered features.
+   * @param folderPath The folder path for output and reports.
+   */
   constructor(apiKey: string, folderPath: string) {
     this.outputManager = new OutputManager(folderPath);
     this.scanOrchestrator = new ScanOrchestrator(this.outputManager, apiKey);
   }
 
+  /**
+   * Registers all extension commands with VSCode.
+   * @param context The extension context.
+   */
   public registerCommands(context: vscode.ExtensionContext): void {
+    // Command constants
+    const SCAN_FILE_CMD = 'unagi.scanActualFile';
+    const CONFIGURE_API_KEY_CMD = 'unagiSast.configureOpenAIApiKey';
+    const SCAN_WORKSPACE_CMD = 'unagi.scanWorkspace';
+    const CREATE_REPORT_CMD = 'unagi.createReport';
+
     // Register command to scan current file
     context.subscriptions.push(
-      vscode.commands.registerCommand('unagi.scanActualFile', async () => {
+      vscode.commands.registerCommand(SCAN_FILE_CMD, async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
           vscode.window.showWarningMessage('No active editor found');
           return;
         }
-
         const document = editor.document;
         if (document.languageId !== 'python') {
           vscode.window.showWarningMessage('Only Python files are supported');
           return;
         }
-
         try {
-          vscode.window.withProgress({
+          await vscode.window.withProgress({
             location: vscode.ProgressLocation.Window,
-            title: "Unagi",
+            title: 'Unagi',
             cancellable: false
           }, async (progress) => {
             progress.report({ message: `Scanning ${document.fileName}...` });
@@ -47,7 +63,7 @@ export class CommandTrigger {
 
     // Register command to configure OpenAI API key
     context.subscriptions.push(
-      vscode.commands.registerCommand('unagiSast.configureOpenAIApiKey', async () => {
+      vscode.commands.registerCommand(CONFIGURE_API_KEY_CMD, async () => {
         const existingKey = context.globalState.get<string>('OPENAI_API_KEY');
         if (existingKey) {
           const action = await vscode.window.showQuickPick([
@@ -85,35 +101,15 @@ export class CommandTrigger {
 
     // Register command to scan workspace
     context.subscriptions.push(
-      vscode.commands.registerCommand('unagi.scanWorkspace', async () => {
+      vscode.commands.registerCommand(SCAN_WORKSPACE_CMD, async () => {
         if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
           vscode.window.showWarningMessage('No workspace folder open');
           return;
         }
-
         try {
           const orchestrator = new WorkspaceScanOrchestrator();
           await orchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
-          /*const results = await this.scanOrchestrator.scanWorkspace();
-          
-          // Aggregate and display results
-          const totalVulns = results.reduce((sum, result) => 
-            sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
-          );
-          
-          const totalFiles = results.length;
-          const totalTime = results.reduce((sum, result) => sum + result.scanTime, 0);
-          
-          console.log(`📊 Workspace scan summary:
-            - Files scanned: ${totalFiles}
-            - Total vulnerabilities: ${totalVulns}
-            - Total scan time: ${(totalTime / 1000).toFixed(2)}s`);
-          
-          // Save workspace results to a consolidated report
-          if (results.length > 0) {
-            await this.outputManager.saveWorkspaceResults(results);
-            
-          }*/
+          // (Optional) Aggregate and display results, save reports, etc.
         } catch (error: any) {
           vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
         }
@@ -122,10 +118,17 @@ export class CommandTrigger {
 
     // Register command to create a security report
     context.subscriptions.push(
-      vscode.commands.registerCommand('unagi.createReport', async () => {
+      vscode.commands.registerCommand(CREATE_REPORT_CMD, async () => {
         await this.outputManager.createReport();
       })
     );
+  }
+
+  /**
+   * Disposes resources held by this instance.
+   */
+  public dispose(): void {
+    this.outputManager.dispose();
   }
 }
 

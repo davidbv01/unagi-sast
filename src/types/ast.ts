@@ -27,10 +27,3 @@ export interface AstNode {
       end: { line: number, column: number }
     };
   }
-
-  
-export interface Position {
-    line: number;
-    column: number;
-  }
-  

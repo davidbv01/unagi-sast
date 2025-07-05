@@ -1,4 +1,4 @@
-export { AstNode, SymbolTableEntry, Position } from "./ast";
+export { AstNode, SymbolTableEntry } from "./ast";
 export { ScanResult, OutputFormat, AnalysisResult } from "./output";
 export { PatternVulnerability, DataFlowVulnerability, VulnerabilityType, Severity, Vulnerability } from "./vulnerabilities";
 export { ScanConfiguration } from "./config";   
