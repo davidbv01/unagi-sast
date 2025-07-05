@@ -1,32 +1,6 @@
-import { CodeExtractor, DataFlowCodeExtraction } from './CodeExtractor';
-import { VulnerabilityVerifier, VulnerabilityAnalysis } from './VulnerabilityVerifier';
-import { Vulnerability, AstNode } from '../types';
-
-export interface AiAnalysisRequest {
-  file: string;
-  vulnerabilities: Vulnerability[];
-  context?: {
-    language: string;
-    framework?: string;
-    additionalInfo?: string;
-  };
-}
-
-export interface AiAnalysisResult {
-  codeExtractions: DataFlowCodeExtraction[];
-  verifiedVulnerabilities: Array<{
-    originalVulnerability: Vulnerability;
-    codeExtraction: DataFlowCodeExtraction;
-    aiAnalysis: VulnerabilityAnalysis;
-    isConfirmed: boolean;
-  }>;
-  summary: {
-    totalAnalyzed: number;
-    confirmed: number;
-    falsePositives: number;
-    avgConfidence: number;
-  };
-}
+import { CodeExtractor } from './CodeExtractor';
+import { VulnerabilityVerifier } from './VulnerabilityVerifier';
+import { AstNode, AiAnalysisRequest, AiAnalysisResult } from '../types';
 
 export class AiEngine {
   private verifier: VulnerabilityVerifier;

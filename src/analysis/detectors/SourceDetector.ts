@@ -1,14 +1,9 @@
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
-import { AstNode } from '../../types';
+import { AstNode, Source } from '../../types';
 
 interface SourceRule extends BaseRule {
   sources: BaseDetectorItem[];
-}
-
-export interface Source extends BaseDetectorItem {
-  severity: string;
-  key?: string;
 }
 
 export class SourceDetector {

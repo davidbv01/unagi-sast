@@ -1,4 +1,4 @@
-import { Sanitizer, Source, Sink } from "../analysis/detectors";
+import { Sanitizer, Source, Sink } from "./detectors";
 
 export interface Vulnerability {
     //Definition of a vulnerability

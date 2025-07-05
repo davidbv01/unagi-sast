@@ -1,17 +1,10 @@
-import { VulnerabilityType, Severity } from '../../types';
+import { VulnerabilityType, Severity, Sink } from '../../types';
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
 import { AstNode } from '../../types';
 
 interface SinkRule extends BaseRule {
   sinks: BaseDetectorItem[];
-}
-
-export interface Sink extends BaseDetectorItem {
-  info: string;
-  vulnerabilityType: VulnerabilityType;
-  severity: Severity;
-  key?: string;
 }
 
 export class SinkDetector {

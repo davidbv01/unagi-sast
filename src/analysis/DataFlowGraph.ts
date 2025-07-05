@@ -1,6 +1,5 @@
 import { SanitizerDetector, SinkDetector, SourceDetector } from "../analysis/detectors";
-import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity } from "../types";
-import { Source, Sink, Sanitizer } from "../analysis/detectors";
+import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity, Source, Sink, Sanitizer } from "../types";
 import chalk from 'chalk';
 import type { SymbolTableEntry } from '../types';
 

@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability } from '../types';
+import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability, Source } from '../types';
 import { AnalysisResult } from '../rules/SecurityRuleEngine';
 import * as fs from 'fs';
-import type { Source } from '../analysis/detectors';
 
 export class OutputManager {
   private outputChannel: vscode.OutputChannel;

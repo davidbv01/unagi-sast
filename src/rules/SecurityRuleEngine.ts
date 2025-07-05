@@ -1,8 +1,9 @@
-import { Vulnerability, DataFlowVulnerability, Severity, AstNode } from '../types';
+import { Vulnerability, DataFlowVulnerability, AstNode } from '../types';
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
-import { SinkDetector, SanitizerDetector, Source, Sink, Sanitizer } from '../analysis/detectors/index';
-import { AiEngine, AiAnalysisRequest, AiAnalysisResult } from '../ai';
-import { DataFlowGraph } from '../analysis/DataFlowGraph';
+import { SinkDetector, SanitizerDetector } from '../analysis/detectors/index';
+import { AiEngine } from '../ai/AiEngine';
+import { AiAnalysisRequest, AiAnalysisResult } from '../types';
+import { DataFlowGraph } from '../analysis/DataFlowGraph';  
 import * as vscode from 'vscode';
 
 export interface AnalysisResult {
