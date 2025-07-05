@@ -436,9 +436,10 @@ export class DataFlowGraph {
     for (const node of this.nodes.values()) {
       if (node.isSink && node.tainted) {
         // Find all unique original sources
-        const sourceObjs = Array.from(node.taintSources);
-        const primarySource = sourceObjs[0];
-        const sourcesDescription = sourceObjs.map(s => s.description || s.id).join(', ');
+        const sources = Array.from(node.taintSources);
+        const uniqueSources = this.deduplicateDetections(sources);
+        const primarySource = uniqueSources[0];
+        const sourcesDescription = uniqueSources.map(s => s.description || s.id).join(', ');
         
         // Find sanitizers in the path (nodes that are sanitizers but were bypassed)
         const sanitizersInPath: Sanitizer[] = [];
@@ -509,7 +510,7 @@ export class DataFlowGraph {
           recommendation: "Sanitize input before passing it to sensitive operations like this sink.",
           
           // Flow information with location data
-          sources: sourceObjs,
+          sources: uniqueSources,
           sink: sinkObj,
           sanitizers: sanitizersInPath,
           
@@ -517,7 +518,7 @@ export class DataFlowGraph {
           isVulnerable: node.tainted && sanitizersInPath.length === 0,
           
           // Path lines using actual location information
-          pathLines: [sourceObjs[0]?.loc?.start?.line || 1, sinkObj.loc.start.line],
+          pathLines: [uniqueSources[0]?.loc?.start?.line || 1, sinkObj.loc.start.line],
           
           ai: {
             confidenceScore: 0.95,
@@ -737,22 +738,31 @@ export class DataFlowGraph {
   }
 
   /**
-   * Deduplicates detected sources based on their key
+   * Deduplicates detected sources based on file and line location
+   * For the same file and line, keeps the one with the largest column span.
    * @param detections Array of detected sources to deduplicate
-   * @returns Deduplicated sources indexed by key
+   * @returns Deduplicated sources by file/line with largest column span
    */
   private deduplicateDetections(detections: any[]): any[] {
-    const unique: any[] = [];
-    const seen = new Set<string>();
+    const fileLineMap = new Map<string, any>();
     
     for (const detection of detections) {
-      if (!seen.has(detection.key)) {
-        seen.add(detection.key);
-        unique.push(detection);
+      if (detection.filePath && detection.loc && detection.loc.start) {
+        const fileLineKey = `${detection.filePath}:${detection.loc.start.line}`;
+        const colSpan = (detection.loc.end?.column ?? 0) - (detection.loc.start.column ?? 0);
+        
+        if (!fileLineMap.has(fileLineKey)) {
+          fileLineMap.set(fileLineKey, { detection, colSpan });
+        } else {
+          const existing = fileLineMap.get(fileLineKey);
+          if (colSpan > existing.colSpan) {
+            fileLineMap.set(fileLineKey, { detection, colSpan });
+          }
+        }
       }
     }
     
-    return unique;
+    return Array.from(fileLineMap.values()).map(item => item.detection);
   }
 
   // Add a setter for current file path
