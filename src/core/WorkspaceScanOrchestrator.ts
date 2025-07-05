@@ -227,8 +227,33 @@ export class WorkspaceScanOrchestrator {
     }
 
     // Cache and return all vulnerabilities
-    this.cachedVulnerabilities = allVulnerabilities;
-    return allVulnerabilities;
+    this.cachedVulnerabilities = this.deduplicateVulnerabilities(allVulnerabilities);
+    return this.cachedVulnerabilities;
+  }
+
+  /**
+   * Deduplicate DataFlowVulnerability objects by file, sink location, type, and sources
+   */
+  private deduplicateVulnerabilities(vulns: DataFlowVulnerability[]): DataFlowVulnerability[] {
+    const seen = new Map<string, DataFlowVulnerability>();
+    for (const vuln of vulns) {
+      const sinkLoc = vuln.sink?.loc?.start;
+      const sourcesKey = vuln.sources
+        .map(s => `${s.filePath}:${s.loc?.start?.line}:${s.loc?.start?.column}`)
+        .sort()
+        .join('|');
+      const key = `${vuln.file}:${sinkLoc?.line}:${sinkLoc?.column}:${vuln.type}:${sourcesKey}`;
+      if (!seen.has(key)) {
+        seen.set(key, vuln);
+      } else {
+        // Optionally, merge sources or keep the one with more sources
+        const existing = seen.get(key)!;
+        if (vuln.sources.length > existing.sources.length) {
+          seen.set(key, vuln);
+        }
+      }
+    }
+    return Array.from(seen.values());
   }
 
   /**
