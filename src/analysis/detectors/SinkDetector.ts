@@ -72,7 +72,10 @@ export class SinkDetector {
     for (const rule of rules) {
       const sink = rule.sinks.find(s => s.id === sinkId);
       if (sink) {
-        return rule.severity as Severity;
+        const sev = (typeof rule.severity === 'string' ? rule.severity.toUpperCase() : rule.severity) as Severity;
+        if (Object.values(Severity).includes(sev)) {
+          return sev as Severity;
+        }
       }
     }
     return Severity.MEDIUM;

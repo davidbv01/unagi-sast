@@ -52,7 +52,10 @@ export class SourceDetector {
     for (const rule of rules) {
       const source = rule.sources.find(s => s.id === sourceId);
       if (source) {
-        return rule.severity as Severity;
+        const sev = (typeof rule.severity === 'string' ? rule.severity.toUpperCase() : rule.severity) as Severity;
+        if (Object.values(Severity).includes(sev)) {
+          return sev as Severity;
+        }
       }
     }
     return Severity.MEDIUM;

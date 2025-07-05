@@ -80,9 +80,9 @@ export interface Vulnerability {
   }
   
   export enum Severity {
-    CRITICAL = 'critical',
-    HIGH = 'high',
-    MEDIUM = 'medium',
-    LOW = 'low',
-    INFO = 'info'
+    CRITICAL = 'CRITICAL',
+    HIGH = 'HIGH',
+    MEDIUM = 'MEDIUM',
+    LOW = 'LOW',
+    INFO = 'INFO'
   }

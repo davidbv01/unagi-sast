@@ -412,12 +412,12 @@ export class DataFlowGraph {
         };
         const vuln: DataFlowVulnerability = {
           id: `dataflow-vuln-${node.id}`,
-          type: VulnerabilityType.GENERIC,
-          severity: Severity.HIGH,
-          message: `Tainted data reaches sink: ${node.name}`,
+          type: sinkObj.vulnerabilityType,
+          severity: sinkObj.severity,
+          message: `${node.name} is a sink and receives tainted input from: ${sourcesDescription}`,
           file: filePath || "unknown",
           rule: "TAINTED_SINK",
-          description: `${node.name} is a sink and receives tainted input from: ${sourcesDescription}`,
+          description: sinkObj.description,
           recommendation: "Sanitize input before passing it to sensitive operations like this sink.",
           sources: uniqueSources,
           sink: sinkObj,
@@ -425,10 +425,10 @@ export class DataFlowGraph {
           isVulnerable: node.tainted && sanitizersInPath.length === 0,
           pathLines: [uniqueSources[0]?.loc?.start?.line || 1, sinkObj.loc.start.line],
           ai: {
-            confidenceScore: 0.95,
-            shortExplanation: `The variable '${node.name}' is influenced by user input and reaches a critical operation. Source(s): ${sourcesDescription}`,
-            exploitExample: `os.system(user_input)`,
-            remediation: `Use whitelist or strict validation before passing input to '${node.name}'`,
+            confidenceScore: 0,
+            shortExplanation: 'NA - AI analysis not executed',
+            exploitExample: 'NA - AI analysis not executed',
+            remediation: 'NA - AI analysis not executed',
           }
         };
         vulnerabilities.push(vuln);
