@@ -1,22 +1,4 @@
-import * as fs from 'fs';
-
-export interface FunctionExtraction {
-  functionName: string;
-  startLine: number;
-  endLine: number;
-  sourceCode: string;
-  filePath: string;
-  language: string;
-}
-
-export interface DataFlowCodeExtraction {
-  sourceFunction?: FunctionExtraction;
-  sinkFunction?: FunctionExtraction;
-  sanitizerFunctions: FunctionExtraction[];
-  involvedLines: number[];
-  fullContext: string;
-  filePath: string;
-}
+import { FunctionExtraction, DataFlowCodeExtraction } from '../types';
 
 export class CodeExtractor {
   /**
