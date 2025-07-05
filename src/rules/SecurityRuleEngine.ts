@@ -1,14 +1,9 @@
-import { Vulnerability, DataFlowVulnerability, AstNode, AiAnalysisRequest, AiAnalysisResult } from '../types';
+import { Vulnerability, DataFlowVulnerability, AstNode, AiAnalysisRequest, AiAnalysisResult, AnalysisResult } from '../types';
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SinkDetector, SanitizerDetector } from '../analysis/detectors/index';
 import { AiEngine } from '../ai';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';  
 import * as vscode from 'vscode';
-
-export interface AnalysisResult {
-  patternVulnerabilities: Vulnerability[];
-  dataFlowVulnerabilities: DataFlowVulnerability[];
-}
 
 export class SecurityRuleEngine {
   private patternMatcher: PatternMatcher;

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability, Source } from '../types';
-import { AnalysisResult } from '../rules/SecurityRuleEngine';
+import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability, Source, AnalysisResult } from '../types';
 import * as fs from 'fs';
 
 export class OutputManager {

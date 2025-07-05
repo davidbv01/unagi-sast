@@ -2,18 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as vscode from 'vscode';
+import { Rule } from '../../types';
 
-export interface Rule {
-  id: string;
-  name: string;
-  description: string;
-  severity: string;
-  type: string;
-  patterns?: unknown;
-  sources?: unknown;
-  sinks?: unknown;
-  sanitizers?: unknown;
-}
 
 export class RuleLoader {
   private static instances: Map<string, RuleLoader> = new Map();

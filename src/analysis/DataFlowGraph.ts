@@ -1,36 +1,6 @@
 import { SanitizerDetector, SinkDetector, SourceDetector } from "../analysis/detectors";
-import { AstNode, Vulnerability, DataFlowVulnerability, VulnerabilityType, Severity, Source, Sink, Sanitizer } from "../types";
+import { AstNode, DataFlowVulnerability, VulnerabilityType, Severity, Source, Sink, Sanitizer, SymbolTableEntry,DfgNode, Symbol  } from "../types";
 import chalk from 'chalk';
-import type { SymbolTableEntry } from '../types';
-
-type DfgNode = {
-  id: string;
-  name: string;
-  astNode: AstNode;
-  tainted: boolean;
-  taintSources: Set<Source>;
-  edges: Set<DfgNode>;
-  symbol?: Symbol;
-  isSanitizer?: boolean;
-  isSink?: boolean;
-  infoSanitizer?: string;
-  infoSink?: string;
-  detectedSource?: Source;
-  detectedSink?: Sink;
-  detectedSanitizer?: Sanitizer;
-  crossFileRef?: any;
-  crossFileEdge?: {
-    from: string;
-    to: string;
-    function: string;
-  };
-};
-
-type Symbol = {
-  name: string;
-  scope: string;
-  uniqueId: string;
-};
 
 export class DataFlowGraph {
   // Instance properties

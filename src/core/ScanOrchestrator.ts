@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { ScanResult, AstNode } from '../types';
-import { SecurityRuleEngine, AnalysisResult } from '../rules/SecurityRuleEngine';
+import { ScanResult, AstNode, AnalysisResult } from '../types';
+import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
 import { OutputManager } from '../output/OutputManager';
 import { ASTParser } from '../parser/ASTParser';
 

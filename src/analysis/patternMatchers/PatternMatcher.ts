@@ -1,17 +1,7 @@
-import { Vulnerability, VulnerabilityType, Severity } from '../../types';
-import { Rule, RuleLoader } from '../rules/RuleLoader';
+import { Vulnerability, VulnerabilityType, Severity, PatternRule } from '../../types';
+import { RuleLoader } from '../rules/RuleLoader';
 
-export interface Pattern {
-  id: string;
-  pattern: string;
-  message: string;
-  recommendation: string;
-  severity?: string;
-}
 
-export interface PatternRule extends Rule {
-  patterns: Pattern[];
-}
 
 export class PatternMatcher {
   private ruleLoader: RuleLoader;

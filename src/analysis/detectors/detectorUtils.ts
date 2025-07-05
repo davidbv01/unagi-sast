@@ -1,23 +1,4 @@
-import { Rule } from '../rules/RuleLoader';
-
-export interface BaseDetectorItem {
-  id: string;
-  type: string;
-  pattern: string;
-  description: string;
-  loc:
-  {
-    start: { line: number, column: number },
-    end: { line: number, column: number }
-  }
-  filePath: string;
-}
-
-export interface BaseRule extends Rule {
-  sources?: BaseDetectorItem[];
-  sinks?: BaseDetectorItem[];
-  sanitizers?: BaseDetectorItem[];
-}
+import { BaseDetectorItem, BaseRule } from '../../types';
 
 /**
  * Common utility functions for source, sink, and sanitizer detection

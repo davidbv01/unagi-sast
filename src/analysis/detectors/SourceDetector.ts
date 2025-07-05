@@ -1,6 +1,6 @@
 import { RuleLoader } from '../rules/RuleLoader';
-import { DetectorUtils, BaseDetectorItem, BaseRule } from './detectorUtils';
-import { AstNode, Source } from '../../types';
+import { DetectorUtils } from './detectorUtils';
+import { AstNode, Source, BaseDetectorItem, BaseRule } from '../../types';
 
 interface SourceRule extends BaseRule {
   sources: BaseDetectorItem[];
