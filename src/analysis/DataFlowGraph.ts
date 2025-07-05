@@ -405,8 +405,8 @@ export class DataFlowGraph {
     for (const node of this.nodes.values()) {
       if (node.isSink && node.tainted) {
         // Find all unique original sources
-        const sources = Array.from(node.taintSources);
-        const uniqueSources = this.deduplicateDetections(sources);
+        const uniqueSources = Array.from(node.taintSources);
+        //const uniqueSources = this.deduplicateDetections(sources);
         const primarySource = uniqueSources[0];
         const sourcesDescription = uniqueSources.map(s => s.description || s.id).join(', ');
         
@@ -719,13 +719,23 @@ export class DataFlowGraph {
       if (detection.filePath && detection.loc && detection.loc.start) {
         const fileLineKey = `${detection.filePath}:${detection.loc.start.line}`;
         const colSpan = (detection.loc.end?.column ?? 0) - (detection.loc.start.column ?? 0);
+        const key = detection.key ?? "";
         
         if (!fileLineMap.has(fileLineKey)) {
           fileLineMap.set(fileLineKey, { detection, colSpan });
         } else {
           const existing = fileLineMap.get(fileLineKey);
-          if (colSpan > existing.colSpan) {
+          const existingKey = existing.detection.key ?? "";
+          // If one has empty key and the other has non-empty key, prefer the one with non-empty key
+          if (existingKey === "" && key !== "") {
             fileLineMap.set(fileLineKey, { detection, colSpan });
+          } else if (existingKey !== "" && key === "") {
+            // keep existing
+          } else {
+            // Both have keys (either both empty or both non-empty), prefer the one with larger colSpan
+            if (colSpan > existing.colSpan) {
+              fileLineMap.set(fileLineKey, { detection, colSpan });
+            }
           }
         }
       }
