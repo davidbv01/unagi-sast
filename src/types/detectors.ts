@@ -13,6 +13,8 @@ export interface BaseDetectorItem {
     end: { line: number, column: number }
   }
   filePath: string;
+  info: string;
+  key?: string;
 }
 
 // Base rule interface
@@ -24,23 +26,19 @@ export interface BaseRule extends Rule {
 
 // Source interface
 export interface Source extends BaseDetectorItem {
-  severity: string;
-  key?: string;
+  severity: Severity;
+
 }
 
 // Sink interface
 export interface Sink extends BaseDetectorItem {
-  info: string;
   vulnerabilityType: VulnerabilityType;
   severity: Severity;
-  key?: string;
 }
 
 // Sanitizer interface
 export interface Sanitizer extends BaseDetectorItem {
-  info: string;
   effectiveness: number;
-  key?: string;
 }
 
 // Pattern interface

@@ -1,10 +1,6 @@
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils } from './detectorUtils';
-import { AstNode, Sanitizer, BaseDetectorItem, BaseRule } from '../../types';
-
-interface SanitizerRule extends BaseRule {
-  sanitizers: BaseDetectorItem[];
-}
+import { AstNode, Sanitizer, SanitizerRule } from '../../types';
 
 export class SanitizerDetector {
   private ruleLoader: RuleLoader;

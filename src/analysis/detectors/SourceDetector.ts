@@ -1,10 +1,6 @@
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils } from './detectorUtils';
-import { AstNode, Source, BaseDetectorItem, BaseRule } from '../../types';
-
-interface SourceRule extends BaseRule {
-  sources: BaseDetectorItem[];
-}
+import { AstNode, Source, Severity, SourceRule } from '../../types';
 
 export class SourceDetector {
   private ruleLoader: RuleLoader;
@@ -34,14 +30,14 @@ export class SourceDetector {
     return null;
   }
 
-  private getSeverityForSource(sourceId: string, rules: SourceRule[]): string {
+  private getSeverityForSource(sourceId: string, rules: SourceRule[]): Severity {
     for (const rule of rules) {
       const source = rule.sources.find(s => s.id === sourceId);
       if (source) {
-        return rule.severity;
+        return rule.severity as Severity;
       }
     }
-    return 'medium'; // Default severity
+    return Severity.MEDIUM;
   }
 
   public getAllSources(): Source[] {

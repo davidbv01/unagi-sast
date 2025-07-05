@@ -42,7 +42,8 @@ export class DetectorUtils {
             start: { line: 0, column: 0 },
             end: { line: 0, column: 0 }
           },
-          filePath: item.filePath || filePath || ''
+          filePath: item.filePath || filePath || '',
+          info: item.info || ''
         });
       }
     }
