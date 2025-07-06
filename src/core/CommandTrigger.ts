@@ -62,6 +62,22 @@ export class CommandTrigger {
       })
     );
 
+    // Register command to scan workspace
+    context.subscriptions.push(
+      vscode.commands.registerCommand(SCAN_WORKSPACE_CMD, async () => {
+        if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+          vscode.window.showWarningMessage('No workspace folder open');
+          return;
+        }
+        try {
+          await this.workspaceScanOrchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
+          // (Optional) Aggregate and display results, save reports, etc.
+        } catch (error: any) {
+          vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
+        }
+      })
+    );
+
     // Register command to configure OpenAI API key
     context.subscriptions.push(
       vscode.commands.registerCommand(CONFIGURE_API_KEY_CMD, async () => {
@@ -96,22 +112,6 @@ export class CommandTrigger {
           this.scanOrchestrator.ruleEngine.updateAiEngine(apiKey);
         } else {
           vscode.window.showWarningMessage('OpenAI API Key not set.');
-        }
-      })
-    );
-
-    // Register command to scan workspace
-    context.subscriptions.push(
-      vscode.commands.registerCommand(SCAN_WORKSPACE_CMD, async () => {
-        if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-          vscode.window.showWarningMessage('No workspace folder open');
-          return;
-        }
-        try {
-          await this.workspaceScanOrchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
-          // (Optional) Aggregate and display results, save reports, etc.
-        } catch (error: any) {
-          vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
         }
       })
     );
