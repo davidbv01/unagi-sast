@@ -278,8 +278,7 @@ export class WorkspaceScanOrchestrator {
           language: FileUtils.getLanguageFromExtension(filePath)
         });
       }
-      await this.outputManager.saveWorkspaceResults(scanResults);
-      this.outputManager.displayWorkspaceResults(scanResults);
+      await this.outputManager.handleWorkspaceScanResults(scanResults);
       const totalTime = Date.now() - startTime;
       vscode.window.showInformationMessage(
         `Workspace analysis completed in ${(totalTime / 1000).toFixed(2)}s. ` +

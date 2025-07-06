@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability, Source, AnalysisResult } from '../types';
 import * as fs from 'fs';
 
-const OUTPUT_CHANNEL_NAME = 'Unagi SAST';
 const DIAGNOSTIC_COLLECTION_NAME = 'unagi';
 const STATUS_BAR_PRIORITY = 100;
 const SAST_RESULTS_FILENAME = '/sast-results.json';
@@ -12,9 +11,9 @@ const WORKSPACE_RESULTS_FILENAME = '/workspace-scan-results.json';
  * Manages output, diagnostics, and reporting for Unagi SAST scans.
  */
 export class OutputManager {
-  private readonly outputChannel: vscode.OutputChannel;
-  private readonly diagnosticCollection: vscode.DiagnosticCollection;
-  private readonly statusBarItem: vscode.StatusBarItem;
+  private static diagnosticCollection = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_COLLECTION_NAME);
+  private static statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, STATUS_BAR_PRIORITY);
+  
   private readonly folderPath: string;
   private readonly filePath: string;
 
@@ -23,59 +22,37 @@ export class OutputManager {
    * @param folderPath The folder path for output and reports.
    */
   constructor(folderPath: string) {
-    this.outputChannel = vscode.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
-    this.diagnosticCollection = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_COLLECTION_NAME);
-    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, STATUS_BAR_PRIORITY);
-    this.statusBarItem.show();
+    OutputManager.statusBarItem.show();
     this.folderPath = folderPath;
     fs.mkdirSync(this.folderPath, { recursive: true });
     this.filePath = this.folderPath + SAST_RESULTS_FILENAME;
   }
 
   /**
-   * Displays scan results as diagnostics and updates the status bar.
-   * @param result The scan result to display.
+   * Handles single scan results by displaying diagnostics and saving to file.
+   * @param result The scan result to process.
+   * @param analysisResult The complete analysis result to save.
+   * @returns Promise<boolean> True if saving was successful, false otherwise.
    */
-  public async displayResults(result: ScanResult): Promise<void> {
-    this.diagnosticCollection.clear();
+  public async handleScanResults(result: ScanResult, analysisResult: AnalysisResult): Promise<boolean> {
+    // Display the results
+    OutputManager.diagnosticCollection.clear();
     const allDiagnostics: vscode.Diagnostic[] = [];
+    
     result.patternVulnerabilities.forEach(vuln => {
       allDiagnostics.push(this.createPatternDiagnostic(vuln));
     });
+    
     result.dataFlowVulnerabilities.forEach(dfv => {
       allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
     });
+    
     const uri = vscode.Uri.file(result.file);
-    this.diagnosticCollection.set(uri, allDiagnostics);
+    OutputManager.diagnosticCollection.set(uri, allDiagnostics);
     this.updateStatusBar(result);
     this.displayInline(result);
-  }
 
-  /**
-   * Clears all diagnostics and output, and resets the status bar.
-   */
-  public clearResults(): void {
-    this.diagnosticCollection.clear();
-    this.outputChannel.clear();
-    this.statusBarItem.text = '🛡️ Unagi: Ready';
-    this.statusBarItem.color = undefined;
-  }
-
-  /**
-   * Disposes all resources held by this manager.
-   */
-  public dispose(): void {
-    this.outputChannel.dispose();
-    this.diagnosticCollection.dispose();
-    this.statusBarItem.dispose();
-  }
-
-  /**
-   * Saves the analysis result to a temporary file.
-   * @param analysisResult The analysis result to save.
-   * @returns True if successful, false otherwise.
-   */
-  public async saveAnalysisResultToTempFile(analysisResult: AnalysisResult): Promise<boolean> {
+    // Save the analysis result
     return new Promise((resolve) => {
       fs.writeFile(this.filePath, JSON.stringify(analysisResult, null, 2), 'utf8', (err) => {
         if (err) {
@@ -89,11 +66,12 @@ export class OutputManager {
   }
 
   /**
-   * Saves workspace scan results to a file and displays diagnostics for all files.
+   * Handles workspace scan results by displaying diagnostics and saving to file.
    * @param results The scan results for the workspace.
    */
-  public async saveWorkspaceResults(results: ScanResult[]): Promise<void> {
+  public async handleWorkspaceScanResults(results: ScanResult[]): Promise<void> {
     try {
+      // Save workspace results
       const workspaceResultsPath = this.folderPath + WORKSPACE_RESULTS_FILENAME;
       const workspaceSummary = {
         timestamp: new Date().toISOString(),
@@ -108,10 +86,34 @@ export class OutputManager {
         },
         results
       };
+      
       fs.writeFileSync(workspaceResultsPath, JSON.stringify(workspaceSummary, null, 2), 'utf8');
       console.log(`📄 Workspace scan results saved to: ${workspaceResultsPath}`);
-      this.displayWorkspaceResults(results);
+
+      // Display workspace results
+      OutputManager.diagnosticCollection.clear();
+      
+      results.forEach(result => {
+        const allDiagnostics: vscode.Diagnostic[] = [];
+        
+        result.patternVulnerabilities.forEach(vuln => {
+          allDiagnostics.push(this.createPatternDiagnostic(vuln));
+        });
+        
+        result.dataFlowVulnerabilities.forEach(dfv => {
+          allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
+        });
+        
+        if (allDiagnostics.length > 0) {
+          const uri = vscode.Uri.file(result.file);
+          console.log('[OUTPUT]   Setting diagnostics for', uri.fsPath, allDiagnostics.length);
+          OutputManager.diagnosticCollection.set(uri, allDiagnostics);
+        }
+      });
+      
+      console.log(`🔍 Created diagnostics for ${results.length} files`);
       this.updateStatusBar(results);
+      
       const totalVulns = workspaceSummary.totalVulnerabilities;
       vscode.window.showInformationMessage(
         `Workspace scan results saved. Found ${totalVulns} vulnerabilities across ${results.length} files.`
@@ -123,26 +125,24 @@ export class OutputManager {
   }
 
   /**
-   * Displays diagnostics for all files in the workspace scan results.
-   * @param results The scan results for the workspace.
+   * Saves the analysis result to a temporary file.
+   * @param analysisResult The analysis result to save.
+   * @returns True if successful, false otherwise.
+   * @deprecated Use handleScanResults() instead for combined display and saving.
    */
-  public displayWorkspaceResults(results: ScanResult[]): void {
-    this.diagnosticCollection.clear();
-    results.forEach(result => {
-      const allDiagnostics: vscode.Diagnostic[] = [];
-      result.patternVulnerabilities.forEach(vuln => {
-        allDiagnostics.push(this.createPatternDiagnostic(vuln));
+  public async saveAnalysisResultToTempFile(analysisResult: AnalysisResult): Promise<boolean> {
+    return new Promise((resolve) => {
+      fs.writeFile(this.filePath, JSON.stringify(analysisResult, null, 2), 'utf8', (err) => {
+        if (err) {
+          console.error('[ERROR] Failed to write analysis result to fixed path:', err);
+          resolve(false);
+        } else {
+          resolve(true);
+        }
       });
-      result.dataFlowVulnerabilities.forEach(dfv => {
-        allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
-      });
-      if (allDiagnostics.length > 0) {
-        const uri = vscode.Uri.file(result.file);
-        this.diagnosticCollection.set(uri, allDiagnostics);
-      }
     });
-    console.log(`🔍 Created diagnostics for ${results.length} files`);
   }
+
 
   /**
    * Opens a webview panel with a formatted HTML security report.
@@ -170,6 +170,13 @@ export class OutputManager {
     panel.webview.html = html;
   }
 
+  /**
+   * Disposes all resources held by this manager.
+   */
+  public dispose(): void {
+    OutputManager.diagnosticCollection.dispose();
+    OutputManager.statusBarItem.dispose();
+  }
   // --- Private helpers ---
 
   /**
@@ -189,8 +196,8 @@ export class OutputManager {
     const totalVulnerabilities = Array.isArray(result)
       ? result.reduce((sum, r) => sum + r.patternVulnerabilities.length + r.dataFlowVulnerabilities.length, 0)
       : result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length;
-    this.statusBarItem.text = `$(shield) Unagi: ${totalVulnerabilities} issues`;
-    this.statusBarItem.tooltip = `Found ${totalVulnerabilities} security vulnerabilities`;
+    OutputManager.statusBarItem.text = `$(shield) Unagi: ${totalVulnerabilities} issues`;
+    OutputManager.statusBarItem.tooltip = `Found ${totalVulnerabilities} security vulnerabilities`;
   }
 
   /**

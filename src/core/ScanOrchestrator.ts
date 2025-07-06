@@ -42,9 +42,9 @@ export class ScanOrchestrator {
       }
       // Step 2: Perform security analysis
       const analysisResult = await this.performSecurityAnalysis(ast, document, content);
-      // Step 3: Create and display results
+      // Step 3: Create and handle results (display and save)
       const scanResult = this.createScanResult(document, analysisResult, startTime, linesScanned);
-      await this.displayResults(scanResult);
+      await this.handleScanResults(scanResult, analysisResult);
       console.log(`✅ Scan completed for: ${document.fileName} (${scanResult.scanTime}ms)`);
       return scanResult;
     } catch (error) {
@@ -102,7 +102,6 @@ export class ScanOrchestrator {
         document.fileName,
         content
       );
-      await this.saveAnalysisResults(analysisResult, document.fileName);
       console.log(`✅ Security analysis completed for: ${document.fileName}`);
       return analysisResult;
     } catch (error) {
@@ -114,30 +113,21 @@ export class ScanOrchestrator {
   }
 
   /**
-   * Saves analysis results to a temporary file.
+   * Handles scan results by displaying and saving them.
+   * @param scanResult The scan results to handle.
    * @param analysisResult The analysis results to save.
-   * @param fileName The original file name for context.
    */
-  private async saveAnalysisResults(analysisResult: AnalysisResult, fileName: string): Promise<void> {
+  private async handleScanResults(scanResult: ScanResult, analysisResult: AnalysisResult): Promise<void> {
     try {
-      await this.outputManager.saveAnalysisResultToTempFile(analysisResult);
-      console.log(`💾 Saved analysis results for: ${fileName}`);
+      const success = await this.outputManager.handleScanResults(scanResult, analysisResult);
+      if (success) {
+        console.log(`📊 Handled scan results for: ${scanResult.file}`);
+      } else {
+        console.warn(`⚠️ Failed to save analysis results for ${scanResult.file}`);
+      }
     } catch (error) {
-      console.warn(`⚠️ Failed to save analysis results for ${fileName}:`, error);
-    }
-  }
-
-  /**
-   * Displays scan results to the user.
-   * @param scanResult The scan results to display.
-   */
-  private async displayResults(scanResult: ScanResult): Promise<void> {
-    try {
-      await this.outputManager.displayResults(scanResult);
-      console.log(`📊 Displayed results for: ${scanResult.file}`);
-    } catch (error) {
-      console.error(`Failed to display scan results for ${scanResult.file}:`, error);
-      vscode.window.showErrorMessage('Failed to display scan results');
+      console.error(`Failed to handle scan results for ${scanResult.file}:`, error);
+      vscode.window.showErrorMessage('Failed to handle scan results');
     }
   }
 
