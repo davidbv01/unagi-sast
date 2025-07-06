@@ -23,14 +23,14 @@ export class WorkspaceScanOrchestrator {
   /**
    * Creates a new WorkspaceScanOrchestrator instance.
    */
-  constructor() {
+  constructor(outputManager: OutputManager, apiKey: string) {
     this.parser = new ASTParser();
     this.asts = new Map();
     this.symbolTable = new Map();
     this.graphs = new Map();
     this.cachedVulnerabilities = null;
-    this.outputManager = new OutputManager('./unagi-output');
-    this.ruleEngine = new SecurityRuleEngine(''); // TODO: Pass API key if needed
+    this.outputManager = outputManager;
+    this.ruleEngine = new SecurityRuleEngine(apiKey);
   }
 
   /**

@@ -1,6 +1,7 @@
 import net from "net";
 import { OutputManager } from "./output/OutputManager";
 import { ScanOrchestrator } from "./core/ScanOrchestrator";
+import { WorkspaceScanOrchestrator } from "./core/WorkspaceScanOrchestrator";
 import { FileUtils } from "./utils";
 import { DataFlowVulnerability, Severity } from "./types";
 import * as fs from "fs";
@@ -17,7 +18,7 @@ const DEFAULT_FOLDER_PATH: string = process.env.UNAGI_OUTPUT_PATH || "./unagi-ou
 
 const outputManager = new OutputManager(DEFAULT_FOLDER_PATH);
 const scanOrchestrator = new ScanOrchestrator(outputManager, DEFAULT_API_KEY);
-
+const workspaceScanOrchestrator = new WorkspaceScanOrchestrator(outputManager, DEFAULT_API_KEY);
 /**
  * Handles incoming TCP messages and dispatches scan commands.
  * @param socket The TCP socket connection.
@@ -66,8 +67,6 @@ async function handleScanActualFile(socket: net.Socket, filePath: string): Promi
 async function handleScanWorkspace(socket: net.Socket): Promise<void> {
   console.log("Received scanWorkspace request");
   try {
-    const { WorkspaceScanOrchestrator } = await import("./core/WorkspaceScanOrchestrator.js");
-    const workspaceOrchestrator = new WorkspaceScanOrchestrator();
     // Get the workspace root
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
@@ -75,13 +74,13 @@ async function handleScanWorkspace(socket: net.Socket): Promise<void> {
       return;
     }
     // Run the workspace analysis
-    await workspaceOrchestrator.run(workspaceRoot);
+    await workspaceScanOrchestrator.run(workspaceRoot);
     // Get the vulnerabilities
-    const vulnerabilities = workspaceOrchestrator.getWorkspaceVulnerabilities();
+    const vulnerabilities = workspaceScanOrchestrator.getWorkspaceVulnerabilities();
     // Prepare the result
     const result = {
       workspaceRoot,
-      filesAnalyzed: workspaceOrchestrator.getSymbolTable().size,
+      filesAnalyzed: workspaceScanOrchestrator.getSymbolTable().size,
       vulnerabilities: vulnerabilities,
       summary: {
         totalVulnerabilities: vulnerabilities.length,

@@ -9,7 +9,7 @@ import { WorkspaceScanOrchestrator } from './WorkspaceScanOrchestrator';
 export class CommandTrigger {
   private readonly scanOrchestrator: ScanOrchestrator;
   private readonly outputManager: OutputManager;
-
+  private readonly workspaceScanOrchestrator: WorkspaceScanOrchestrator;
   /**
    * Creates a new CommandTrigger instance.
    * @param apiKey The OpenAI API key for AI-powered features.
@@ -18,6 +18,7 @@ export class CommandTrigger {
   constructor(apiKey: string, folderPath: string) {
     this.outputManager = new OutputManager(folderPath);
     this.scanOrchestrator = new ScanOrchestrator(this.outputManager, apiKey);
+    this.workspaceScanOrchestrator = new WorkspaceScanOrchestrator(this.outputManager, apiKey);
   }
 
   /**
@@ -107,8 +108,7 @@ export class CommandTrigger {
           return;
         }
         try {
-          const orchestrator = new WorkspaceScanOrchestrator();
-          await orchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
+          await this.workspaceScanOrchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
           // (Optional) Aggregate and display results, save reports, etc.
         } catch (error: any) {
           vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
