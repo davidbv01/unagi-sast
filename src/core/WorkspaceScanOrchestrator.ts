@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { ASTParser } from '../parser/ASTParser';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
-import { AstNode, DataFlowVulnerability, ScanResult, PatternVulnerability, SymbolTableEntry } from '../types';
+import { AstNode, DataFlowVulnerability, WorkspaceScanResult, PatternVulnerability, SymbolTableEntry, AnalysisResult } from '../types';
 import { FileUtils } from '../utils';
 import { OutputManager } from '../output/OutputManager';
 import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
@@ -242,7 +242,7 @@ export class WorkspaceScanOrchestrator {
    * Run the complete workspace analysis.
    * @param workspaceRoot The root directory of the workspace.
    */
-  public async run(workspaceRoot: string): Promise<void> {
+  public async run(workspaceRoot: string): Promise<WorkspaceScanResult> {
     const startTime = Date.now();
     console.log('🚀 Starting workspace-wide security analysis...');
     console.log(`📂 Workspace root: ${workspaceRoot}`);
@@ -250,17 +250,17 @@ export class WorkspaceScanOrchestrator {
       const filePaths = await this.discoverSourceFiles(workspaceRoot);
       if (filePaths.length === 0) {
         vscode.window.showInformationMessage('No supported source files found in workspace');
-        return;
+        return this.createEmptyScanResult(workspaceRoot, startTime, 0);
       }
       await this.parseFilesToASTs(filePaths);
       if (this.asts.size === 0) {
         vscode.window.showWarningMessage('No files could be parsed successfully');
-        return;
+        return this.createEmptyScanResult(workspaceRoot, startTime, 0);
       }
       this.buildSymbolTable();
       this.buildDataFlowGraphs();
       const workspaceVulnerabilities = this.analyzeWorkspaceDataFlowWithCrossFile(workspaceRoot);
-      const scanResults: ScanResult[] = [];
+      const scanResults: WorkspaceScanResult[] = [];
       for (const [filePath, dfg] of this.graphs) {
         const dfgInstance = this.graphs.get(filePath);
         if (!dfgInstance) continue;
@@ -270,12 +270,12 @@ export class WorkspaceScanOrchestrator {
         const dataFlowVulnerabilities: DataFlowVulnerability[] = workspaceVulnerabilities.filter(v => v.file === filePath || v.file === absolutePath);
         dataFlowVulnerabilities.forEach(vuln => { vuln.file = absolutePath; });
         scanResults.push({
-          file: absolutePath,
-          patternVulnerabilities,
-          dataFlowVulnerabilities,
-          scanTime: 0,
-          linesScanned: content.split('\n').length,
-          language: FileUtils.getLanguageFromExtension(filePath)
+          workspaceRoot: workspaceRoot,
+          filesAnalyzed: this.asts.size,
+          patternVulnerabilities: patternVulnerabilities,
+          dataFlowVulnerabilities: dataFlowVulnerabilities,
+          scanTime: Date.now() - startTime,
+          linesScanned: content.split('\n').length
         });
       }
       await this.outputManager.handleWorkspaceScanResults(scanResults);
@@ -285,12 +285,15 @@ export class WorkspaceScanOrchestrator {
         `Processed ${this.asts.size} files, found ${this.symbolTable.size} symbols, ` +
         `detected ${workspaceVulnerabilities.length} data flow vulnerabilities.`
       );
+      return this.createScanResult(workspaceRoot, { patternVulnerabilities: [], dataFlowVulnerabilities: [] }, startTime, 0);
     } catch (error) {
       console.error('❌ Workspace analysis failed:', error);
       vscode.window.showErrorMessage(
         `Workspace analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
+      return this.createEmptyScanResult(workspaceRoot, startTime, 0);
     }
+    
   }
 
   /**
@@ -359,6 +362,50 @@ export class WorkspaceScanOrchestrator {
       return [];
     }
     return this.analyzeWorkspaceDataFlowWithCrossFile('');
+  }
+
+  /**
+   * Creates a scan result with analysis data.
+   * @param document The scanned document.
+   * @param analysisResult The analysis results.
+   * @param startTime When the scan started.
+   * @param linesScanned Number of lines scanned.
+   * @returns Complete scan result.
+   */
+  private createScanResult(
+    workspaceRoot: string,
+    analysisResult: AnalysisResult,
+    startTime: number,
+    linesScanned: number
+  ): WorkspaceScanResult {
+    return {
+      workspaceRoot: workspaceRoot,
+      filesAnalyzed: analysisResult.patternVulnerabilities.length + analysisResult.dataFlowVulnerabilities.length,
+      patternVulnerabilities: analysisResult.patternVulnerabilities,
+      dataFlowVulnerabilities: analysisResult.dataFlowVulnerabilities,
+      scanTime: Date.now() - startTime,
+      linesScanned
+    };
+  }
+
+  /**
+   * Creates an empty scan result for failed scans.
+   * @param document The document that failed to scan.
+   * @param startTime When the scan started.
+   * @param linesScanned Number of lines in the document.
+   * @returns Empty scan result.
+   */
+  private createEmptyScanResult(
+    workspaceRoot: string,
+    startTime: number,
+    linesScanned: number
+  ): WorkspaceScanResult {
+    return this.createScanResult(
+      workspaceRoot,
+      { patternVulnerabilities: [], dataFlowVulnerabilities: [] },
+      startTime,
+      linesScanned
+    );
   }
 
   /**

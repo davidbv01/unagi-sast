@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability, Source, AnalysisResult } from '../types';
+import { ScanResult, Severity, DataFlowVulnerability, PatternVulnerability, Source, AnalysisResult, WorkspaceScanResult } from '../types';
 import * as fs from 'fs';
 
 const DIAGNOSTIC_COLLECTION_NAME = 'unagi';
@@ -69,7 +69,7 @@ export class OutputManager {
    * Handles workspace scan results by displaying diagnostics and saving to file.
    * @param results The scan results for the workspace.
    */
-  public async handleWorkspaceScanResults(results: ScanResult[]): Promise<void> {
+  public async handleWorkspaceScanResults(results: WorkspaceScanResult[]): Promise<void> {
     try {
       // Save workspace results
       const workspaceResultsPath = this.folderPath + WORKSPACE_RESULTS_FILENAME;
@@ -105,7 +105,7 @@ export class OutputManager {
         });
         
         if (allDiagnostics.length > 0) {
-          const uri = vscode.Uri.file(result.file);
+          const uri = vscode.Uri.file(result.workspaceRoot);
           console.log('[OUTPUT]   Setting diagnostics for', uri.fsPath, allDiagnostics.length);
           OutputManager.diagnosticCollection.set(uri, allDiagnostics);
         }
@@ -192,7 +192,7 @@ export class OutputManager {
    * Updates the status bar with the number of vulnerabilities found.
    * @param result The scan result(s).
    */
-  private updateStatusBar(result: ScanResult | ScanResult[]): void {
+  private updateStatusBar(result: ScanResult | ScanResult[] | WorkspaceScanResult[]): void {
     const totalVulnerabilities = Array.isArray(result)
       ? result.reduce((sum, r) => sum + r.patternVulnerabilities.length + r.dataFlowVulnerabilities.length, 0)
       : result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length;

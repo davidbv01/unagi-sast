@@ -69,9 +69,19 @@ export class CommandTrigger {
           vscode.window.showWarningMessage('No workspace folder open');
           return;
         }
+        const uri = vscode.workspace.workspaceFolders[0].uri.fsPath;
         try {
-          await this.workspaceScanOrchestrator.run(vscode.workspace.workspaceFolders[0].uri.fsPath);
-          // (Optional) Aggregate and display results, save reports, etc.
+          await this.workspaceScanOrchestrator.run(uri);
+          await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Window,
+            title: 'Unagi',
+            cancellable: false
+          }, async (progress) => {
+            progress.report({ message: `Scanning workspace...` });
+            const result = await this.workspaceScanOrchestrator.run(uri);
+            const totalVulns = result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length;
+            progress.report({ message: `Found ${totalVulns} vulnerabilities` });
+          });
         } catch (error: any) {
           vscode.window.showErrorMessage(`Error scanning workspace: ${error.message}`);
         }

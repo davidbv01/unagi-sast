@@ -1,5 +1,5 @@
 export { AstNode, SymbolTableEntry } from "./ast";
-export { ScanResult, OutputFormat, AnalysisResult } from "./output";
+export { ScanResult, OutputFormat, AnalysisResult, WorkspaceScanResult } from "./output";
 export { PatternVulnerability, DataFlowVulnerability, VulnerabilityType, Severity } from "./vulnerabilities";
 export { ScanConfiguration } from "./config";   
 export { AiAnalysisRequest, AiAnalysisResult, FunctionExtraction, DataFlowCodeExtraction, VulnerabilityAnalysis, VerificationRequest, VulnerabilityAnalysisSchema } from "./ai";
