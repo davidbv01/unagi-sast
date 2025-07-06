@@ -98,16 +98,16 @@ export class SecurityRuleEngine {
     }
   }
 
-  public async analyzeFile(ast: AstNode, languageId: string, file: string, content: string): Promise<AnalysisResult> {
+  public async analyzeFile(ast: AstNode, languageId: string, filePath: string, content: string): Promise<AnalysisResult> {
       try {
           // Create a new DataFlowGraph instance for each scan
           const dfg = new DataFlowGraph();
           
           // Pattern-based analysis
-          const patternVulnerabilities = this.patternMatcher.matchPatterns(content);
+          const patternVulnerabilities = this.patternMatcher.matchPatterns(content, filePath);
           // Set file path for pattern vulnerabilities
           patternVulnerabilities.forEach(vuln => {
-              vuln.file = file;
+              vuln.filePath = filePath;
           });      
 
           // Perform complete data flow analysis (build graph, detect sources, propagate taint, detect vulnerabilities)
@@ -120,8 +120,8 @@ export class SecurityRuleEngine {
           } else {
               // Apply AI analysis to both pattern and data flow vulnerabilities
               await Promise.all([
-                  this.applyAiAnalysis(patternVulnerabilities, ast, file, languageId, 'pattern'),
-                  this.applyAiAnalysis(dataFlowVulnerabilities, ast, file, languageId, 'data flow')
+                  this.applyAiAnalysis(patternVulnerabilities, ast, filePath, languageId, 'pattern'),
+                  this.applyAiAnalysis(dataFlowVulnerabilities, ast, filePath, languageId, 'data flow')
               ]);
           }
 
@@ -132,8 +132,8 @@ export class SecurityRuleEngine {
               dataFlowVulnerabilities: dataFlowVulnerabilities
           };
       } catch (error) {
-          console.error(`[ERROR] Failed to analyze file ${file}:`, error);
-          vscode.window.showErrorMessage(`Failed to analyze file: ${file}`);
+          console.error(`[ERROR] Failed to analyze file ${filePath}:`, error);
+          vscode.window.showErrorMessage(`Failed to analyze file: ${filePath}`);
           return {
               patternVulnerabilities: [],
               dataFlowVulnerabilities: []

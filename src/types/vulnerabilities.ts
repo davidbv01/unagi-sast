@@ -9,7 +9,7 @@ export interface BaseVulnerability {
   type: VulnerabilityType;
   severity: Severity;
   message: string;
-  file: string;
+  filePath: string;
   rule: string;
   description: string;
   recommendation: string;

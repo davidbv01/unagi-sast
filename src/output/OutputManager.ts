@@ -93,25 +93,34 @@ export class OutputManager {
       // Display workspace results
       OutputManager.diagnosticCollection.clear();
       
+      // Group diagnostics by file path
+      const diagnosticsByFile = new Map<string, vscode.Diagnostic[]>();
       results.forEach(result => {
-        const allDiagnostics: vscode.Diagnostic[] = [];
-        
         result.patternVulnerabilities.forEach(vuln => {
-          allDiagnostics.push(this.createPatternDiagnostic(vuln));
+          const filePath = vuln.filePath;
+          if (!diagnosticsByFile.has(filePath)) {
+            diagnosticsByFile.set(filePath, []);
+          }
+          diagnosticsByFile.get(filePath)!.push(this.createPatternDiagnostic(vuln));
         });
-        
         result.dataFlowVulnerabilities.forEach(dfv => {
-          allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
+          const filePath = dfv.filePath;
+          if (!diagnosticsByFile.has(filePath)) {
+            diagnosticsByFile.set(filePath, []);
+          }
+          diagnosticsByFile.get(filePath)!.push(this.createDataFlowDiagnostic(dfv));
         });
-        
-        if (allDiagnostics.length > 0) {
-          const uri = vscode.Uri.file(result.workspaceRoot);
-          console.log('[OUTPUT]   Setting diagnostics for', uri.fsPath, allDiagnostics.length);
-          OutputManager.diagnosticCollection.set(uri, allDiagnostics);
+      });
+      // Set diagnostics for each file
+      diagnosticsByFile.forEach((diagnostics, filePath) => {
+        if (diagnostics.length > 0) {
+          const uri = vscode.Uri.file(filePath);
+          console.log('[OUTPUT] Setting diagnostics for', uri.fsPath, diagnostics.length);
+          OutputManager.diagnosticCollection.set(uri, diagnostics);
         }
       });
       
-      console.log(`🔍 Created diagnostics for ${results.length} files`);
+      console.log(`🔍 Created diagnostics for ${diagnosticsByFile.size} files`);
       this.updateStatusBar(results);
       
       const totalVulns = workspaceSummary.totalVulnerabilities;
@@ -258,7 +267,7 @@ export class OutputManager {
       const sinkLoc = dfv.sink.loc;
       relatedInfo.push(new vscode.DiagnosticRelatedInformation(
         new vscode.Location(
-          vscode.Uri.file(dfv.file),
+          vscode.Uri.file(dfv.filePath),
           new vscode.Range(
             sinkLoc.start.line - 1,
             sinkLoc.start.column,
@@ -274,7 +283,7 @@ export class OutputManager {
         if (san.loc) {
           relatedInfo.push(new vscode.DiagnosticRelatedInformation(
             new vscode.Location(
-              vscode.Uri.file(dfv.file),
+              vscode.Uri.file(dfv.filePath),
               new vscode.Range(
                 san.loc.start.line - 1,
                 san.loc.start.column,
@@ -325,7 +334,7 @@ export class OutputManager {
         type: dfv.type,
         severity: dfv.severity,
         message: dfv.message,
-        file: dfv.file,
+        file: dfv.filePath,
         line: dfv.sink?.loc?.start?.line ?? 0,
         column: dfv.sink?.loc?.start?.column ?? 0,
         rule: dfv.rule,

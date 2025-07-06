@@ -415,7 +415,7 @@ export class DataFlowGraph {
           type: sinkObj.vulnerabilityType,
           severity: sinkObj.severity,
           message: `${node.name} is a sink and receives tainted input from: ${sourcesDescription}`,
-          file: filePath || "unknown",
+          filePath: filePath || "unknown",
           rule: "TAINTED_SINK",
           description: sinkObj.description,
           recommendation: "Sanitize input before passing it to sensitive operations like this sink.",

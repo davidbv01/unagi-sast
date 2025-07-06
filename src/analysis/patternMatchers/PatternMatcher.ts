@@ -19,7 +19,7 @@ export class PatternMatcher {
    * @param content The file content to scan.
    * @returns Array of detected vulnerabilities.
    */
-  public matchPatterns(content: string): PatternVulnerability[] {
+  public matchPatterns(content: string, filePath: string): PatternVulnerability[] {
     const vulnerabilities: PatternVulnerability[] = [];
     const rules = this.ruleLoader.getAllRules();
 
@@ -40,7 +40,7 @@ export class PatternMatcher {
             type: patternRule.type as VulnerabilityType,
             severity: (pattern.severity || patternRule.severity) as Severity,
             message: pattern.message,
-            file: '', // This should be set by the caller
+            filePath: filePath,
             line: lineNumber,
             column: column,
             isVulnerable: true,

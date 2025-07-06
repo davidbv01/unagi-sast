@@ -5,7 +5,7 @@ import { DataFlowGraph } from '../analysis/DataFlowGraph';
 import { AstNode, DataFlowVulnerability, WorkspaceScanResult, PatternVulnerability, SymbolTableEntry, AnalysisResult } from '../types';
 import { FileUtils } from '../utils';
 import { OutputManager } from '../output/OutputManager';
-import { SecurityRuleEngine } from '../rules/SecurityRuleEngine';
+import { WorkspaceSecurityRuleEngine } from '../rules/WorkspaceSecurityRuleEngine';
 import * as path from 'path';
 
 /**
@@ -18,7 +18,7 @@ export class WorkspaceScanOrchestrator {
   private readonly graphs: Map<string, DataFlowGraph>;
   private cachedVulnerabilities: DataFlowVulnerability[] | null = null;
   private readonly outputManager: OutputManager;
-  private readonly ruleEngine: SecurityRuleEngine;
+  private readonly ruleEngine: WorkspaceSecurityRuleEngine;
 
   /**
    * Creates a new WorkspaceScanOrchestrator instance.
@@ -30,7 +30,7 @@ export class WorkspaceScanOrchestrator {
     this.graphs = new Map();
     this.cachedVulnerabilities = null;
     this.outputManager = outputManager;
-    this.ruleEngine = new SecurityRuleEngine(apiKey);
+    this.ruleEngine = new WorkspaceSecurityRuleEngine(apiKey);
   }
 
   /**
@@ -137,106 +137,7 @@ export class WorkspaceScanOrchestrator {
     console.log(`📊 Built ${this.graphs.size} data flow graphs`);
   }
 
-  /**
-   * Analyze data flow vulnerabilities with cross-file propagation.
-   * @param workspaceRoot The root directory of the workspace.
-   * @returns All detected data flow vulnerabilities in the workspace.
-   */
-  public analyzeWorkspaceDataFlowWithCrossFile(workspaceRoot: string): DataFlowVulnerability[] {
-    const allVulnerabilities: DataFlowVulnerability[] = [];
-    // Step 1: Analyze each file individually for in-file vulnerabilities
-    for (const [filePath, dfg] of this.graphs) {
-      try {
-        const ast = this.asts.get(filePath);
-        if (!ast) continue;
-        const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
-        const content = require('fs').readFileSync(absolutePath, 'utf8');
-        const patternVulnerabilities: PatternVulnerability[] = this.ruleEngine.getPatternMatcher().matchPatterns(content) || [];
-        const fileVulnerabilities = dfg.performCompleteAnalysis(ast);
-        allVulnerabilities.push(...fileVulnerabilities);
-      } catch (error) {
-        // Optionally log or handle errors in production
-      }
-    }
-    // Step 2: Propagate taint across files and analyze resulting vulnerabilities
-    let crossFileConnections = 0;
-    for (const [sourceFilePath, sourceDfg] of this.graphs) {
-      for (const [nodeId, node] of sourceDfg.nodes) {
-        if (node.tainted && node.crossFileEdge) {
-          const targetFilePath = node.crossFileEdge.to;
-          const functionName = node.crossFileEdge.function;
-          const targetRelativePath = vscode.workspace.asRelativePath(targetFilePath);
-          const targetDfg = this.graphs.get(targetRelativePath);
-          const targetAst = this.asts.get(targetRelativePath);
-          if (targetDfg && targetAst) {
-            const functionSymbol = Array.from(this.symbolTable.values()).find(sym =>
-              sym.name === functionName && sym.type === 'function' && sym.filePath === targetRelativePath
-            );
-            let parameterNodes: any[] = [];
-            if (functionSymbol && functionSymbol.parameters) {
-              parameterNodes = functionSymbol.parameters.map(paramName => {
-                const paramNodeId = `${functionName}_${paramName}`;
-                return targetDfg.nodes.get(paramNodeId);
-              }).filter(Boolean);
-            } else {
-              parameterNodes = Array.from(targetDfg.nodes.values()).filter(n =>
-                n.id.startsWith(`${functionName}_`) &&
-                !n.id.includes('_return') &&
-                n.symbol?.scope === functionName
-              );
-            }
-            for (const paramNode of parameterNodes) {
-              if (!paramNode.tainted) {
-                paramNode.tainted = true;
-                if (node.taintSources && node.taintSources.size > 0) {
-                  paramNode.taintSources = new Set(node.taintSources);
-                  for (const src of node.taintSources) {
-                    targetDfg.propagateTaint(src);
-                  }
-                }
-                crossFileConnections++;
-              }
-            }
-            const crossFileVulns = targetDfg.detectVulnerabilities(targetRelativePath);
-            const newVulns = crossFileVulns;
-            newVulns.forEach(vuln => {
-              vuln.id = `cross-file-${vuln.id}`;
-              vuln.message = `Cross-file vulnerability: ${vuln.message} (originated from ${sourceFilePath})`;
-            });
-            allVulnerabilities.push(...newVulns);
-          }
-        }
-      }
-    }
-    this.cachedVulnerabilities = this.deduplicateVulnerabilities(allVulnerabilities);
-    return this.cachedVulnerabilities;
-  }
 
-  /**
-   * Deduplicate DataFlowVulnerability objects by file, sink location, type, and sources.
-   * @param vulns Array of vulnerabilities to deduplicate.
-   * @returns Deduplicated array of vulnerabilities.
-   */
-  private deduplicateVulnerabilities(vulns: DataFlowVulnerability[]): DataFlowVulnerability[] {
-    const seen = new Map<string, DataFlowVulnerability>();
-    for (const vuln of vulns) {
-      const sinkLoc = vuln.sink?.loc?.start;
-      const sourcesKey = vuln.sources
-        .map(s => `${s.filePath}:${s.loc?.start?.line}:${s.loc?.start?.column}`)
-        .sort()
-        .join('|');
-      const key = `${vuln.file}:${sinkLoc?.line}:${sinkLoc?.column}:${vuln.type}:${sourcesKey}`;
-      if (!seen.has(key)) {
-        seen.set(key, vuln);
-      } else {
-        const existing = seen.get(key)!;
-        if (vuln.sources.length > existing.sources.length) {
-          seen.set(key, vuln);
-        }
-      }
-    }
-    return Array.from(seen.values());
-  }
 
   /**
    * Run the complete workspace analysis.
@@ -259,33 +160,36 @@ export class WorkspaceScanOrchestrator {
       }
       this.buildSymbolTable();
       this.buildDataFlowGraphs();
-      const workspaceVulnerabilities = this.analyzeWorkspaceDataFlowWithCrossFile(workspaceRoot);
-      const scanResults: WorkspaceScanResult[] = [];
-      for (const [filePath, dfg] of this.graphs) {
-        const dfgInstance = this.graphs.get(filePath);
-        if (!dfgInstance) continue;
-        const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
-        const content = require('fs').readFileSync(absolutePath, 'utf8');
-        const patternVulnerabilities: PatternVulnerability[] = this.ruleEngine.getPatternMatcher().matchPatterns(content) || [];
-        const dataFlowVulnerabilities: DataFlowVulnerability[] = workspaceVulnerabilities.filter(v => v.file === filePath || v.file === absolutePath);
-        dataFlowVulnerabilities.forEach(vuln => { vuln.file = absolutePath; });
-        scanResults.push({
-          workspaceRoot: workspaceRoot,
-          filesAnalyzed: this.asts.size,
-          patternVulnerabilities: patternVulnerabilities,
-          dataFlowVulnerabilities: dataFlowVulnerabilities,
-          scanTime: Date.now() - startTime,
-          linesScanned: content.split('\n').length
-        });
-      }
-      await this.outputManager.handleWorkspaceScanResults(scanResults);
+      
+      // Delegate all security analysis to the WorkspaceSecurityRuleEngine
+      const analysisResult = await this.ruleEngine.analyzeWorkspace(
+        this.asts,
+        this.symbolTable,
+        this.graphs,
+        workspaceRoot
+      );
+      
+      // Cache the results
+      this.cachedVulnerabilities = analysisResult.dataFlowVulnerabilities;
+      
+      // Create workspace scan result for output
+      const workspaceScanResult: WorkspaceScanResult = {
+        workspaceRoot: workspaceRoot,
+        filesAnalyzed: this.asts.size,
+        patternVulnerabilities: analysisResult.patternVulnerabilities,
+        dataFlowVulnerabilities: analysisResult.dataFlowVulnerabilities,
+        scanTime: Date.now() - startTime,
+        linesScanned: Array.from(this.asts.values()).reduce((total, ast) => total + ast.content.split('\n').length, 0)
+      };
+      
+      await this.outputManager.handleWorkspaceScanResults([workspaceScanResult]);
       const totalTime = Date.now() - startTime;
       vscode.window.showInformationMessage(
         `Workspace analysis completed in ${(totalTime / 1000).toFixed(2)}s. ` +
         `Processed ${this.asts.size} files, found ${this.symbolTable.size} symbols, ` +
-        `detected ${workspaceVulnerabilities.length} data flow vulnerabilities.`
+        `detected ${analysisResult.dataFlowVulnerabilities.length} data flow vulnerabilities.`
       );
-      return this.createScanResult(workspaceRoot, { patternVulnerabilities: [], dataFlowVulnerabilities: [] }, startTime, 0);
+      return workspaceScanResult;
     } catch (error) {
       console.error('❌ Workspace analysis failed:', error);
       vscode.window.showErrorMessage(
@@ -357,11 +261,11 @@ export class WorkspaceScanOrchestrator {
    * @returns Array of data flow vulnerabilities.
    */
   public getWorkspaceVulnerabilities(): DataFlowVulnerability[] {
-    if (this.graphs.size === 0) {
-      console.warn('⚠️ No data flow graphs available. Run workspace analysis first.');
-      return [];
+    if (this.cachedVulnerabilities) {
+      return this.cachedVulnerabilities;
     }
-    return this.analyzeWorkspaceDataFlowWithCrossFile('');
+    console.warn('⚠️ No vulnerabilities available. Run workspace analysis first.');
+    return [];
   }
 
   /**
