@@ -1,9 +1,13 @@
 import { z } from 'zod';
-import { Vulnerability } from './vulnerabilities';
+import { PatternVulnerability, DataFlowVulnerability } from './vulnerabilities';
+import { SymbolTableEntry } from './ast';
 
 export interface AiAnalysisRequest {
     file: string;
-    vulnerabilities: Vulnerability[];
+    content: string;
+    symbols: SymbolTableEntry[];
+    patternVulnerabilities: PatternVulnerability[];
+    dataFlowVulnerabilities: DataFlowVulnerability[];
     context?: {
       language: string;
       framework?: string;
@@ -12,10 +16,10 @@ export interface AiAnalysisRequest {
   }
   
   export interface AiAnalysisResult {
-    codeExtractions: DataFlowCodeExtraction[];
+    codeExtractions: string[];
     verifiedVulnerabilities: Array<{
-      originalVulnerability: Vulnerability;
-      codeExtraction: DataFlowCodeExtraction;
+      originalVulnerability: PatternVulnerability | DataFlowVulnerability;
+      codeExtraction: string;
       aiAnalysis: VulnerabilityAnalysis;
       isConfirmed: boolean;
     }>;
@@ -56,7 +60,7 @@ export interface AiAnalysisRequest {
   export type VulnerabilityAnalysis = z.infer<typeof VulnerabilityAnalysisSchema>;
 
   export interface VerificationRequest {
-    codeExtraction: DataFlowCodeExtraction;
+    codeExtraction: string;
     initialVulnerabilityAssessment: {
       type: string;
       severity: string;

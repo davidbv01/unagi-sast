@@ -1,4 +1,4 @@
-import { Vulnerability, DataFlowVulnerability, AstNode, AiAnalysisRequest, AiAnalysisResult, AnalysisResult } from '../types';
+import { DataFlowVulnerability, PatternVulnerability, AstNode, AiAnalysisRequest, AnalysisResult } from '../types';
 import { PatternMatcher } from '../analysis/patternMatchers/PatternMatcher';
 import { SinkDetector, SanitizerDetector } from '../analysis/detectors/index';
 import { AiEngine } from '../ai';
@@ -30,6 +30,74 @@ export class SecurityRuleEngine {
     }
   }
 
+  /**
+   * Applies AI analysis to vulnerabilities and populates their ai property.
+   * @param vulnerabilities Array of vulnerabilities to analyze (pattern and/or data flow)
+   * @param ast The AST node for code extraction context
+   * @param file The file path being analyzed
+   * @param languageId The programming language identifier
+   * @param vulnerabilityType Type description for logging (e.g., "pattern", "data flow")
+   * @returns Promise<void> - Modifies vulnerabilities in place by adding ai property
+   */
+  private async applyAiAnalysis(
+    vulnerabilities: Array<PatternVulnerability | DataFlowVulnerability>,
+    ast: AstNode,
+    file: string,
+    languageId: string,
+    vulnerabilityType: string
+  ): Promise<void> {
+    if (!this.aiEngine || vulnerabilities.length === 0) {
+      return;
+    }
+
+    try {
+      // Split vulnerabilities into pattern and data flow arrays
+      const patternVulnerabilities = vulnerabilities.filter(
+        (vuln): vuln is PatternVulnerability => vulnerabilityType === 'pattern'
+      );
+      const dataFlowVulnerabilities = vulnerabilities.filter(
+        (vuln): vuln is DataFlowVulnerability => vulnerabilityType === 'data flow'
+      );
+
+      const aiRequest: AiAnalysisRequest = {
+        file,
+        content: ast.content,
+        symbols: ast.symbols,
+        patternVulnerabilities,
+        dataFlowVulnerabilities,
+        context: {
+          language: languageId,
+          additionalInfo: `Static analysis detected ${vulnerabilities.length} potential ${vulnerabilityType} vulnerabilities`
+        }
+      };
+
+      const aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities([aiRequest]);
+      
+      // Apply AI analysis results to all vulnerabilities
+      vulnerabilities.forEach(vuln => {
+        const verifiedResult = aiAnalysisResult[0]?.verifiedVulnerabilities.find((v: { originalVulnerability: { id: string } }) => v.originalVulnerability.id === vuln.id);
+        if (verifiedResult) {
+          // Always populate the ai property, regardless of whether vulnerability is confirmed or false positive
+          (vuln as any).ai = {
+            confidenceScore: verifiedResult.aiAnalysis.confidenceScore,
+            shortExplanation: verifiedResult.aiAnalysis.shortExplanation,
+            exploitExample: verifiedResult.aiAnalysis.exploitExample,
+            remediation: verifiedResult.aiAnalysis.remediation
+          };
+
+          // For DataFlowVulnerabilities, also update the isVulnerable field based on AI analysis
+          if ('isVulnerable' in vuln) {
+            (vuln as DataFlowVulnerability).isVulnerable = verifiedResult.isConfirmed;
+          }
+        }
+      });
+
+    } catch (aiError) {
+      console.error(`[ERROR] AI analysis failed for ${vulnerabilityType} vulnerabilities:`, aiError);
+      vscode.window.showWarningMessage(`AI analysis failed for ${vulnerabilityType} vulnerabilities`);
+    }
+  }
+
   public async analyzeFile(ast: AstNode, languageId: string, file: string, content: string): Promise<AnalysisResult> {
       try {
           // Create a new DataFlowGraph instance for each scan
@@ -45,82 +113,23 @@ export class SecurityRuleEngine {
           // Perform complete data flow analysis (build graph, detect sources, propagate taint, detect vulnerabilities)
           const dataFlowVulnerabilities = dfg.performCompleteAnalysis(ast);
 
-          // Initialize result with pattern vulnerabilities and data flow vulnerabilities
-          let finalDataFlowVulnerabilities: DataFlowVulnerability[] = [...dataFlowVulnerabilities];
-
-          // Verify that we have api keys for AI analysis
+          // Apply AI analysis to vulnerabilities if AI engine is available
           if (!this.aiEngine) {
               console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
               vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
-              // Keep data flow vulnerabilities as-is without AI verification
           } else {
-              // AI-powered analysis using AiEngine (code extraction + verification)
-              let aiAnalysisResult: AiAnalysisResult | null = null;
-              
-              if (dataFlowVulnerabilities.length > 0) {
-                  try {
-                      // Convert DataFlowVulnerability to Vulnerability for AI analysis
-                      const vulnerabilitiesForAI: Vulnerability[] = dataFlowVulnerabilities.map(dfv => ({
-                          id: dfv.id,
-                          type: dfv.type,
-                          severity: dfv.severity,
-                          message: dfv.message,
-                          file: dfv.file,
-                          line: dfv.sources[0].id === 'unknown' ? 0 : 1, // Default line
-                          column: 0, // Default column
-                          rule: dfv.rule,
-                          description: dfv.description,
-                          recommendation: dfv.recommendation
-                      }));
-
-                      const aiRequest: AiAnalysisRequest = {
-                          file,
-                          vulnerabilities: vulnerabilitiesForAI,
-                          context: {
-                              language: languageId,
-                              additionalInfo: `Static analysis detected ${dataFlowVulnerabilities.length} potential data flow vulnerabilities`
-                          }
-                      };
-
-                      aiAnalysisResult = await this.aiEngine.analyzeVulnerabilities(aiRequest, ast);
-                      console.log(`[DEBUG] 🎯 AI Analysis complete: ${aiAnalysisResult.summary.confirmed} confirmed, ${aiAnalysisResult.summary.falsePositives} false positives`);
-                      
-                      if (aiAnalysisResult) {
-                          // Update data flow vulnerabilities with AI analysis results
-                          finalDataFlowVulnerabilities = dataFlowVulnerabilities.map(dfv => {
-                              const verifiedResult = aiAnalysisResult!.verifiedVulnerabilities.find(v => v.originalVulnerability.id === dfv.id);
-                              if (verifiedResult && verifiedResult.isConfirmed) {
-                                  return {
-                                      ...dfv,
-                                      isVulnerable: true,
-                                      ai: {
-                                          confidenceScore: verifiedResult.aiAnalysis.confidenceScore,
-                                          shortExplanation: verifiedResult.aiAnalysis.shortExplanation,
-                                          exploitExample: verifiedResult.aiAnalysis.exploitExample,
-                                          remediation: verifiedResult.aiAnalysis.remediation
-                                      }
-                                  };
-                              } else {
-                                  return {
-                                      ...dfv,
-                                      isVulnerable: false // AI determined it's not vulnerable
-                                  };
-                              }
-                          });
-                      }
-                  } catch (aiError) {
-                      // Handle AI analysis errors - keep original data flow vulnerabilities
-                      console.error('[ERROR] AI analysis failed:', aiError);
-                      vscode.window.showWarningMessage(`AI analysis failed`);
-                  }
-              }
-              
-              console.log(`[DEBUG] 📌 Found ${dataFlowVulnerabilities.length} data flow vulnerabilities`);
+              // Apply AI analysis to both pattern and data flow vulnerabilities
+              await Promise.all([
+                  this.applyAiAnalysis(patternVulnerabilities, ast, file, languageId, 'pattern'),
+                  this.applyAiAnalysis(dataFlowVulnerabilities, ast, file, languageId, 'data flow')
+              ]);
           }
+
+          console.log(`[DEBUG] 📌 Found ${patternVulnerabilities.length} pattern vulnerabilities and ${dataFlowVulnerabilities.length} data flow vulnerabilities`);
 
           return {
               patternVulnerabilities: patternVulnerabilities,
-              dataFlowVulnerabilities: finalDataFlowVulnerabilities
+              dataFlowVulnerabilities: dataFlowVulnerabilities
           };
       } catch (error) {
           console.error(`[ERROR] Failed to analyze file ${file}:`, error);

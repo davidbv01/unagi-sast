@@ -1,4 +1,4 @@
-import { Vulnerability, VulnerabilityType, Severity, PatternRule } from '../../types';
+import { PatternVulnerability, VulnerabilityType, Severity, PatternRule } from '../../types';
 import { RuleLoader } from '../rules/RuleLoader';
 
 /**
@@ -19,8 +19,8 @@ export class PatternMatcher {
    * @param content The file content to scan.
    * @returns Array of detected vulnerabilities.
    */
-  public matchPatterns(content: string): Vulnerability[] {
-    const vulnerabilities: Vulnerability[] = [];
+  public matchPatterns(content: string): PatternVulnerability[] {
+    const vulnerabilities: PatternVulnerability[] = [];
     const rules = this.ruleLoader.getAllRules();
 
     for (const rule of rules) {
@@ -43,6 +43,7 @@ export class PatternMatcher {
             file: '', // This should be set by the caller
             line: lineNumber,
             column: column,
+            isVulnerable: true,
             rule: patternRule.id,
             description: pattern.message,
             recommendation: pattern.recommendation

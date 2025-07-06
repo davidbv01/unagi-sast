@@ -1,7 +1,7 @@
-import { PatternVulnerability, DataFlowVulnerability, Vulnerability } from "./vulnerabilities";
+import { PatternVulnerability, DataFlowVulnerability } from "./vulnerabilities";
 
 export interface AnalysisResult {
-  patternVulnerabilities: Vulnerability[];
+  patternVulnerabilities: PatternVulnerability[];
   dataFlowVulnerabilities: DataFlowVulnerability[];
 }
 

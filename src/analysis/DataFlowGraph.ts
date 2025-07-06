@@ -423,13 +423,7 @@ export class DataFlowGraph {
           sink: sinkObj,
           sanitizers: sanitizersInPath,
           isVulnerable: node.tainted && sanitizersInPath.length === 0,
-          pathLines: [uniqueSources[0]?.loc?.start?.line || 1, sinkObj.loc.start.line],
-          ai: {
-            confidenceScore: 0,
-            shortExplanation: 'NA - AI analysis not executed',
-            exploitExample: 'NA - AI analysis not executed',
-            remediation: 'NA - AI analysis not executed',
-          }
+          pathLines: [uniqueSources[0]?.loc?.start?.line || 1, sinkObj.loc.start.line]
         };
         vulnerabilities.push(vuln);
       }
