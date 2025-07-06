@@ -52,6 +52,9 @@ export interface DataFlowVulnerability extends BaseVulnerability {
   sink: Sink;
   sanitizers: Sanitizer[];
 
+  // Cross-file data flow information
+  isCrossFile?: boolean;
+
   // AST path traceability for the data flow
   pathLines?: number[];
 }

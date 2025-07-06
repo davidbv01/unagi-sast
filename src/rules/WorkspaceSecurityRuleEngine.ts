@@ -63,6 +63,16 @@ export class WorkspaceSecurityRuleEngine {
     }
 
     try {
+      // Build cross-file context maps for AI analysis
+      const filesContent = new Map<string, string>();
+      const filesSymbols = new Map<string, SymbolTableEntry[]>();
+      
+      for (const [relativePath, ast] of asts) {
+        const absolutePath = path.isAbsolute(relativePath) ? relativePath : path.join(workspaceRoot, relativePath);
+        filesContent.set(absolutePath, ast.content);
+        filesSymbols.set(absolutePath, ast.symbols);
+      }
+
       // Group vulnerabilities by file for AI analysis
       const vulnerabilityByFile = new Map<string, Array<PatternVulnerability | DataFlowVulnerability>>();
       
@@ -85,13 +95,12 @@ export class WorkspaceSecurityRuleEngine {
           continue;
         }
 
-        // Split vulnerabilities into pattern and data flow arrays
-        const patternVulnerabilities = fileVulns.filter(
-          (vuln): vuln is PatternVulnerability => 'ruleId' in vuln
-        );
-        const dataFlowVulnerabilities = fileVulns.filter(
-          (vuln): vuln is DataFlowVulnerability => 'sources' in vuln
-        );
+        // Split vulnerabilities based on vulnerability type
+        const patternVulnerabilities = vulnerabilityType === 'pattern' ? fileVulns as PatternVulnerability[] : [];
+        const dataFlowVulnerabilities = vulnerabilityType === 'data flow' ? fileVulns as DataFlowVulnerability[] : [];
+
+        // Check if any vulnerabilities in this file are cross-file
+        const hasCrossFileVulns = dataFlowVulnerabilities.some(vuln => vuln.isCrossFile);
 
         const aiRequest: AiAnalysisRequest = {
           file: filePath,
@@ -100,8 +109,13 @@ export class WorkspaceSecurityRuleEngine {
           patternVulnerabilities,
           dataFlowVulnerabilities,
           context: {
-            language: 'unknown', // Language will be determined from file extension
-            additionalInfo: `Workspace analysis detected ${fileVulns.length} potential ${vulnerabilityType} vulnerabilities`
+            language: "python", // TODO: get language from file extension
+            additionalInfo: `Workspace analysis detected ${fileVulns.length} potential ${vulnerabilityType} vulnerabilities`,
+            // Include cross-file context maps if there are cross-file vulnerabilities
+            ...(hasCrossFileVulns && {
+              filesContent,
+              filesSymbols
+            })
           }
         };
 
@@ -312,7 +326,8 @@ export class WorkspaceSecurityRuleEngine {
             const newVulns = crossFileVulns.map(vuln => ({
               ...vuln,
               id: `cross-file-${vuln.id}`,
-              message: `Cross-file vulnerability: ${vuln.message} (originated from ${sourceFilePath})`
+              message: `Cross-file vulnerability: ${vuln.message} (originated from ${sourceFilePath})`,
+              isCrossFile: true
             }));
             crossFileVulnerabilities.push(...newVulns);
           }

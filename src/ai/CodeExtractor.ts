@@ -4,6 +4,11 @@ import { SymbolTableEntry } from '../types/ast';
 
 /**
  * Utility class for extracting code snippets and function contexts for AI analysis.
+ * 
+ * This class provides comprehensive context extraction capabilities for:
+ * - Pattern-based vulnerabilities
+ * - Single-file data flow vulnerabilities 
+ * - Cross-file data flow vulnerabilities
  */
 export class CodeExtractor {
   
@@ -45,9 +50,27 @@ export class CodeExtractor {
     if (dataFlowVulnerabilities.length > 0) {
       extractedContext += '=== DATA FLOW VULNERABILITIES ===\n';
       for (const vulnerability of dataFlowVulnerabilities) {
-        const context = this.extractContextDataFlowVulnerability(file, content, vulnerability, symbols);
-        console.log('[CodeExtractor] DataFlowVulnerability context:', context);
-        extractedContext += context;
+        const isCrossFile = !!vulnerability.isCrossFile;
+        if (isCrossFile && context && context.filesContent && context.filesSymbols) {
+          // Use the full cross-file extractor if maps are provided
+          const crossFileContext = this.extractContextDataFlowVulnerabilityCrossFile(
+            vulnerability,
+            context.filesContent,
+            context.filesSymbols
+          );
+          console.log('[CodeExtractor] Cross-file DataFlowVulnerability context (full):', crossFileContext);
+          extractedContext += crossFileContext;
+        } else if (isCrossFile) {
+          // Fallback: add a note and use the regular extractor
+          const fallbackContext = this.extractContextDataFlowVulnerability(file, content, vulnerability, symbols);
+          console.log('[CodeExtractor] Cross-file DataFlowVulnerability context (limited):', fallbackContext);
+          extractedContext += '// NOTE: This is a cross-file vulnerability. Full context requires multiple files.\n';
+          extractedContext += fallbackContext;
+        } else {
+          const context = this.extractContextDataFlowVulnerability(file, content, vulnerability, symbols);
+          console.log('[CodeExtractor] DataFlowVulnerability context:', context);
+          extractedContext += context;
+        }
         extractedContext += '\n';
       }
     }
@@ -159,15 +182,118 @@ export class CodeExtractor {
 
   /**
    * Function: extractContextDataFlowVulnerabilityCrossFile
-   * Handles cross-file data flow vulnerabilities (placeholder for future implementation)
-   * @param vulnerabilities - Array of related vulnerabilities across files
+   * Handles cross-file data flow vulnerabilities by extracting context from multiple files
+   * @param vulnerability - The cross-file data flow vulnerability
+   * @param filesContent - Map of file paths to their content
+   * @param filesSymbols - Map of file paths to their symbol tables
    * @returns Context string for cross-file data flow vulnerabilities
    */
   public static extractContextDataFlowVulnerabilityCrossFile(
-    vulnerabilities: DataFlowVulnerability[]
+    vulnerability: DataFlowVulnerability,
+    filesContent: Map<string, string>,
+    filesSymbols: Map<string, SymbolTableEntry[]>
   ): string {
-    // Placeholder implementation for cross-file analysis
-    return `Cross-file data flow analysis not yet implemented for ${vulnerabilities.length} vulnerabilities`;
+    let crossFileContext = '';
+    
+    // Extract information about the vulnerability
+    const sourcesInfo = vulnerability.sources.map(s => `${s.type} at line ${s.loc.start.line} in ${s.filePath}`).join(', ');
+    const sinkInfo = `${vulnerability.sink.type} at line ${vulnerability.sink.loc.start.line} in ${vulnerability.filePath}`;
+    const sanitizersInfo = vulnerability.sanitizers.length > 0 
+      ? vulnerability.sanitizers.map(s => `${s.type} at line ${s.loc.start.line} in ${s.filePath || vulnerability.filePath}`).join(', ')
+      : 'None';
+    
+    crossFileContext += `Cross-file Data Flow Vulnerability: ${vulnerability.type}\n`;
+    crossFileContext += `Message: ${vulnerability.message}\n`;
+    crossFileContext += `Sources: ${sourcesInfo}\n`;
+    crossFileContext += `Sink: ${sinkInfo}\n`;
+    crossFileContext += `Sanitizers: ${sanitizersInfo}\n\n`;
+    
+    // Group components by file
+    const fileComponents = new Map<string, {
+      sources: typeof vulnerability.sources,
+      sinks: typeof vulnerability.sink[],
+      sanitizers: typeof vulnerability.sanitizers
+    }>();
+    
+    // Process sources
+    for (const source of vulnerability.sources) {
+      const filePath = source.filePath;
+      if (!fileComponents.has(filePath)) {
+        fileComponents.set(filePath, { sources: [], sinks: [], sanitizers: [] });
+      }
+      fileComponents.get(filePath)!.sources.push(source);
+    }
+    
+    // Process sink
+    const sinkFilePath = vulnerability.filePath;
+    if (!fileComponents.has(sinkFilePath)) {
+      fileComponents.set(sinkFilePath, { sources: [], sinks: [], sanitizers: [] });
+    }
+    fileComponents.get(sinkFilePath)!.sinks.push(vulnerability.sink);
+    
+    // Process sanitizers
+    for (const sanitizer of vulnerability.sanitizers) {
+      const filePath = sanitizer.filePath || vulnerability.filePath;
+      if (!fileComponents.has(filePath)) {
+        fileComponents.set(filePath, { sources: [], sinks: [], sanitizers: [] });
+      }
+      fileComponents.get(filePath)!.sanitizers.push(sanitizer);
+    }
+    
+    // Extract context for each file
+    crossFileContext += '=== CROSS-FILE CONTEXT ===\n\n';
+    
+    for (const [filePath, components] of fileComponents) {
+      const content = filesContent.get(filePath);
+      const symbols = filesSymbols.get(filePath) || [];
+      
+      if (!content) {
+        crossFileContext += `File: ${filePath}\n`;
+        crossFileContext += `Content not available\n\n`;
+        continue;
+      }
+      
+      crossFileContext += `File: ${filePath}\n`;
+      crossFileContext += `${'-'.repeat(50)}\n`;
+      
+      const lines = content.split('\n');
+      const relevantLines = new Set<number>();
+      
+      // Collect all relevant line numbers
+      components.sources.forEach(s => relevantLines.add(s.loc.start.line));
+      components.sinks.forEach(s => relevantLines.add(s.loc.start.line));
+      components.sanitizers.forEach(s => relevantLines.add(s.loc.start.line));
+      
+      // For each relevant line, try to extract function context or line context
+      const processedFunctions = new Set<string>();
+      
+      for (const lineNumber of Array.from(relevantLines).sort((a, b) => a - b)) {
+        const containingFunction = this.findContainingFunction(lineNumber, symbols);
+        
+        if (containingFunction && !processedFunctions.has(containingFunction.name)) {
+          // Extract entire function context
+          const functionContext = this.extractCrossFileFunctionContext(
+            containingFunction,
+            lines,
+            components,
+            vulnerability
+          );
+          crossFileContext += functionContext + '\n\n';
+          processedFunctions.add(containingFunction.name);
+        } else if (!containingFunction) {
+          // Extract line context if not in a function
+          const lineContext = this.extractCrossFileLineContext(
+            lines,
+            lineNumber,
+            components,
+            vulnerability
+          );
+          crossFileContext += lineContext + '\n\n';
+        }
+      }
+    }
+    
+    return crossFileContext;
   }
 
   /**
@@ -256,6 +382,89 @@ export class CodeExtractor {
         marker = ' <-- SANITIZER';
       } else if (lineNumber === targetLine) {
         marker = ' <-- PATH';
+      }
+      
+      contextLines.push(`${lineNumber.toString().padStart(4)}: ${lines[i]}${marker}`);
+    }
+    
+    return `Code Context:\n${contextLines.join('\n')}`;
+  }
+
+  /**
+   * Helper method to extract function context for cross-file vulnerabilities
+   * @param functionSymbol - The function symbol
+   * @param lines - The file lines
+   * @param components - The vulnerability components in this file
+   * @param vulnerability - The full vulnerability for context
+   * @returns Formatted function context
+   */
+  private static extractCrossFileFunctionContext(
+    functionSymbol: SymbolTableEntry,
+    lines: string[],
+    components: {
+      sources: any[],
+      sinks: any[],
+      sanitizers: any[]
+    },
+    vulnerability: DataFlowVulnerability
+  ): string {
+    const startLine = functionSymbol.loc.start.line - 1; // Convert to 0-based
+    const endLine = functionSymbol.loc.end.line - 1;
+    
+    let contextLines: string[] = [];
+    for (let i = startLine; i <= endLine; i++) {
+      const lineNumber = i + 1; // Convert back to 1-based
+      let marker = '';
+      
+      // Add markers for sources, sinks, and sanitizers in this file
+      if (components.sources.some(s => s.loc.start.line === lineNumber)) {
+        marker = ' <-- SOURCE (Cross-file)';
+      } else if (components.sinks.some(s => s.loc.start.line === lineNumber)) {
+        marker = ' <-- SINK (Cross-file)';
+      } else if (components.sanitizers.some(s => s.loc.start.line === lineNumber)) {
+        marker = ' <-- SANITIZER (Cross-file)';
+      }
+      
+      contextLines.push(`${lineNumber.toString().padStart(4)}: ${lines[i]}${marker}`);
+    }
+    
+    return `Function: ${functionSymbol.name}\n${contextLines.join('\n')}`;
+  }
+
+  /**
+   * Helper method to extract line context for cross-file vulnerabilities when not in a function
+   * @param lines - The file lines
+   * @param targetLine - The target line number
+   * @param components - The vulnerability components in this file
+   * @param vulnerability - The full vulnerability for context
+   * @returns Formatted line context
+   */
+  private static extractCrossFileLineContext(
+    lines: string[],
+    targetLine: number,
+    components: {
+      sources: any[],
+      sinks: any[],
+      sanitizers: any[]
+    },
+    vulnerability: DataFlowVulnerability
+  ): string {
+    const targetIndex = targetLine - 1; // Convert to 0-based
+    const startLine = Math.max(0, targetIndex - 10);
+    const endLine = Math.min(lines.length - 1, targetIndex + 10);
+    
+    let contextLines: string[] = [];
+    for (let i = startLine; i <= endLine; i++) {
+      const lineNumber = i + 1; // Convert back to 1-based
+      let marker = '';
+      
+      // Add markers for sources, sinks, and sanitizers in this file
+      if (components.sources.some(s => s.loc.start.line === lineNumber)) {
+        marker = ' <-- SOURCE (Cross-file)';
+      } else if (components.sinks.some(s => s.loc.start.line === lineNumber)) {
+        marker = ' <-- SINK (Cross-file)';
+      } else if (components.sanitizers.some(s => s.loc.start.line === lineNumber)) {
+        marker = ' <-- SANITIZER (Cross-file)';
       }
       
       contextLines.push(`${lineNumber.toString().padStart(4)}: ${lines[i]}${marker}`);

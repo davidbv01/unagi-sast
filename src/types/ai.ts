@@ -12,6 +12,8 @@ export interface AiAnalysisRequest {
       language: string;
       framework?: string;
       additionalInfo?: string;
+      filesContent?: Map<string, string>;
+      filesSymbols?: Map<string, SymbolTableEntry[]>;
     };
   }
   
