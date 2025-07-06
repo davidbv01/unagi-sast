@@ -71,7 +71,6 @@ export class CommandTrigger {
         }
         const uri = vscode.workspace.workspaceFolders[0].uri.fsPath;
         try {
-          await this.workspaceScanOrchestrator.run(uri);
           await vscode.window.withProgress({
             location: vscode.ProgressLocation.Window,
             title: 'Unagi',
