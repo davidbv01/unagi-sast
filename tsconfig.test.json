@@ -2,7 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "test",
-    "outDir": "out/test"
+    "outDir": "out/test",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node", "mocha", "vscode"],
+    "moduleResolution": "Node16",
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["test"]
+  "include": ["test/**/*"],
+  "exclude": ["node_modules", "out"]
 } 
