@@ -151,10 +151,8 @@ export class WorkspaceSecurityRuleEngine {
               remediation: verifiedResult.aiAnalysis.remediation
             };
 
-            // For DataFlowVulnerabilities, also update the isVulnerable field based on AI analysis
-            if ('isVulnerable' in vuln) {
-              (vuln as DataFlowVulnerability).isVulnerable = verifiedResult.isConfirmed;
-            }
+            // Update the isVulnerable field based on AI analysis for all vulnerability types
+            vuln.isVulnerable = verifiedResult.isConfirmed;
           }
         }
       });

@@ -39,20 +39,32 @@ export class OutputManager {
     OutputManager.diagnosticCollection.clear();
     const allDiagnostics: vscode.Diagnostic[] = [];
     
-    result.patternVulnerabilities.forEach(vuln => {
+    // Filter out false positives (isVulnerable: false) before creating diagnostics
+    const confirmedPatternVulns = result.patternVulnerabilities.filter(vuln => vuln.isVulnerable);
+    const confirmedDataFlowVulns = result.dataFlowVulnerabilities.filter(vuln => vuln.isVulnerable);
+    
+    confirmedPatternVulns.forEach(vuln => {
       allDiagnostics.push(this.createPatternDiagnostic(vuln));
     });
     
-    result.dataFlowVulnerabilities.forEach(dfv => {
+    confirmedDataFlowVulns.forEach(dfv => {
       allDiagnostics.push(this.createDataFlowDiagnostic(dfv));
     });
     
     const uri = vscode.Uri.file(result.file);
     OutputManager.diagnosticCollection.set(uri, allDiagnostics);
-    this.updateStatusBar(result);
-    this.displayInline(result);
+    
+    // Update result for status bar and inline display (filtered counts)
+    const filteredResult = {
+      ...result,
+      patternVulnerabilities: confirmedPatternVulns,
+      dataFlowVulnerabilities: confirmedDataFlowVulns
+    };
+    
+    this.updateStatusBar(filteredResult);
+    this.displayInline(filteredResult);
 
-    // Save the analysis result
+    // Save the analysis result (include ALL vulnerabilities, both confirmed and false positives)
     return new Promise((resolve) => {
       fs.writeFile(this.filePath, JSON.stringify(analysisResult, null, 2), 'utf8', (err) => {
         if (err) {
@@ -71,31 +83,41 @@ export class OutputManager {
    */
   public async handleWorkspaceScanResults(results: WorkspaceScanResult[]): Promise<void> {
     try {
-      // Save workspace results
+      // Filter out false positives from results before processing
+      const filteredResults = results.map(result => ({
+        ...result,
+        patternVulnerabilities: result.patternVulnerabilities.filter(vuln => vuln.isVulnerable),
+        dataFlowVulnerabilities: result.dataFlowVulnerabilities.filter(vuln => vuln.isVulnerable)
+      }));
+
+      // Save workspace results (include both filtered and original for analysis)
       const workspaceResultsPath = this.folderPath + WORKSPACE_RESULTS_FILENAME;
       const workspaceSummary = {
         timestamp: new Date().toISOString(),
         totalFiles: results.length,
-        totalVulnerabilities: results.reduce((sum, result) =>
+        totalVulnerabilities: filteredResults.reduce((sum, result) =>
           sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
         ),
         totalScanTime: results.reduce((sum, result) => sum + result.scanTime, 0),
         summary: {
-          patternVulnerabilities: results.reduce((sum, result) => sum + result.patternVulnerabilities.length, 0),
-          dataFlowVulnerabilities: results.reduce((sum, result) => sum + result.dataFlowVulnerabilities.length, 0)
+          patternVulnerabilities: filteredResults.reduce((sum, result) => sum + result.patternVulnerabilities.length, 0),
+          dataFlowVulnerabilities: filteredResults.reduce((sum, result) => sum + result.dataFlowVulnerabilities.length, 0)
         },
-        results
+        // Save original results with all vulnerabilities (including false positives) for analysis
+        originalResults: results,
+        // Save filtered results for display
+        filteredResults
       };
       
       fs.writeFileSync(workspaceResultsPath, JSON.stringify(workspaceSummary, null, 2), 'utf8');
       console.log(`📄 Workspace scan results saved to: ${workspaceResultsPath}`);
 
-      // Display workspace results
+      // Display workspace results (only confirmed vulnerabilities)
       OutputManager.diagnosticCollection.clear();
       
-      // Group diagnostics by file path
+      // Group diagnostics by file path (only for confirmed vulnerabilities)
       const diagnosticsByFile = new Map<string, vscode.Diagnostic[]>();
-      results.forEach(result => {
+      filteredResults.forEach(result => {
         result.patternVulnerabilities.forEach(vuln => {
           const filePath = vuln.filePath;
           if (!diagnosticsByFile.has(filePath)) {
@@ -121,11 +143,15 @@ export class OutputManager {
       });
       
       console.log(`🔍 Created diagnostics for ${diagnosticsByFile.size} files`);
-      this.updateStatusBar(results);
+      this.updateStatusBar(filteredResults);
       
       const totalVulns = workspaceSummary.totalVulnerabilities;
+      const originalTotal = results.reduce((sum, result) =>
+        sum + result.patternVulnerabilities.length + result.dataFlowVulnerabilities.length, 0
+      );
+      
       vscode.window.showInformationMessage(
-        `Workspace scan results saved. Found ${totalVulns} vulnerabilities across ${results.length} files.`
+        `Workspace scan results saved. Found ${totalVulns} confirmed vulnerabilities (${originalTotal - totalVulns} false positives filtered out) across ${results.length} files.`
       );
     } catch (error) {
       console.error('[ERROR] Failed to save workspace results:', error);
@@ -327,9 +353,19 @@ export class OutputManager {
    */
   private generateHtmlReport(analysisResult: AnalysisResult): string {
     const { patternVulnerabilities, dataFlowVulnerabilities } = analysisResult;
-    const allVulnerabilities = [
-      ...patternVulnerabilities,
-      ...dataFlowVulnerabilities.map(dfv => ({
+    
+    // Filter confirmed vulnerabilities (isVulnerable: true)
+    const confirmedPatternVulns = patternVulnerabilities.filter(vuln => vuln.isVulnerable);
+    const confirmedDataFlowVulns = dataFlowVulnerabilities.filter(vuln => vuln.isVulnerable);
+    
+    // Filter false positives (isVulnerable: false)
+    const falsePositivePatternVulns = patternVulnerabilities.filter(vuln => !vuln.isVulnerable);
+    const falsePositiveDataFlowVulns = dataFlowVulnerabilities.filter(vuln => !vuln.isVulnerable);
+    
+    // Confirmed vulnerabilities for main report
+    const confirmedVulnerabilities = [
+      ...confirmedPatternVulns,
+      ...confirmedDataFlowVulns.map(dfv => ({
         id: dfv.id,
         type: dfv.type,
         severity: dfv.severity,
@@ -340,12 +376,32 @@ export class OutputManager {
         rule: dfv.rule,
         description: dfv.description,
         recommendation: dfv.recommendation,
-        ai: dfv.ai
+        ai: dfv.ai,
+        isVulnerable: dfv.isVulnerable
       }))
     ];
-    const sources = dataFlowVulnerabilities.map(dfv => dfv.sources[0]);
-    const sinks = dataFlowVulnerabilities.map(dfv => dfv.sink);
-    const sanitizers = dataFlowVulnerabilities.flatMap(dfv => dfv.sanitizers);
+    
+    // False positives for separate section
+    const falsePositives = [
+      ...falsePositivePatternVulns,
+      ...falsePositiveDataFlowVulns.map(dfv => ({
+        id: dfv.id,
+        type: dfv.type,
+        severity: dfv.severity,
+        message: dfv.message,
+        file: dfv.filePath,
+        line: dfv.sink?.loc?.start?.line ?? 0,
+        column: dfv.sink?.loc?.start?.column ?? 0,
+        rule: dfv.rule,
+        description: dfv.description,
+        recommendation: dfv.recommendation,
+        ai: dfv.ai,
+        isVulnerable: dfv.isVulnerable
+      }))
+    ];
+    const sources = confirmedDataFlowVulns.map(dfv => dfv.sources[0]);
+    const sinks = confirmedDataFlowVulns.map(dfv => dfv.sink);
+    const sanitizers = confirmedDataFlowVulns.flatMap(dfv => dfv.sanitizers);
     return `
       <!DOCTYPE html>
       <html lang="en">
@@ -368,17 +424,43 @@ export class OutputManager {
           .severity-low { color: #00e676; font-weight: bold; }
           .severity-info { color: #29b6f6; font-weight: bold; }
           .section { margin-bottom: 2em; }
+          .false-positive { opacity: 0.6; background: #2a2a2a; }
         </style>
       </head>
       <body>
         <div class="container">
           <h1>Unagi SAST Security Report</h1>
           <div class="section">
-            <h2>Vulnerabilities (${allVulnerabilities.length})</h2>
-            ${allVulnerabilities.length === 0 ? '<p>No vulnerabilities found.</p>' : `
+            <h2>Confirmed Vulnerabilities (${confirmedVulnerabilities.length})</h2>
+            ${confirmedVulnerabilities.length === 0 ? '<p>No confirmed vulnerabilities found.</p>' : `
               <table>
                 <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
-                ${allVulnerabilities.map((vuln: any) => {
+                ${confirmedVulnerabilities.map((vuln: any) => {
+                  const sourcesText = vuln.sources ? vuln.sources.map((s: Source) => s.description || s.id).join(', ') : '';
+                  return `
+                    <tr>
+                      <td>${vuln.type}</td>
+                      <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>
+                      <td>${vuln.message}</td>
+                      <td>${vuln.line ?? ''}</td>
+                      <td>${vuln.description ?? ''}</td>
+                      <td>${vuln.ai && vuln.ai.confidenceScore !== undefined ? (vuln.ai.confidenceScore * 100).toFixed(0) + '%' : '-'}</td>
+                      <td>${vuln.ai && vuln.ai.shortExplanation ? vuln.ai.shortExplanation : '-'}</td>
+                      <td>${vuln.ai && vuln.ai.exploitExample ? vuln.ai.exploitExample : '-'}</td>
+                      <td>${vuln.ai && vuln.ai.remediation ? vuln.ai.remediation : '-'}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </table>
+            `}
+          </div>
+          <div class="section">
+            <h2>False Positives (${falsePositives.length})</h2>
+            ${falsePositives.length === 0 ? '<p>No false positives detected.</p>' : `
+              <p><em>These vulnerabilities were flagged by pattern/data flow analysis but identified as false positives by AI analysis:</em></p>
+              <table class="false-positive">
+                <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
+                ${falsePositives.map((vuln: any) => {
                   const sourcesText = vuln.sources ? vuln.sources.map((s: Source) => s.description || s.id).join(', ') : '';
                   return `
                     <tr>

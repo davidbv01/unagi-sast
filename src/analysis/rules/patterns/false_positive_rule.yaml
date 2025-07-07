@@ -1,0 +1,12 @@
+id: false-positive-rule
+name: False Positive Rule
+description: Intentionally matches a benign pattern to test false positive handling.
+severity: LOW
+type: PATTERN
+patterns:
+  - id: benign-eval-safe
+    pattern: eval_safe
+    message: "False positive: benign function 'eval_safe' matched."
+    description: "This pattern matches the function name 'eval_safe', which is actually safe."
+    severity: LOW
+    vulnerabilityType: TESTING
