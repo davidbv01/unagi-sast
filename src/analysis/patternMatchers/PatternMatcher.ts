@@ -1,4 +1,4 @@
-import { PatternVulnerability, VulnerabilityType, Severity, PatternRule } from '../../types';
+import { PatternVulnerability, Severity, PatternRule } from '../../types';
 import { RuleLoader } from '../rules/RuleLoader';
 
 /**
@@ -37,7 +37,7 @@ export class PatternMatcher {
 
           vulnerabilities.push({
             id: `${patternRule.id}-${pattern.id}-${lineNumber}`,
-            type: patternRule.type as VulnerabilityType,
+            type: pattern.vulnerabilityType,
             severity: (pattern.severity || patternRule.severity) as Severity,
             message: pattern.message,
             filePath: filePath,

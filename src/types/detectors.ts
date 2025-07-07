@@ -1,5 +1,5 @@
 import { Rule } from './rules';
-import { VulnerabilityType, Severity } from './vulnerabilities';
+import { Severity } from './vulnerabilities';
 
 // Base detector item interface
 export interface BaseDetectorItem {
@@ -32,7 +32,7 @@ export interface Source extends BaseDetectorItem {
 
 // Sink interface
 export interface Sink extends BaseDetectorItem {
-  vulnerabilityType: VulnerabilityType;
+  vulnerabilityType: string;
   severity: Severity;
 }
 
@@ -47,7 +47,8 @@ export interface Pattern {
   pattern: string;
   message: string;
   recommendation: string;
-  severity?: string;
+  severity: Severity;  
+  vulnerabilityType: string;
 }
 
 export interface PatternRule extends Rule {

@@ -60,7 +60,7 @@ export class AiEngine {
       }));
 
       // Verify all vulnerabilities with shared context
-      const analyses = await this.verifier.verifyMultipleVulnerabilities(
+      const analyses = await this.verifier.verifyVulnerabilities(
         vulnerabilitiesForVerification,
         codeExtraction,
         context

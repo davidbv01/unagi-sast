@@ -1,4 +1,4 @@
-import { VulnerabilityType, Severity, Sink } from '../../types';
+import { Severity, Sink } from '../../types';
 import { RuleLoader } from '../rules/RuleLoader';
 import { DetectorUtils } from './detectorUtils';
 import { AstNode, SinkRule } from '../../types';
@@ -52,14 +52,14 @@ export class SinkDetector {
    * @param rules The loaded sink rules.
    * @returns The vulnerability type for the sink.
    */
-  private getVulnerabilityTypeForSink(sinkId: string, rules: SinkRule[]): VulnerabilityType {
+  private getVulnerabilityTypeForSink(sinkId: string, rules: SinkRule[]): string {
     for (const rule of rules) {
       const sink = rule.sinks.find(s => s.id === sinkId);
       if (sink) {
-        return rule.type as VulnerabilityType;
+        return rule.type;
       }
     }
-    return VulnerabilityType.GENERIC;
+    return 'GENERIC';
   }
 
   /**

@@ -21,19 +21,7 @@ export class CodeExtractor {
   public static extractContext(request: AiAnalysisRequest): string {
     const { file, content, symbols, patternVulnerabilities, dataFlowVulnerabilities, context } = request;
     
-    let extractedContext = `File: ${file}\n`;
-    
-    if (context) {
-      extractedContext += `Language: ${context.language}\n`;
-      if (context.framework) {
-        extractedContext += `Framework: ${context.framework}\n`;
-      }
-      if (context.additionalInfo) {
-        extractedContext += `Additional Info: ${context.additionalInfo}\n`;
-      }
-    }
-    
-    extractedContext += '\n=== VULNERABILITIES CONTEXT ===\n\n';
+    let extractedContext = '';
     
     // Extract pattern vulnerabilities context
     if (patternVulnerabilities.length > 0) {
@@ -71,7 +59,6 @@ export class CodeExtractor {
           console.log('[CodeExtractor] DataFlowVulnerability context:', context);
           extractedContext += context;
         }
-        extractedContext += '\n';
       }
     }
     
@@ -105,8 +92,7 @@ export class CodeExtractor {
       contextLines.push(`${lineNumber.toString().padStart(4)}: ${lines[i]}${marker}`);
     }
     
-    return `Pattern Vulnerability: ${vulnerability.type}\n` +
-           `Message: ${vulnerability.message}\n` +
+    return `Pattern Vulnerability: ${vulnerability.type}\n`+
            `Line: ${vulnerability.line}\n` +
            `Code Context:\n${contextLines.join('\n')}\n`;
   }
@@ -173,7 +159,6 @@ export class CodeExtractor {
       : 'None';
     
     return `Data Flow Vulnerability: ${vulnerability.type}\n` +
-           `Message: ${vulnerability.message}\n` +
            `Sources: ${sourcesInfo}\n` +
            `Sink: ${sinkInfo}\n` +
            `Sanitizers: ${sanitizersInfo}\n` +
@@ -203,7 +188,6 @@ export class CodeExtractor {
       : 'None';
     
     crossFileContext += `Cross-file Data Flow Vulnerability: ${vulnerability.type}\n`;
-    crossFileContext += `Message: ${vulnerability.message}\n`;
     crossFileContext += `Sources: ${sourcesInfo}\n`;
     crossFileContext += `Sink: ${sinkInfo}\n`;
     crossFileContext += `Sanitizers: ${sanitizersInfo}\n\n`;

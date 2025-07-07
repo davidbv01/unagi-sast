@@ -6,7 +6,7 @@ import { Sanitizer, Source, Sink } from "./detectors";
 export interface BaseVulnerability {
   // Core vulnerability identification
   id: string;
-  type: VulnerabilityType;
+  type: string;
   severity: Severity;
   message: string;
   filePath: string;
@@ -57,26 +57,6 @@ export interface DataFlowVulnerability extends BaseVulnerability {
 
   // AST path traceability for the data flow
   pathLines?: number[];
-}
-
-
-export enum VulnerabilityType {
-  SQL_INJECTION = 'SQL_INJECTION',
-  XSS = 'XSS',
-  CSRF = 'CSRF',
-  HARDCODED_SECRET = 'HARDCODED_SECRET',
-  INSECURE_RANDOM = 'INSECURE_RANDOM',
-  PATH_TRAVERSAL = 'PATH_TRAVERSAL',
-  COMMAND_INJECTION = 'COMMAND_INJECTION',
-  WEAK_CRYPTO = 'WEAK_CRYPTO',
-  AUTHORIZATION = 'AUTHORIZATION',
-  AUTHENTICATION = 'AUTHENTICATION',
-  INSECURE_COMMUNICATION = 'INSECURE_COMMUNICATION',
-  GENERIC = 'GENERIC',
-  INSECURE_DESERIALIZATION = 'INSECURE_DESERIALIZATION',
-  INSECURE_PERMISSIONS = 'INSECURE_PERMISSIONS',
-  IDOR = 'IDOR',
-  INSECURE_DIRECT_OBJECT_REFERENCE = 'INSECURE_DIRECT_OBJECT_REFERENCE'
 }
 
 export enum Severity {

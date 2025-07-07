@@ -1,5 +1,5 @@
 import { SanitizerDetector, SinkDetector, SourceDetector } from "../analysis/detectors";
-import { AstNode, DataFlowVulnerability, VulnerabilityType, Severity, Source, Sink, Sanitizer, SymbolTableEntry, DfgNode, Symbol } from "../types";
+import { AstNode, DataFlowVulnerability, Severity, Source, Sink, Sanitizer, SymbolTableEntry, DfgNode, Symbol } from "../types";
 import chalk from 'chalk';
 
 /**
@@ -406,7 +406,7 @@ export class DataFlowGraph {
             end: { line: node.astNode.loc?.end?.line || node.astNode.loc?.start?.line || 1, column: node.astNode.loc?.end?.column || (node.astNode.loc?.start?.column || 0) + 10 }
           },
           info: node.infoSink || 'Dangerous operation',
-          vulnerabilityType: VulnerabilityType.GENERIC,
+          vulnerabilityType: 'GENERIC',
           severity: Severity.HIGH,
           filePath: node.astNode.filePath || filePath || ''
         };
