@@ -37,7 +37,7 @@ coverage/
 
 # Test files and temporary test data
 src/test/
-test/
+test_data/
 *.test.js
 
 # OS generated files
