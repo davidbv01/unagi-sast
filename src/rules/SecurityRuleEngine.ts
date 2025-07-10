@@ -10,12 +10,20 @@ export class SecurityRuleEngine {
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
   private aiEngine?: AiEngine;
+  private skipAiAnalysis: boolean;
 
-  constructor(apiKey: string) {
+  /**
+   * Creates a new SecurityRuleEngine instance.
+   * 
+   * @param apiKey - OpenAI API key for AI-powered analysis (optional)
+   * @param skipAiAnalysis - Flag to skip AI analysis (useful for MCP calls)
+   */
+  constructor(apiKey: string, skipAiAnalysis: boolean = false) {
     this.patternMatcher = new PatternMatcher();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
-    if (apiKey){
+    this.skipAiAnalysis = skipAiAnalysis;
+    if (apiKey && !skipAiAnalysis){
       this.aiEngine = new AiEngine(apiKey);
     }
   }
@@ -113,8 +121,10 @@ export class SecurityRuleEngine {
           // Perform complete data flow analysis (build graph, detect sources, propagate taint, detect vulnerabilities)
           const dataFlowVulnerabilities = dfg.performCompleteAnalysis(ast);
 
-          // Apply AI analysis to vulnerabilities if AI engine is available
-          if (!this.aiEngine) {
+          // Apply AI analysis to vulnerabilities if AI engine is available and not skipped
+          if (this.skipAiAnalysis) {
+              console.log('[INFO] Skipping AI analysis (MCP mode)');
+          } else if (!this.aiEngine) {
               console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
               vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
           } else {

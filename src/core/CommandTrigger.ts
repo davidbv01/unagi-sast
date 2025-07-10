@@ -17,8 +17,8 @@ export class CommandTrigger {
    */
   constructor(apiKey: string, folderPath: string) {
     this.outputManager = new OutputManager(folderPath);
-    this.scanOrchestrator = new ScanOrchestrator(this.outputManager, apiKey);
-    this.workspaceScanOrchestrator = new WorkspaceScanOrchestrator(this.outputManager, apiKey);
+    this.scanOrchestrator = new ScanOrchestrator(this.outputManager, apiKey, false); // Enable AI analysis for VS Code commands
+    this.workspaceScanOrchestrator = new WorkspaceScanOrchestrator(this.outputManager, apiKey, false); // Enable AI analysis for VS Code commands
   }
 
   /**

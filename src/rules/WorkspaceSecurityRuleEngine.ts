@@ -15,17 +15,20 @@ export class WorkspaceSecurityRuleEngine {
   private sinkDetector: SinkDetector;
   private sanitizerDetector: SanitizerDetector;
   private aiEngine?: AiEngine;
+  private skipAiAnalysis: boolean;
 
   /**
    * Creates a new WorkspaceSecurityRuleEngine instance.
    * 
    * @param apiKey - OpenAI API key for AI-powered analysis (optional)
+   * @param skipAiAnalysis - Flag to skip AI analysis (useful for MCP calls)
    */
-  constructor(apiKey: string) {
+  constructor(apiKey: string, skipAiAnalysis: boolean = false) {
     this.patternMatcher = new PatternMatcher();
     this.sinkDetector = new SinkDetector();
     this.sanitizerDetector = new SanitizerDetector();
-    if (apiKey) {
+    this.skipAiAnalysis = skipAiAnalysis;
+    if (apiKey && !skipAiAnalysis) {
       this.aiEngine = new AiEngine(apiKey);
     }
   }
@@ -224,8 +227,10 @@ export class WorkspaceSecurityRuleEngine {
       // Step 3: Deduplicate vulnerabilities
       const deduplicatedDataFlowVulnerabilities = this.deduplicateVulnerabilities(allDataFlowVulnerabilities);
 
-      // Step 4: Apply AI analysis if available
-      if (!this.aiEngine) {
+      // Step 4: Apply AI analysis if available and not skipped
+      if (this.skipAiAnalysis) {
+        console.log('[INFO] Skipping AI analysis (MCP mode)');
+      } else if (!this.aiEngine) {
         console.warn('[WARNING] No API key provided for AI analysis. Skipping AI-powered verification');
         vscode.window.showWarningMessage('No API key provided for AI analysis. Skipping AI-powered verification');
       } else {

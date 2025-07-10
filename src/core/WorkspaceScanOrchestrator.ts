@@ -22,15 +22,18 @@ export class WorkspaceScanOrchestrator {
 
   /**
    * Creates a new WorkspaceScanOrchestrator instance.
+   * @param outputManager The output manager for reporting results.
+   * @param apiKey The OpenAI API key for AI-powered features.
+   * @param skipAiAnalysis Flag to skip AI analysis (useful for MCP calls).
    */
-  constructor(outputManager: OutputManager, apiKey: string) {
+  constructor(outputManager: OutputManager, apiKey: string, skipAiAnalysis: boolean = false) {
     this.parser = new ASTParser();
     this.asts = new Map();
     this.symbolTable = new Map();
     this.graphs = new Map();
     this.cachedVulnerabilities = null;
     this.outputManager = outputManager;
-    this.ruleEngine = new WorkspaceSecurityRuleEngine(apiKey);
+    this.ruleEngine = new WorkspaceSecurityRuleEngine(apiKey, skipAiAnalysis);
   }
 
   /**

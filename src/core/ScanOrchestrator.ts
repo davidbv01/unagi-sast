@@ -17,9 +17,10 @@ export class ScanOrchestrator {
    * Creates a new ScanOrchestrator instance.
    * @param outputManager The output manager for reporting results.
    * @param apiKey The OpenAI API key for AI-powered features.
+   * @param skipAiAnalysis Flag to skip AI analysis (useful for MCP calls).
    */
-  constructor(outputManager: OutputManager, apiKey: string) {
-    this.ruleEngine = new SecurityRuleEngine(apiKey);
+  constructor(outputManager: OutputManager, apiKey: string, skipAiAnalysis: boolean = false) {
+    this.ruleEngine = new SecurityRuleEngine(apiKey, skipAiAnalysis);
     this.outputManager = outputManager;
     this.parser = new ASTParser();
   }

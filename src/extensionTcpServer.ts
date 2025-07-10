@@ -17,8 +17,8 @@ const DEFAULT_API_KEY: string = process.env.OPENAI_API_KEY || "";
 const DEFAULT_FOLDER_PATH: string = process.env.UNAGI_OUTPUT_PATH || "./unagi-output";
 
 const outputManager = new OutputManager(DEFAULT_FOLDER_PATH);
-const scanOrchestrator = new ScanOrchestrator(outputManager, DEFAULT_API_KEY);
-const workspaceScanOrchestrator = new WorkspaceScanOrchestrator(outputManager, DEFAULT_API_KEY);
+const scanOrchestrator = new ScanOrchestrator(outputManager, DEFAULT_API_KEY, true); // Skip AI analysis for MCP calls
+const workspaceScanOrchestrator = new WorkspaceScanOrchestrator(outputManager, DEFAULT_API_KEY, true); // Skip AI analysis for MCP calls
 /**
  * Handles incoming TCP messages and dispatches scan commands.
  * @param socket The TCP socket connection.
