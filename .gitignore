@@ -37,6 +37,7 @@ coverage/
 
 # Test files and temporary test data
 src/test/
+/benchmark/
 test_data/
 *.test.js
 
