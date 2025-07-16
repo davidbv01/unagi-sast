@@ -5,7 +5,7 @@ import * as fs from 'fs';
 const DIAGNOSTIC_COLLECTION_NAME = 'unagi';
 const STATUS_BAR_PRIORITY = 100;
 const SAST_RESULTS_FILENAME = '/sast-results.json';
-const WORKSPACE_RESULTS_FILENAME = '/workspace-scan-results.json';
+const WORKSPACE_RESULTS_FILENAME = '/sast-results.json';
 
 /**
  * Manages output, diagnostics, and reporting for Unagi SAST scans.
@@ -187,15 +187,29 @@ export class OutputManager {
       vscode.window.showInformationMessage('No analysis report available. Please run a scan first.');
       return;
     }
-    let analysisResult: AnalysisResult;
+    let reportData: any;
     try {
       const fileContent = fs.readFileSync(this.filePath, 'utf8');
-      analysisResult = JSON.parse(fileContent);
+      reportData = JSON.parse(fileContent);
     } catch (err) {
       vscode.window.showErrorMessage('Failed to read the last analysis result.');
       return;
     }
-    const html = this.generateHtmlReport(analysisResult);
+    
+    // Detect type by structure - workspace has 'originalResults' and 'filteredResults'
+    let html = '';
+    if (reportData.originalResults && reportData.filteredResults) {
+      // Workspace report structure - convert to single file format for existing generator
+      const workspaceAsAnalysisResult = {
+        patternVulnerabilities: reportData.filteredResults.flatMap((result: any) => result.patternVulnerabilities || []),
+        dataFlowVulnerabilities: reportData.filteredResults.flatMap((result: any) => result.dataFlowVulnerabilities || [])
+      };
+      html = this.generateHtmlReport(workspaceAsAnalysisResult);
+    } else {
+      // Single file report structure
+      html = this.generateHtmlReport(reportData);
+    }
+    
     const panel = vscode.window.createWebviewPanel(
       'unagiSastReport',
       'Unagi SAST Report',

@@ -289,8 +289,9 @@ export class WorkspaceSecurityRuleEngine {
 
           if (targetDfg && targetAst) {
             // Find the function symbol in the target file
-            const functionSymbol = Array.from(symbolTable.values()).find(sym =>
-              sym.name === functionName && sym.type === 'function' && sym.filePath === targetRelativePath
+            const functionSymbol =  Array.from(symbolTable.values()).find(sym =>
+              sym.name === functionName && sym.type === 'function' && (sym.filePath === targetRelativePath || 
+                sym.filePath === targetFilePath)
             );
 
             let parameterNodes: any[] = [];
