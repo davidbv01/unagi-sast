@@ -326,12 +326,20 @@ export class DataFlowGraph {
    */
   public propagateTaint(source: Source) {
     const startNode = this.nodes.get(source.key || source.id);
+    if (!startNode || startNode.isSanitizer) 
+      {
+        console.warn(`Source node not found or is a sanitizer: ${source.key || source.id}`);
+      }
     if (!startNode || startNode.isSanitizer) return;
     const queue: DfgNode[] = [startNode];
     startNode.tainted = true;
     startNode.taintSources.add(source);
     while (queue.length > 0) {
       const current = queue.shift()!;
+      if (current.isSanitizer) 
+      {
+        console.warn(`Current node is a sanitizer: ${current.id}`);
+      }
       if (current.isSanitizer) continue;
       for (const neighbor of current.edges) {
         if (!neighbor.tainted) {

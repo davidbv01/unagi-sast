@@ -74,10 +74,6 @@
         "title": "Unagi: Scan Workspace"
       },
       {
-        "command": "unagi.clearResults",
-        "title": "Unagi: Clear Results"
-      },
-      {
         "command": "unagi.showSettings",
         "title": "Unagi: Configuración de Seguridad"
       },
