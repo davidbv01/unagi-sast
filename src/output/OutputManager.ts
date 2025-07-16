@@ -210,6 +210,34 @@ export class OutputManager {
       html = this.generateHtmlReport(reportData);
     }
     
+    // Save HTML file to workspace root
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const htmlFilePath = `${this.folderPath}/unagi-sast-report-${timestamp}.html`;
+    
+    try {
+      fs.writeFileSync(htmlFilePath, html, 'utf8');
+      console.log(`📄 HTML report saved to: ${htmlFilePath}`);
+      
+      // Show success message with options
+      const action = await vscode.window.showInformationMessage(
+        `✅ HTML report saved successfully!`,
+        'Open HTML File',
+        'Show in Explorer'
+      );
+      
+      if (action === 'Open HTML File') {
+        const uri = vscode.Uri.file(htmlFilePath);
+        await vscode.commands.executeCommand('vscode.open', uri);
+      } else if (action === 'Show in Explorer') {
+        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(htmlFilePath));
+      }
+      
+    } catch (err) {
+      console.error('Failed to save HTML report:', err);
+      vscode.window.showErrorMessage(`Failed to save HTML report: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    
+    // Show webview as well
     const panel = vscode.window.createWebviewPanel(
       'unagiSastReport',
       'Unagi SAST Report',
@@ -378,7 +406,20 @@ export class OutputManager {
     
     // Confirmed vulnerabilities for main report
     const confirmedVulnerabilities = [
-      ...confirmedPatternVulns,
+      ...confirmedPatternVulns.map(pv => ({
+        id: pv.id,
+        type: pv.type,
+        severity: pv.severity,
+        message: pv.message,
+        file: pv.filePath,
+        line: pv.line,
+        column: pv.column,
+        rule: pv.rule,
+        description: pv.description,
+        recommendation: pv.recommendation,
+        ai: pv.ai,
+        isVulnerable: pv.isVulnerable
+      })),
       ...confirmedDataFlowVulns.map(dfv => ({
         id: dfv.id,
         type: dfv.type,
@@ -397,7 +438,20 @@ export class OutputManager {
     
     // False positives for separate section
     const falsePositives = [
-      ...falsePositivePatternVulns,
+      ...falsePositivePatternVulns.map(pv => ({
+        id: pv.id,
+        type: pv.type,
+        severity: pv.severity,
+        message: pv.message,
+        file: pv.filePath,
+        line: pv.line,
+        column: pv.column,
+        rule: pv.rule,
+        description: pv.description,
+        recommendation: pv.recommendation,
+        ai: pv.ai,
+        isVulnerable: pv.isVulnerable
+      })),
       ...falsePositiveDataFlowVulns.map(dfv => ({
         id: dfv.id,
         type: dfv.type,
@@ -422,140 +476,424 @@ export class OutputManager {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Unagi SAST Report</title>
+        <title>Unagi SAST Security Report</title>
         <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; background: #181818; color: #eee; margin: 0; padding: 0; }
-          .container { max-width: 900px; margin: 32px auto; background: #232323; border-radius: 12px; box-shadow: 0 2px 16px #0008; padding: 32px; }
-          h1 { color: #ffb300; }
-          h2 { color: #90caf9; margin-top: 2em; }
-          table { width: 100%; border-collapse: collapse; margin-top: 1em; }
-          th, td { padding: 10px; border-bottom: 1px solid #333; }
-          th { background: #222; color: #ffb300; }
-          tr:nth-child(even) { background: #20232a; }
-          .severity-critical { color: #ff1744; font-weight: bold; }
-          .severity-high { color: #ff9100; font-weight: bold; }
-          .severity-medium { color: #ffd600; font-weight: bold; }
-          .severity-low { color: #00e676; font-weight: bold; }
-          .severity-info { color: #29b6f6; font-weight: bold; }
-          .section { margin-bottom: 2em; }
-          .false-positive { opacity: 0.6; background: #2a2a2a; }
+          * { box-sizing: border-box; }
+          body { 
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #f5f7fa; 
+            color: #2d3748; 
+            margin: 0; 
+            padding: 20px;
+            line-height: 1.6;
+          }
+          .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07); 
+            overflow: hidden;
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+          }
+          h1 { 
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+            font-weight: 600;
+          }
+          .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+            margin: 0;
+          }
+          .stats-section {
+            padding: 30px 40px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+          }
+          .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+          }
+          .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+          }
+          .stat-label {
+            color: #64748b;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .content {
+            padding: 40px;
+          }
+          .section { 
+            margin-bottom: 40px;
+          }
+          .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a202c;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+          }
+          .vulnerability-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+          }
+          .vulnerability-header {
+            padding: 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+          }
+          .vulnerability-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #1a202c;
+          }
+          .vulnerability-meta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+          }
+          .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .badge-critical { background: #fed7d7; color: #c53030; }
+          .badge-high { background: #feebc8; color: #dd6b20; }
+          .badge-medium { background: #fefcbf; color: #d69e2e; }
+          .badge-low { background: #c6f6d5; color: #38a169; }
+          .badge-info { background: #bee3f8; color: #3182ce; }
+          .line-badge {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+          }
+          .vulnerability-body {
+            padding: 20px;
+          }
+          .field {
+            margin-bottom: 15px;
+          }
+          .field-label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .field-value {
+            color: #2d3748;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+          .ai-section {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            border-left: 4px solid #667eea;
+          }
+          .ai-confidence {
+            font-weight: 600;
+            color: #667eea;
+          }
+          .no-data {
+            text-align: center;
+            color: #64748b;
+            padding: 60px 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 2px dashed #cbd5e0;
+          }
+          .no-data-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+          }
+          .false-positive {
+            opacity: 0.8;
+            background: #f7fafc;
+          }
+          .false-positive .vulnerability-header {
+            background: #edf2f7;
+          }
+          .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+          }
+          .metadata-card {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+          .footer {
+            background: #f8fafc;
+            padding: 30px 40px;
+            text-align: center;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+          }
+          @media (max-width: 768px) {
+            .container { margin: 10px; }
+            .header, .content { padding: 20px; }
+            .stats-section { padding: 20px; }
+            .vulnerability-header { flex-direction: column; align-items: flex-start; }
+            .vulnerability-meta { justify-content: flex-start; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+          }
         </style>
       </head>
       <body>
         <div class="container">
-          <h1>Unagi SAST Security Report</h1>
+          <div class="header">
+            <h1>🛡️ Security Analysis Report</h1>
+            <p class="subtitle">Unagi SAST • Comprehensive Security Assessment</p>
+          </div>
+          
+          <div class="stats-section">
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-number">${confirmedVulnerabilities.length}</div>
+                <div class="stat-label">Confirmed Issues</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number">${falsePositives.length}</div>
+                <div class="stat-label">False Positives</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number">${sources.length}</div>
+                <div class="stat-label">Data Sources</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number">${sinks.length}</div>
+                <div class="stat-label">Vulnerability Sinks</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="content">
           <div class="section">
-            <h2>Confirmed Vulnerabilities (${confirmedVulnerabilities.length})</h2>
-            ${confirmedVulnerabilities.length === 0 ? '<p>No confirmed vulnerabilities found.</p>' : `
-              <table>
-                <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
-                ${confirmedVulnerabilities.map((vuln: any) => {
-                  const sourcesText = vuln.sources ? vuln.sources.map((s: Source) => s.description || s.id).join(', ') : '';
+              <h2 class="section-title">🚨 Security Vulnerabilities</h2>
+              ${confirmedVulnerabilities.length === 0 ? `
+                <div class="no-data">
+                  <div class="no-data-icon">✅</div>
+                  <h3>No security vulnerabilities detected</h3>
+                  <p>Your code appears to be secure based on our analysis.</p>
+                </div>
+              ` : confirmedVulnerabilities.map((vuln: any) => {
+                const severityClass = vuln.severity ? vuln.severity.toLowerCase() : 'info';
                   return `
-                    <tr>
-                      <td>${vuln.type}</td>
-                      <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>
-                      <td>${vuln.message}</td>
-                      <td>${vuln.line ?? ''}</td>
-                      <td>${vuln.description ?? ''}</td>
-                      <td>${vuln.ai && vuln.ai.confidenceScore !== undefined ? (vuln.ai.confidenceScore * 100).toFixed(0) + '%' : '-'}</td>
-                      <td>${vuln.ai && vuln.ai.shortExplanation ? vuln.ai.shortExplanation : '-'}</td>
-                      <td>${vuln.ai && vuln.ai.exploitExample ? vuln.ai.exploitExample : '-'}</td>
-                      <td>${vuln.ai && vuln.ai.remediation ? vuln.ai.remediation : '-'}</td>
-                    </tr>
+                  <div class="vulnerability-card">
+                    <div class="vulnerability-header">
+                      <div class="vulnerability-title">${vuln.type || 'Security Issue'}</div>
+                      <div class="vulnerability-meta">
+                        <span class="badge badge-${severityClass}">${vuln.severity || 'Info'}</span>
+                        ${vuln.line ? `<span class="line-badge">Line ${vuln.line}</span>` : ''}
+                      </div>
+                    </div>
+                    <div class="vulnerability-body">
+                      ${vuln.file || vuln.line ? `
+                        <div class="field">
+                          <div class="field-label">Location</div>
+                          <div class="field-value">
+                            ${vuln.file ? `<strong>File:</strong> ${vuln.file.replace(/\\/g, '/')}` : ''}
+                            ${vuln.file && vuln.line ? '<br>' : ''}
+                            ${vuln.line ? `<strong>Line:</strong> ${vuln.line}` : ''}
+                            ${vuln.column ? `, <strong>Column:</strong> ${vuln.column}` : ''}
+                          </div>
+                        </div>
+                      ` : ''}
+
+                      ${vuln.message ? `
+                        <div class="field">
+                          <div class="field-label">Detection Message</div>
+                          <div class="field-value">${vuln.message}</div>
+                        </div>
+                      ` : ''}
+                      
+                      ${vuln.description ? `
+                        <div class="field">
+                          <div class="field-label">Description</div>
+                          <div class="field-value">${vuln.description}</div>
+                        </div>
+                      ` : ''}
+
+                      ${vuln.ai && (vuln.ai.confidenceScore !== undefined || vuln.ai.shortExplanation || vuln.ai.remediation) ? `
+                        <div class="ai-section">
+                          <div class="field-label" style="margin-bottom: 10px;">🤖 AI Analysis</div>
+                          
+                          ${vuln.ai.confidenceScore !== undefined ? `
+                            <div class="field">
+                              <div class="field-label">Confidence Score</div>
+                              <div class="field-value ai-confidence">${(vuln.ai.confidenceScore * 100).toFixed(0)}%</div>
+                            </div>
+                          ` : ''}
+                          
+                          ${vuln.ai.shortExplanation ? `
+                            <div class="field">
+                              <div class="field-label">AI Explanation</div>
+                              <div class="field-value">${vuln.ai.shortExplanation}</div>
+                            </div>
+                          ` : ''}
+                          
+                          ${vuln.ai.remediation ? `
+                            <div class="field">
+                              <div class="field-label">Recommended Fix</div>
+                              <div class="field-value">${vuln.ai.remediation}</div>
+                            </div>
+                          ` : ''}
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
                   `;
                 }).join('')}
-              </table>
-            `}
           </div>
+
+            ${falsePositives.length > 0 ? `
           <div class="section">
-            <h2>False Positives (${falsePositives.length})</h2>
-            ${falsePositives.length === 0 ? '<p>No false positives detected.</p>' : `
-              <p><em>These vulnerabilities were flagged by pattern/data flow analysis but identified as false positives by AI analysis:</em></p>
-              <table class="false-positive">
-                <tr><th>Type</th><th>Severity</th><th>Message</th><th>Line</th><th>Description</th><th>AI Confidence</th><th>AI Explanation</th><th>AI Exploit Example</th><th>AI Remediation</th></tr>
+                <h2 class="section-title">🔍 False Positives</h2>
+                <p style="color: #64748b; margin-bottom: 20px; font-style: italic;">
+                  These potential issues were flagged by pattern analysis but determined to be false positives by AI verification.
+                </p>
                 ${falsePositives.map((vuln: any) => {
-                  const sourcesText = vuln.sources ? vuln.sources.map((s: Source) => s.description || s.id).join(', ') : '';
+                  const severityClass = vuln.severity ? vuln.severity.toLowerCase() : 'info';
                   return `
-                    <tr>
-                      <td>${vuln.type}</td>
-                      <td class="severity-${vuln.severity ? vuln.severity.toLowerCase() : 'info'}">${vuln.severity ?? ''}</td>
-                      <td>${vuln.message}</td>
-                      <td>${vuln.line ?? ''}</td>
-                      <td>${vuln.description ?? ''}</td>
-                      <td>${vuln.ai && vuln.ai.confidenceScore !== undefined ? (vuln.ai.confidenceScore * 100).toFixed(0) + '%' : '-'}</td>
-                      <td>${vuln.ai && vuln.ai.shortExplanation ? vuln.ai.shortExplanation : '-'}</td>
-                      <td>${vuln.ai && vuln.ai.exploitExample ? vuln.ai.exploitExample : '-'}</td>
-                      <td>${vuln.ai && vuln.ai.remediation ? vuln.ai.remediation : '-'}</td>
-                    </tr>
+                    <div class="vulnerability-card false-positive">
+                      <div class="vulnerability-header">
+                        <div class="vulnerability-title">${vuln.type || 'Potential Issue'}</div>
+                        <div class="vulnerability-meta">
+                          <span class="badge badge-${severityClass}">${vuln.severity || 'Info'}</span>
+                          ${vuln.line ? `<span class="line-badge">Line ${vuln.line}</span>` : ''}
+                        </div>
+                      </div>
+                      <div class="vulnerability-body">
+                        ${vuln.file || vuln.line ? `
+                          <div class="field">
+                            <div class="field-label">Location</div>
+                            <div class="field-value">
+                              ${vuln.file ? `<strong>File:</strong> ${vuln.file.replace(/\\/g, '/')}` : ''}
+                              ${vuln.file && vuln.line ? '<br>' : ''}
+                              ${vuln.line ? `<strong>Line:</strong> ${vuln.line}` : ''}
+                              ${vuln.column ? `, <strong>Column:</strong> ${vuln.column}` : ''}
+                            </div>
+                          </div>
+                        ` : ''}
+
+                        ${vuln.message ? `
+                          <div class="field">
+                            <div class="field-label">Detection Message</div>
+                            <div class="field-value">${vuln.message}</div>
+                          </div>
+                        ` : ''}
+                        
+                        ${vuln.ai && vuln.ai.shortExplanation ? `
+                          <div class="ai-section">
+                            <div class="field">
+                              <div class="field-label">🤖 Why This is a False Positive</div>
+                              <div class="field-value">${vuln.ai.shortExplanation}</div>
+                            </div>
+                          </div>
+                        ` : ''}
+                      </div>
+                    </div>
                   `;
                 }).join('')}
-              </table>
-            `}
           </div>
+            ` : ''}
+
+            ${sources.length > 0 || sinks.length > 0 || sanitizers.length > 0 ? `
           <div class="section">
-            <h2>Sources (${sources.length})</h2>
-            ${sources.length === 0 ? '<p>No sources found.</p>' : `
-              <table>
-                <tr><th>ID</th><th>Type</th><th>Pattern</th><th>Description</th><th>Severity</th><th>Line</th><th>Column</th><th>EndLine</th><th>EndColumn</th></tr>
-                ${sources.map((src: any) => `
-                  <tr>
-                    <td>${src.id ?? ''}</td>
-                    <td>${src.type ?? ''}</td>
-                    <td>${src.pattern ?? ''}</td>
-                    <td>${src.description ?? ''}</td>
-                    <td class="severity-${src.severity ? src.severity.toLowerCase() : 'info'}">${src.severity ?? ''}</td>
-                    <td>${src.line ?? ''}</td>
-                    <td>${src.column ?? ''}</td>
-                    <td>${src.endLine ?? ''}</td>
-                    <td>${src.endColumn ?? ''}</td>
-                  </tr>
+                <h2 class="section-title">📋 Technical Details</h2>
+                <div class="metadata-grid">
+                  ${sources.length > 0 ? `
+                    <div class="metadata-card">
+                      <h4 style="margin: 0 0 15px 0; color: #4a5568;">📥 Data Sources (${sources.length})</h4>
+                      ${sources.slice(0, 5).map((src: any) => `
+                        <div style="margin-bottom: 10px; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e2e8f0;">
+                          <div style="font-weight: 600; font-size: 0.9rem;">${src.type || 'Unknown'}</div>
+                          <div style="font-size: 0.8rem; color: #64748b;">${src.description || '-'}</div>
+                          ${src.line ? `<div style="font-size: 0.75rem; color: #9ca3af;">Line ${src.line}</div>` : ''}
+                        </div>
+                      `).join('')}
+                      ${sources.length > 5 ? `<div style="font-size: 0.8rem; color: #64748b; text-align: center; margin-top: 10px;">... and ${sources.length - 5} more</div>` : ''}
+                    </div>
+                  ` : ''}
+                  
+                  ${sinks.length > 0 ? `
+                    <div class="metadata-card">
+                      <h4 style="margin: 0 0 15px 0; color: #4a5568;">📤 Vulnerability Sinks (${sinks.length})</h4>
+                      ${sinks.slice(0, 5).map((sink: any) => `
+                        <div style="margin-bottom: 10px; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e2e8f0;">
+                          <div style="font-weight: 600; font-size: 0.9rem;">${sink.vulnerabilityType || sink.type || 'Unknown'}</div>
+                          <div style="font-size: 0.8rem; color: #64748b;">${sink.description || '-'}</div>
+                          ${sink.line ? `<div style="font-size: 0.75rem; color: #9ca3af;">Line ${sink.line}</div>` : ''}
+                        </div>
                 `).join('')}
-              </table>
-            `}
+                      ${sinks.length > 5 ? `<div style="font-size: 0.8rem; color: #64748b; text-align: center; margin-top: 10px;">... and ${sinks.length - 5} more</div>` : ''}
+                    </div>
+                  ` : ''}
+
+                  ${sanitizers.length > 0 ? `
+                    <div class="metadata-card">
+                      <h4 style="margin: 0 0 15px 0; color: #4a5568;">🧼 Sanitizers (${sanitizers.length})</h4>
+                      ${sanitizers.slice(0, 5).map((san: any) => `
+                        <div style="margin-bottom: 10px; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e2e8f0;">
+                          <div style="font-weight: 600; font-size: 0.9rem;">${san.type || 'Unknown'}</div>
+                          <div style="font-size: 0.8rem; color: #64748b;">${san.description || '-'}</div>
+                          ${san.effectiveness !== undefined ? `<div style="font-size: 0.75rem; color: #38a169;">Effectiveness: ${(san.effectiveness * 100).toFixed(0)}%</div>` : ''}
           </div>
-          <div class="section">
-            <h2>Sinks (${sinks.length})</h2>
-            ${sinks.length === 0 ? '<p>No sinks found.</p>' : `
-              <table>
-                <tr><th>ID</th><th>Type</th><th>Pattern</th><th>Description</th><th>Vulnerability Type</th><th>Severity</th><th>Line</th><th>Column</th><th>EndLine</th><th>EndColumn</th></tr>
-                ${sinks.map((sink: any) => `
-                  <tr>
-                    <td>${sink.id ?? ''}</td>
-                    <td>${sink.type ?? ''}</td>
-                    <td>${sink.pattern ?? ''}</td>
-                    <td>${sink.description ?? ''}</td>
-                    <td>${sink.vulnerabilityType ?? ''}</td>
-                    <td class="severity-${sink.severity ? sink.severity.toLowerCase() : 'info'}">${sink.severity ?? ''}</td>
-                    <td>${sink.line ?? ''}</td>
-                    <td>${sink.column ?? ''}</td>
-                    <td>${sink.endLine ?? ''}</td>
-                    <td>${sink.endColumn ?? ''}</td>
-                  </tr>
                 `).join('')}
-              </table>
-            `}
+                      ${sanitizers.length > 5 ? `<div style="font-size: 0.8rem; color: #64748b; text-align: center; margin-top: 10px;">... and ${sanitizers.length - 5} more</div>` : ''}
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+            ` : ''}
           </div>
-          <div class="section">
-            <h2>Sanitizers (${sanitizers.length})</h2>
-            ${sanitizers.length === 0 ? '<p>No sanitizers found.</p>' : `
-              <table>
-                <tr><th>ID</th><th>Type</th><th>Pattern</th><th>Description</th><th>Effectiveness</th><th>Line</th><th>Column</th><th>EndLine</th><th>EndColumn</th></tr>
-                ${sanitizers.map((san: any) => `
-                  <tr>
-                    <td>${san.id ?? ''}</td>
-                    <td>${san.type ?? ''}</td>
-                    <td>${san.pattern ?? ''}</td>
-                    <td>${san.description ?? ''}</td>
-                    <td>${san.effectiveness !== undefined ? (san.effectiveness * 100).toFixed(0) + '%' : ''}</td>
-                    <td>${san.line ?? ''}</td>
-                    <td>${san.column ?? ''}</td>
-                    <td>${san.endLine ?? ''}</td>
-                    <td>${san.endColumn ?? ''}</td>
-                  </tr>
-                `).join('')}
-              </table>
-            `}
+
+          <div class="footer">
+            <p><strong>Unagi SAST</strong> • Security Analysis Report</p>
+            <p>Generated on ${new Date().toLocaleString()}</p>
           </div>
         </div>
       </body>
