@@ -5,7 +5,7 @@ severity: CRITICAL
 type: SINK
 sinks:
   - id: xss
-    pattern: innerHTML\s*=|document\.write\(|outerHTML\s*=|jQuery\(|html\(|dangerouslySetInnerHTML
+    pattern: innerHTML\s*=|document\.write\(|outerHTML\s*=|jQuery\(|html\(|dangerouslySetInnerHTML|Markup\(|render_template_string\(|f".*<.*\{.*\}.*>.*"|return\s+f".*<.*\{.*\}.*>.*"
     message: Potential XSS sink
     description: Untrusted input in HTML/JS context
     vulnerabilityType: XSS

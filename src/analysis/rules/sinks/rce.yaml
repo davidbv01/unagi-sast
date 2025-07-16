@@ -5,7 +5,7 @@ severity: CRITICAL
 type: SINK
 sinks:
   - id: rce
-    pattern: eval\(|exec\(|Function\(|setTimeout\(|setInterval\(
+    pattern: eval\(|exec\(|Function\(|setTimeout\(|setInterval\(|os\.system\(|subprocess\.run\(|subprocess\.call\(|os\.popen\(|subprocess\.Popen\(
     message: Potential RCE sink
     description: Untrusted input in code execution context
     vulnerabilityType: RCE

@@ -5,7 +5,7 @@ severity: HIGH
 type: SINK
 sinks:
   - id: path-traversal
-    pattern: open\(|os\.open\(|os\.remove\(|os\.unlink\(|os\.rmdir\(|shutil\.rmtree\(
+    pattern: open\(|os\.open\(|os\.remove\(|os\.unlink\(|os\.rmdir\(|shutil\.rmtree\(|os\.path\.join\(|send_file\(
     message: Potential path traversal sink
     description: Untrusted input in file path context
     vulnerabilityType: PATH_TRAVERSAL
