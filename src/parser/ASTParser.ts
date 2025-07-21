@@ -23,7 +23,7 @@ export class ASTParser {
    * @returns The root AstNode or undefined if parsing fails or language is unsupported.
    */
   public parse(content: string, languageId: string, fileName: string): AstNode | undefined {
-    if (languageId !== 'python') return undefined;
+    if (languageId !== 'python') { return undefined; }
     try {
       this.nodeCounter = 0;
       this.tree = this.parser.parse(content);
@@ -75,7 +75,7 @@ export class ASTParser {
     const newStack = [...scopeStack];
     if (node.type === 'function_definition' || node.type === 'class_definition') {
       const nameNode = node.namedChildren.find(child => child.type === 'identifier');
-      if (nameNode?.text) newStack.push(nameNode.text);
+      if (nameNode?.text) { newStack.push(nameNode.text); }
     }
     return newStack;
   }
@@ -110,7 +110,7 @@ export class ASTParser {
    * Extracts the text content for a node from the file content.
    */
   private extractNodeText(node: SyntaxNode, content: string): string {
-    if (!content) return '';
+    if (!content) { return ''; }
     const lines = content.split('\n');
     const { row: startRow, column: startCol } = node.startPosition;
     const { row: endRow, column: endCol } = node.endPosition;
@@ -118,11 +118,11 @@ export class ASTParser {
       return lines[startRow]?.substring(startCol, endCol) || '';
     } else {
       const result: string[] = [];
-      if (lines[startRow]) result.push(lines[startRow].substring(startCol));
+      if (lines[startRow]) { result.push(lines[startRow].substring(startCol)); }
       for (let i = startRow + 1; i < endRow; i++) {
-        if (lines[i]) result.push(lines[i]);
+        if (lines[i]) { result.push(lines[i]); }
       }
-      if (lines[endRow]) result.push(lines[endRow].substring(0, endCol));
+      if (lines[endRow]) { result.push(lines[endRow].substring(0, endCol)); }
       return result.join('\n');
     }
   }
@@ -134,7 +134,7 @@ export class ASTParser {
    */
   public traverse(ast: AstNode, visitor: { enter?: (path: { node: AstNode, parent: AstNode | null, getParent: () => AstNode | null }) => void }): void {
     const walk = (node: AstNode, parent: AstNode | null = null) => {
-      if (!node) return;
+      if (!node) { return; }
       const path = {
         node,
         parent,
@@ -154,17 +154,17 @@ export class ASTParser {
    * @returns The content with comments removed.
    */
   public removeComments(content: string): string {
-    if (!this.tree) return content;
+    if (!this.tree) { return content; }
     const commentNodes: SyntaxNode[] = [];
     const collectComments = (node: SyntaxNode) => {
-      if (node.type === 'comment') commentNodes.push(node);
+      if (node.type === 'comment') { commentNodes.push(node); }
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
-        if (child) collectComments(child);
+        if (child) { collectComments(child); }
       }
     };
     collectComments(this.tree.rootNode);
-    if (commentNodes.length === 0) return content;
+    if (commentNodes.length === 0) { return content; }
     const lines = content.split('\n');
     commentNodes.forEach(node => {
       const { startPosition, endPosition } = node;
@@ -176,7 +176,7 @@ export class ASTParser {
         lines[startLine] = lines[startLine].substring(0, startCol) + lines[startLine].substring(endCol);
       } else {
         lines[startLine] = lines[startLine].substring(0, startCol);
-        for (let i = startLine + 1; i < endLine; i++) lines[i] = '';
+        for (let i = startLine + 1; i < endLine; i++) { lines[i] = ''; }
         lines[endLine] = lines[endLine].substring(endCol);
       }
     });

@@ -119,7 +119,7 @@ export class CodeExtractor {
     
     // Process each line in the data flow path
     for (const lineNumber of pathLines) {
-      if (seenLines.has(lineNumber)) continue;
+      if (seenLines.has(lineNumber)) { continue; }
       
       // Find function containing this line
       const containingFunction = this.findContainingFunction(lineNumber, symbols);

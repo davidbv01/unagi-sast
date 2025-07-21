@@ -57,7 +57,7 @@ export class DataFlowGraph {
    * @returns Function name if found, null otherwise.
    */
   private extractFunctionName(astNode: AstNode): string | null {
-    if (astNode.type !== "function_definition") return null;
+    if (astNode.type !== "function_definition") { return null; }
     const nameNode = astNode.children?.find(child => child.type === "identifier");
     return nameNode?.text || null;
   }
@@ -68,7 +68,7 @@ export class DataFlowGraph {
    * @returns Function name if found, null otherwise.
    */
   private extractCalledFunctionName(astNode: AstNode): string | null {
-    if (astNode.type !== "call") return null;
+    if (astNode.type !== "call") { return null; }
     const nameNode = astNode.children?.find(child => child.type === "identifier" || child.type === "attribute");
     return nameNode?.text || null;
   }
@@ -79,7 +79,7 @@ export class DataFlowGraph {
    * @param symbolTable Optional symbol table for cross-file analysis.
    */
   public buildFromAst(astNode: AstNode, symbolTable?: Map<string, SymbolTableEntry>) {
-    if (!astNode) return;
+    if (!astNode) { return; }
     if (astNode.symbols && Array.isArray(astNode.symbols) && astNode.symbols.length > 0) {
       this.symbols = astNode.symbols;
     }
@@ -326,13 +326,13 @@ export class DataFlowGraph {
    */
   public propagateTaint(source: Source) {
     const startNode = this.nodes.get(source.key || source.id);
-    if (!startNode || startNode.isSanitizer) return;
+    if (!startNode || startNode.isSanitizer) { return; }
     const queue: DfgNode[] = [startNode];
     startNode.tainted = true;
     startNode.taintSources.add(source);
     while (queue.length > 0) {
       const current = queue.shift()!;
-      if (current.isSanitizer) continue;
+      if (current.isSanitizer) { continue; }
       for (const neighbor of current.edges) {
         if (!neighbor.tainted) {
           neighbor.tainted = true;

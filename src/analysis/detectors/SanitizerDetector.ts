@@ -65,7 +65,7 @@ export class SanitizerDetector {
    * @returns The combined effectiveness value (0-1).
    */
   public calculateSanitizationEffectiveness(sanitizers: Sanitizer[]): number {
-    if (sanitizers.length === 0) return 0;
+    if (sanitizers.length === 0) { return 0; }
     // 1 - (1 - e1) * (1 - e2) * ... * (1 - en)
     return 1 - sanitizers.reduce(
       (acc, sanitizer) => acc * (1 - sanitizer.effectiveness),

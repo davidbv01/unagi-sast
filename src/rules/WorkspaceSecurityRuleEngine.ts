@@ -190,7 +190,7 @@ export class WorkspaceSecurityRuleEngine {
       for (const [filePath, dfg] of graphs) {
         try {
           const ast = asts.get(filePath);
-          if (!ast) continue;
+          if (!ast) { continue; }
 
           const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspaceRoot, filePath);
           const content = fs.readFileSync(absolutePath, 'utf8');

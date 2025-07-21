@@ -25,7 +25,7 @@ export class PatternMatcher {
 
     for (const rule of rules) {
       const patternRule = rule as PatternRule;
-      if (!patternRule.patterns) continue;
+      if (!patternRule.patterns) { continue; }
 
       for (const pattern of patternRule.patterns) {
         const regex = new RegExp(pattern.pattern, 'g');

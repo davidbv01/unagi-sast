@@ -72,8 +72,8 @@ export class AiEngine {
         const analysis = analyses[i];
         const isConfirmed = analysis.isVulnerable && analysis.confidenceScore >= 0.7;
         
-        if (isConfirmed) confirmed++;
-        else falsePositives++;
+        if (isConfirmed) { confirmed++; }
+        else { falsePositives++; }
         totalConfidence += analysis.confidenceScore;
         
         verified.push({ 
