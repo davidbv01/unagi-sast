@@ -1,25 +1,6 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
 
 export class FileUtils {
-  /**
-   * Check if a file should be excluded from scanning
-   */
-  public static shouldExcludeFile(filePath: string, excludePatterns: string[]): boolean {
-    const relativePath = vscode.workspace.asRelativePath(filePath);
-    
-    return excludePatterns.some(pattern => {
-      // Convert glob pattern to regex
-      const regexPattern = pattern
-        .replace(/\*\*/g, '.*')
-        .replace(/\*/g, '[^/]*')
-        .replace(/\?/g, '[^/]');
-      
-      const regex = new RegExp(regexPattern, 'i');
-      return regex.test(relativePath);
-    });
-  }
-
   /**
    * Get supported file extensions for scanning
    */
@@ -43,7 +24,6 @@ export class FileUtils {
     const languageMap: Record<string, string> = {
       '.py': 'python'
     };
-    
     return languageMap[ext] || 'plaintext';
   }
 }

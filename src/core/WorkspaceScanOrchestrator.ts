@@ -4,6 +4,7 @@ import { ASTParser } from '../parser/ASTParser';
 import { DataFlowGraph } from '../analysis/DataFlowGraph';
 import { AstNode, DataFlowVulnerability, WorkspaceScanResult, PatternVulnerability, SymbolTableEntry, AnalysisResult } from '../types';
 import { FileUtils } from '../utils';
+import { shouldExcludeFile } from '../utils/exclude';
 import { OutputManager } from '../output/OutputManager';
 import { WorkspaceSecurityRuleEngine } from '../rules/WorkspaceSecurityRuleEngine';
 import * as path from 'path';
@@ -63,7 +64,7 @@ export class WorkspaceScanOrchestrator {
         const fileUris = await vscode.workspace.findFiles(pattern, `{${excludePatterns.join(',')}}`);
         for (const uri of fileUris) {
           const filePath = uri.fsPath;
-          if (FileUtils.isSupportedFile(filePath) && !FileUtils.shouldExcludeFile(filePath, excludePatterns)) {
+          if (FileUtils.isSupportedFile(filePath) && !shouldExcludeFile(filePath, excludePatterns)) {
             foundFiles.push(filePath);
           }
         }
